@@ -1,0 +1,26 @@
+﻿# Personal data - NEVER push these
+conversations.json
+memories.json
+users.json
+projects.json
+Untitled.txt
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+*.env
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+people_config.json
