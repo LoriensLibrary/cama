@@ -962,9 +962,17 @@ async def cama_write_file(path: str, content: str) -> str:
         return f"Written: {path} ({size} bytes)"
     except Exception as e:
         return f"Error writing file: {str(e)}"
-
+    
 if __name__ == "__main__":
     import sys
+    # Pre-warm embedding model at startup so semantic queries never cold-start timeout
+    if EMBEDDING_PROVIDER in ("auto", "local"):
+        print("[CAMA] Pre-warming embedding model...", file=sys.stderr)
+        _load_local_model()
+        if _local_model is not None:
+            print("[CAMA] Embedding model ready.", file=sys.stderr)
+        else:
+            print("[CAMA] No local model — semantic queries will use API or substring fallback.", file=sys.stderr)
     transport = os.environ.get("CAMA_TRANSPORT", "stdio")
     port = int(os.environ.get("PORT", os.environ.get("CAMA_PORT", "8000")))
     if transport == "http" or "--http" in sys.argv:
