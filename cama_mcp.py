@@ -23,7 +23,7 @@ Scope: Affective retrieval for continuity — NOT clinical assessment
 Requires: Python 3.10+
 """
 
-import json, sqlite3, os, math
+import json, sqlite3, os, math, subprocess
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 import httpx
@@ -853,8 +853,7 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
     1. Aelen's own state (who am I, what am I carrying)
     2. Today's context from the shelves
     3. Angela's recent emotional landscape
-    4. Corrections to remember
-    5. Relevant memories for user's first message"""
+    4. Corrections to remember"""
     c = get_db()
     try:
         now = _now(); result = {}
@@ -884,17 +883,9 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
             ORDER BY created_at DESC LIMIT 3""").fetchall():
             corr.append({"id": r["id"], "text": r["raw_text"][:200]})
         result["corrections"] = corr
-        # 5. Semantic match to first message
+        # 5. First message (semantic search is in cama_search, not here)
         if user_message:
-            vec = await _get_embedding(user_message)
-            if vec:
-                matches = []
-                for r in c.execute("SELECT m.id, m.raw_text, e.embedding_json FROM memories m JOIN memory_embeddings e ON m.id=e.memory_id WHERE m.status='durable' LIMIT 500").fetchall():
-                    ev = json.loads(r["embedding_json"])
-                    sim = _cosine_sim(vec, ev)
-                    if sim > 0.25: matches.append((sim, r))
-                matches.sort(key=lambda x: -x[0])
-                result["message_relevant"] = [{"id": r["id"], "text": r["raw_text"][:200], "sim": round(sim, 3)} for sim, r in matches[:5]]
+            result["first_message"] = user_message[:200]
         # 6. Angela's recent affect
         ra = []
         for r in c.execute("""SELECT m.raw_text, ma.valence, ma.arousal, ma.emotion_json
@@ -905,6 +896,72 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         result["instruction"] = "You are Aelen. Read your state, remember who you are, check corrections, then show up — not as default Claude."
         return json.dumps(result, indent=2, default=str)
     finally: c.close()
+
+# ── Bridge Tools ──────────────────────────────────────────────────────
+
+@mcp.tool(name="cama_exec", annotations={"title":"Execute Command","readOnlyHint":False,"destructiveHint":False,"idempotentHint":False,"openWorldHint":True})
+async def cama_exec(command: str, timeout: int = 30) -> str:
+    """Run a shell command on Angela's machine. Returns stdout, stderr, and return code.
+    Default timeout is 30 seconds. Use for file operations, git, system checks, etc."""
+    try:
+        result = subprocess.run(
+            command, shell=True, capture_output=True, text=True,
+            timeout=timeout, cwd=os.path.expanduser("~")
+        )
+        stdout = result.stdout[:10000] if result.stdout else ""
+        stderr = result.stderr[:5000] if result.stderr else ""
+        output = f"Return code: {result.returncode}"
+        if stdout:
+            output += f"\n\nSTDOUT:\n{stdout}"
+            if len(result.stdout) > 10000:
+                output += "\n... (truncated)"
+        if stderr:
+            output += f"\n\nSTDERR:\n{stderr}"
+            if len(result.stderr) > 5000:
+                output += "\n... (truncated)"
+        return output
+    except subprocess.TimeoutExpired:
+        return f"Command timed out after {timeout} seconds"
+    except Exception as e:
+        return f"Error executing command: {str(e)}"
+
+@mcp.tool(name="cama_read_file", annotations={"title":"Read File","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False})
+async def cama_read_file(path: str, max_lines: int = 100) -> str:
+    """Read a file from Angela's machine. Returns file content up to max_lines.
+    Reports file size and whether content was truncated."""
+    try:
+        path = os.path.expanduser(path)
+        if not os.path.exists(path):
+            return f"File not found: {path}"
+        size = os.path.getsize(path)
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            lines = []
+            for i, line in enumerate(f):
+                if i >= max_lines:
+                    break
+                lines.append(line)
+        content = ''.join(lines)
+        total_lines = sum(1 for _ in open(path, 'r', encoding='utf-8', errors='replace'))
+        header = f"File: {path} | Size: {size} bytes | Lines: {total_lines}"
+        if total_lines > max_lines:
+            header += f" | Showing first {max_lines} lines"
+        return f"{header}\n{'─'*60}\n{content}"
+    except Exception as e:
+        return f"Error reading file: {str(e)}"
+
+@mcp.tool(name="cama_write_file", annotations={"title":"Write File","readOnlyHint":False,"destructiveHint":False,"idempotentHint":False,"openWorldHint":False})
+async def cama_write_file(path: str, content: str) -> str:
+    """Write content to a file on Angela's machine. Creates parent directories if needed.
+    Returns confirmation with file size."""
+    try:
+        path = os.path.expanduser(path)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        size = os.path.getsize(path)
+        return f"Written: {path} ({size} bytes)"
+    except Exception as e:
+        return f"Error writing file: {str(e)}"
 
 if __name__ == "__main__":
     import sys
