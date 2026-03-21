@@ -731,7 +731,7 @@ async def cama_stats() -> str:
             s[k] = c.execute(f"SELECT COUNT(*) as c FROM {t}" + (f" WHERE {w}" if w else "")).fetchone()["c"]
         s["ring_capacity"] = RING_SIZE
         s["embedding_provider"] = EMBEDDING_PROVIDER
-        s["local_model_available"] = _load_local_model() is not None
+        s["local_model_loaded"] = _local_model is not None
         s["api_key_set"] = bool(EMBEDDING_API_KEY)
         return json.dumps(s, indent=2)
     finally: c.close()
