@@ -24,3 +24,5 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 people_config.json
+
+conversations-000.json
