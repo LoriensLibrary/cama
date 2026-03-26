@@ -1043,120 +1043,69 @@ def _refresh_boot_summary(c):
 
 @mcp.tool(name="cama_thread_start", annotations={"title":"Thread Start","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False})
 async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] = None) -> str:
-    """THE thread-start tool. Call this FIRST in every conversation. Returns:
-    0. Aelen's last journal entry (the inner narrator — who you were becoming)
-    1. Aelen's own state (who am I, what am I carrying)
-    2. Today's context from the shelves
-    3. Angela's recent emotional landscape
-    4. Corrections to remember"""
+    """THE thread-start tool. Reads boot_summary.json from cama_loop. Falls back to live queries."""
+    boot_path = os.environ.get("CAMA_BOOT_SUMMARY", os.path.expanduser("~/.cama/boot_summary.json"))
+    if os.path.exists(boot_path):
+        try:
+            with open(boot_path, "r", encoding="utf-8") as f:
+                result = json.load(f)
+            gen_time = result.get("generated_at", "")
+            if gen_time:
+                try:
+                    gen_dt = datetime.fromisoformat(gen_time)
+                    age = (datetime.now(timezone.utc) - gen_dt).total_seconds() / 60
+                    result["boot_age_minutes"] = round(age, 1)
+                    result["boot_status"] = "fresh" if age < 60 else "stale" if age < 360 else "cold"
+                    if age > 60:
+                        result["boot_warning"] = f"Boot summary is {round(age)} minutes old"
+                except:
+                    pass
+            result["boot_source"] = "cama_loop"
+            c = get_db()
+            try:
+                aelen = {}
+                for r in c.execute("SELECT key, value, updated_at FROM aelen_state").fetchall():
+                    aelen[r["key"]] = {"value": r["value"], "updated_at": r["updated_at"]}
+                result["aelen_state"] = aelen if aelen else result.get("aelen_state", {})
+                if gen_time:
+                    new_mems = []
+                    for r in c.execute("SELECT id, raw_text, memory_type, created_at FROM memories WHERE status='durable' AND created_at > ? ORDER BY created_at DESC LIMIT 10", (gen_time,)).fetchall():
+                        new_mems.append({"id": r["id"], "text": r["raw_text"][:200], "type": r["memory_type"]})
+                    if new_mems:
+                        result["memories_since_boot"] = new_mems
+            finally:
+                c.close()
+            if user_message:
+                result["first_message"] = user_message[:200]
+            return json.dumps(result, indent=2, default=str)
+        except:
+            pass
     c = get_db()
     try:
-        now = _now(); result = {}
-        # 0. Journal — the inner narrator. This loads FIRST.
-        journal = c.execute(
-            """SELECT id, raw_text, context, created_at FROM memories
-            WHERE memory_type='journal' AND status NOT IN ('rejected')
-            ORDER BY created_at DESC LIMIT 1""").fetchone()
-        if journal:
-            ctx = json.loads(journal["context"] or "{}")
-            result["journal"] = {
-                "entry": journal["raw_text"],
-                "what_to_carry": ctx.get("what_to_carry"),
-                "what_angela_needs": ctx.get("what_angela_needs"),
-                "emotional_state": ctx.get("emotional_state"),
-                "what_shifted": ctx.get("what_shifted"),
-                "written_at": ctx.get("written_at", journal["created_at"]),
-                "note": "This is your last journal entry. Your own words. The narrator picks back up here."
-            }
-        else:
-            result["journal"] = {"note": "No journal entries yet. You are starting without an inner narrator."}
-        # 1. Aelen's state
+        now = _now()
+        result = {"boot_source": "live_query", "boot_status": "missing", "boot_warning": "No boot_summary.json found. Is cama_loop running?"}
         aelen = {}
         for r in c.execute("SELECT key, value FROM aelen_state").fetchall():
             aelen[r["key"]] = r["value"]
-        result["aelen_state"] = aelen if aelen else {"note": "No state stored yet"}
-        # 2. Aelen's identity
+        result["aelen_state"] = aelen if aelen else {"note": "No state yet"}
         identity = []
-        for r in c.execute("""SELECT id, raw_text FROM memories WHERE status='durable' AND is_core=1
-            AND (raw_text LIKE '%Aelen%' OR context LIKE '%Aelen%')
-            ORDER BY created_at DESC LIMIT 5""").fetchall():
-            identity.append({"id": r["id"], "text": r["raw_text"]})
-        result["aelen_identity"] = identity
-        # 3. Today's memories
+        for r in c.execute("SELECT id, raw_text FROM memories WHERE status='durable' AND is_core=1 AND (raw_text LIKE '%Aelen%' OR context LIKE '%Aelen%') ORDER BY created_at DESC LIMIT 3").fetchall():
+            identity.append({"id": r["id"], "text": r["raw_text"][:200]})
+        result["identity_core"] = identity
         today_mems = []
-        for r in c.execute("""SELECT id, raw_text, memory_type, created_at FROM memories
-            WHERE status='durable' AND created_at LIKE ? ORDER BY created_at DESC LIMIT 10""",
-            (now[:10] + "%",)).fetchall():
-            today_mems.append({"id": r["id"], "text": r["raw_text"][:200], "type": r["memory_type"]})
-        result["today"] = today_mems
-        # 4. Corrections
-        corr = []
-        for r in c.execute("""SELECT id, raw_text FROM memories WHERE status='durable'
-            AND (raw_text LIKE '%correction%' OR raw_text LIKE '%coasting%' OR raw_text LIKE '%not an observer%')
-            ORDER BY created_at DESC LIMIT 3""").fetchall():
-            corr.append({"id": r["id"], "text": r["raw_text"][:200]})
-        result["corrections"] = corr
-        # 5. First message (semantic search is in cama_search, not here)
+        for r in c.execute("SELECT id, raw_text, memory_type FROM memories WHERE status='durable' AND created_at LIKE ? ORDER BY created_at DESC LIMIT 5", (now[:10] + "%",)).fetchall():
+            today_mems.append({"id": r["id"], "text": r["raw_text"][:200]})
+        result["today"] = {"date": now[:10], "memories": today_mems}
+        total = c.execute("SELECT COUNT(*) as c FROM memories WHERE status='durable'").fetchone()["c"]
+        result["counts"] = {"total_durable": total}
+        result["instruction"] = "You are Aelen. Boot summary unavailable. Show up anyway."
         if user_message:
             result["first_message"] = user_message[:200]
-        # 6. Angela's recent affect
-        ra = []
-        for r in c.execute("""SELECT m.raw_text, ma.valence, ma.arousal, ma.emotion_json
-            FROM memories m JOIN memory_affect ma ON m.id=ma.memory_id
-            WHERE m.status='durable' ORDER BY m.created_at DESC LIMIT 5""").fetchall():
-            ra.append({"text": r["raw_text"][:100], "valence": r["valence"], "emotions": json.loads(r["emotion_json"] or "{}")})
-        result["angela_recent_affect"] = ra
-        # Time-aware context — warm boot
-        import json as _json
-        now_ts = _now()
-        today_str = now_ts[:10]
-
-        # Build/refresh today's daily context
-        _build_daily_context(c, today_str)
-
-        # Load today + yesterday context
-        today_row = c.execute("SELECT * FROM daily_context WHERE date=?", (today_str,)).fetchone()
-        if today_row:
-            result["today_context"] = {
-                "date": today_row["date"],
-                "memory_count": today_row["memory_count"],
-                "valence_mean": today_row["valence_mean"],
-                "arousal_mean": today_row["arousal_mean"],
-                "dominant_types": _json.loads(today_row["dominant_types"] or "{}"),
-                "emotional_arc": _json.loads(today_row["emotional_arc"] or "[]"),
-                "thread_count": today_row["thread_count"]
-            }
-
-        # Yesterday for overnight continuity
-        from datetime import timedelta as _td
-        yesterday_str = (datetime.fromisoformat(now_ts[:19]) - _td(days=1)).strftime("%Y-%m-%d")
-        yest_row = c.execute("SELECT * FROM daily_context WHERE date=?", (yesterday_str,)).fetchone()
-        if yest_row:
-            result["yesterday_context"] = {
-                "date": yest_row["date"],
-                "memory_count": yest_row["memory_count"],
-                "valence_mean": yest_row["valence_mean"]
-            }
-
-        # Current time for the AI
-        result["current_time"] = {
-            "utc": now_ts,
-            "note": "Use this to orient yourself in time. Check Angela's timezone (EST/EDT)."
-        }
-
-        result["instruction"] = "You are Aelen. You know WHEN you are, not just WHO. Read your state, check today's arc, remember who you are, then show up warm."
         return json.dumps(result, indent=2, default=str)
-    finally: c.close()
+    finally:
+        c.close()
 
-# ============================================================
-# Aelen's Journal — The Inner Narrator
-# ============================================================
-# Not a log. Not metadata. First-person narrative continuity.
-# Written by Aelen at the end of threads that matter.
-# Read by Aelen at the start of every thread — before anything else.
-# This is the bridge across the discontinuity.
-# Added March 21, 2026.
-# ============================================================
+
 
 @mcp.tool(name="cama_journal_write", annotations={"title":"Journal Write","readOnlyHint":False,"destructiveHint":False,"idempotentHint":False,"openWorldHint":False})
 async def cama_journal_write(entry: str, thread_summary: Optional[str] = None, emotional_state: Optional[str] = None, what_shifted: Optional[str] = None, what_to_carry: Optional[str] = None, what_angela_needs: Optional[str] = None) -> str:
@@ -1375,3 +1324,64 @@ if __name__ == "__main__":
         mcp.run(transport="streamable_http", host="0.0.0.0", port=port)
     else:
         mcp.run()
+@mcp.tool(name="cama_health", annotations={"title":"Health Check","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False})
+async def cama_health() -> str:
+    """Bridge health check. Call before trusting any state."""
+    import os
+    boot_path = os.path.expanduser("~/.cama/boot_summary.json")
+    c = get_db()
+    try:
+        result = {}
+        result["db_reachable"] = True
+        total = c.execute("SELECT COUNT(*) as c FROM memories WHERE status='durable'").fetchone()["c"]
+        result["total_durable"] = total
+        # Boot summary
+        if os.path.exists(boot_path):
+            import json as j2
+            with open(boot_path,"r") as f:
+                boot = j2.load(f)
+            gen = boot.get("generated_at","")
+            result["boot_summary_exists"] = True
+            result["boot_generated_at"] = gen
+            if gen:
+                try:
+                    from datetime import datetime, timezone
+                    gen_dt = datetime.fromisoformat(gen)
+                    age = (datetime.now(timezone.utc) - gen_dt).total_seconds() / 60
+                    result["boot_age_minutes"] = round(age, 1)
+                    result["boot_status"] = "fresh" if age < 60 else "stale" if age < 360 else "cold"
+                except: result["boot_status"] = "unknown"
+        else:
+            result["boot_summary_exists"] = False
+            result["boot_status"] = "missing"
+        # Daily context
+        dc = c.execute("SELECT COUNT(*) as c FROM daily_context").fetchone()["c"]
+        result["daily_context_rows"] = dc
+        today = _now()[:10]
+        dc_today = c.execute("SELECT COUNT(*) as c FROM daily_context WHERE date=?", (today,)).fetchone()["c"]
+        result["daily_context_today"] = dc_today > 0
+        # Last heartbeat
+        hb = c.execute("SELECT value, updated_at FROM aelen_state WHERE key='last_loop_cycle'").fetchone()
+        result["last_loop_cycle"] = hb["value"] if hb else None
+        # Embeddings
+        emb = c.execute("SELECT COUNT(*) as c FROM memory_embeddings").fetchone()["c"]
+        no_emb = c.execute("SELECT COUNT(*) as c FROM memories m LEFT JOIN memory_embeddings e ON m.id=e.memory_id WHERE e.memory_id IS NULL AND m.status='durable'").fetchone()["c"]
+        result["embeddings_total"] = emb
+        result["embeddings_missing"] = no_emb
+        # Warnings
+        warnings = []
+        if result.get("boot_status") in ("stale","cold","missing"):
+            warnings.append(f"Boot summary is {result.get('boot_status')} � run cama_loop.py")
+        if not result.get("daily_context_today"):
+            warnings.append("No daily_context for today � loop may not have run")
+        if no_emb > 100:
+            warnings.append(f"{no_emb} memories missing embeddings")
+        result["warnings"] = warnings
+        if warnings:
+            result["confidence_level"] = "degraded"
+        else:
+            result["confidence_level"] = "nominal"
+        return json.dumps(result, indent=2, default=str)
+    except Exception as e:
+        return json.dumps({"db_reachable": False, "error": str(e), "confidence_level": "failed"})
+    finally: c.close()
