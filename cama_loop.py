@@ -330,15 +330,15 @@ def generate_boot_summary(c):
     
     # --- Songs ---
     songs = []
-    for r in c.execute("SELECT title, artist, meaning FROM songs LIMIT 10").fetchall():
-        songs.append({"title": r["title"], "artist": r["artist"], "context": r["meaning"][:100] if r["meaning"] else ""})
+    for r in c.execute("SELECT title, artist, emotional_context FROM songs LIMIT 10").fetchall():
+        songs.append({"title": r["title"], "artist": r["artist"], "context": r["emotional_context"][:100] if r["emotional_context"] else ""})
     
     # --- Ring contents (active working memory) ---
     ring = []
-    for r in c.execute("""SELECT r.slot, m.raw_text, m.memory_type, r.last_activated_at
+    for r in c.execute("""SELECT r.position, m.raw_text, m.memory_type, r.pushed_at
         FROM ring r JOIN memories m ON r.memory_id = m.id
-        ORDER BY r.slot""").fetchall():
-        ring.append({"pos": r["slot"], "text": r["raw_text"][:150], "type": r["memory_type"]})
+        ORDER BY r.position""").fetchall():
+        ring.append({"pos": r["position"], "text": r["raw_text"][:150], "type": r["memory_type"]})
     
     # --- Build the summary ---
     boot = {
