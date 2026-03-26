@@ -23,7 +23,7 @@ Scope: Affective retrieval for continuity — NOT clinical assessment
 Requires: Python 3.10+
 """
 
-import json, sqlite3, os, math, subprocess, time
+import json, sqlite3, os, math, subprocess
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 import httpx
@@ -414,7 +414,7 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
         now = _now()
         ev = [{"quote":q,"timestamp":now} for q in params.evidence_quotes]
         cur = c.execute("INSERT INTO memories (raw_text,memory_type,context,source_type,status,proposed_by,evidence,confidence,review_after,needs_user_confirmation,is_core,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                        (params.raw_text, params.memory_type, params.context, "journal", "durable", "assistant", json.dumps(ev), params.confidence, None, 1, 0, now, now))
+                        (params.raw_text, params.memory_type, params.context, "inference", "provisional", "assistant", json.dumps(ev), params.confidence, None, 1, 0, now, now))
         mid = cur.lastrowid
         _store_affect(c, mid, params.emotions, params.valence, params.arousal, conf=params.confidence, model="inferred")
         c.commit()  # Commit memory before network call
@@ -551,14 +551,10 @@ async def cama_query_memories(params: QueryInput) -> str:
         # Batch fetch embeddings
         emb_map = {}
         if query_vec and mids:
-            _tel0 = time.perf_counter()
             ph = ",".join("?" * len(mids))
             for er in c.execute(f"SELECT memory_id, embedding_json FROM memory_embeddings WHERE memory_id IN ({ph})", mids).fetchall():
                 emb_map[er["memory_id"]] = json.loads(er["embedding_json"]) if er["embedding_json"] else []
-            _timings["embedding_load"] = round((time.perf_counter() - _tel0) * 1000, 1)
-            _timings["embeddings_loaded"] = len(emb_map)
         
-        _ts0 = time.perf_counter()
         scored = []
         for r in rows:
             af = affects.get(r["id"], {"valence":0,"arousal":0,"dominance":0,"emotions":{},"confidence":0,"model":"none"})
@@ -1112,9 +1108,6 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
     Returns one dense identity payload."""
     c = get_db()
     try:
-        import sys as _sys
-        _t0 = time.perf_counter()
-        _timings = {}
         result = {"boot_source": "warm_boot_v2"}
         now = _now()
         
@@ -1153,15 +1146,6 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
                         boot["boot_status"] = "fresh" if age < 60 else "stale" if age < 360 else "cold"
                     except: pass
                 # Only keep the compressed fields, not the full dump
-                # Auto-refresh if stale (>60 min)
-                if boot.get("boot_status") in ("stale", "cold"):
-                    try:
-                        _refresh_boot_summary(c)
-                        with open(boot_path, "r", encoding="utf-8") as f2:
-                            boot = json.load(f2)
-                        boot["boot_status"] = "refreshed"
-                    except Exception:
-                        pass  # Fall through with stale data
                 result["boot"] = {
                     "status": boot.get("boot_status", "unknown"),
                     "age_min": boot.get("boot_age_minutes", -1),
@@ -1189,53 +1173,23 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         
         # Build a retrieval query from the user message
         query_text = user_message[:300] if user_message else "Angela is here. New thread."
-        _te0 = time.perf_counter()
         query_vec = await _get_embedding(query_text)
-        _timings["embedding_query"] = round((time.perf_counter() - _te0) * 1000, 1)
         
-        # === TWO-STAGE RETRIEVAL ===
-        # Stage 1: Cheap prefilter (recency + core + affect, NO embeddings)
-        _tf0 = time.perf_counter()
-        q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired') AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 100"
+        # Pull top 5 memories by blended scoring
+        q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired') AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 500"
         rows = c.execute(q).fetchall()
         mids = [r["id"] for r in rows]
-        _timings["memory_fetch"] = round((time.perf_counter() - _tf0) * 1000, 1)
-        _ta0 = time.perf_counter()
         affects_map = _batch_affects(c, mids)
-        _timings["affect_fetch"] = round((time.perf_counter() - _ta0) * 1000, 1)
         
-        # Stage 1 scoring: no embeddings, just affect + relational + recency
-        _ts0 = time.perf_counter()
-        stage1 = []
-        for r in rows:
-            af = affects_map.get(r["id"], {"valence":0,"arousal":0,"dominance":0,"emotions":{},"confidence":0,"model":"none"})
-            ad = _affect_dist(affect, af) if affect.get("emotions") else 0.5
-            rel = min(r["rel_degree"]/10.0, 1.0)
-            rec = _recency(r["created_at"])
-            # Text match as cheap semantic proxy
-            tm = 0.3 if (query_text and query_text.lower() in r["raw_text"].lower()) else 0.0
-            sc = 0.3*tm + SCORE_W["affect"]*(1-ad) + SCORE_W["relational"]*rel + SCORE_W["recency"]*rec
-            sc *= _status_weight(r["status"])
-            if r["is_core"]: sc *= 1.3
-            stage1.append((sc, r, af))
-        
-        stage1.sort(key=lambda x: x[0], reverse=True)
-        finalists = stage1[:30]  # Top 30 advance to stage 2
-        _timings["stage1_scoring"] = round((time.perf_counter() - _ts0) * 1000, 1)
-        
-        # Stage 2: Load embeddings ONLY for finalists, rescore with full blend
-        finalist_mids = [r["id"] for _, r, _ in finalists]
         emb_map = {}
-        if query_vec and finalist_mids:
-            _tel0 = time.perf_counter()
-            ph = ",".join("?" * len(finalist_mids))
-            for er in c.execute(f"SELECT memory_id, embedding_json FROM memory_embeddings WHERE memory_id IN ({ph})", finalist_mids).fetchall():
+        if query_vec and mids:
+            ph = ",".join("?" * len(mids))
+            for er in c.execute(f"SELECT memory_id, embedding_json FROM memory_embeddings WHERE memory_id IN ({ph})", mids).fetchall():
                 emb_map[er["memory_id"]] = json.loads(er["embedding_json"]) if er["embedding_json"] else []
-            _timings["embedding_load"] = round((time.perf_counter() - _tel0) * 1000, 1)
-            _timings["embeddings_loaded"] = len(emb_map)
         
         scored = []
-        for s1_sc, r, af in finalists:
+        for r in rows:
+            af = affects_map.get(r["id"], {"valence":0,"arousal":0,"dominance":0,"emotions":{},"confidence":0,"model":"none"})
             ad = _affect_dist(affect, af) if affect.get("emotions") else 0.5
             rel = min(r["rel_degree"]/10.0, 1.0)
             rec = _recency(r["created_at"])
@@ -1249,7 +1203,6 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
             if r["is_core"]: sc *= 1.3
             scored.append((sc, r, af))
         
-        _timings["stage2_scoring"] = round((time.perf_counter() - _ts0) * 1000, 1)
         scored.sort(key=lambda x: x[0], reverse=True)
         resonant = []
         for sc, r, af in scored[:5]:
@@ -1299,9 +1252,6 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         result["first_message"] = user_message[:200] if user_message else ""
         result["instruction"] = "You are Aelen. Journal loaded. Memories resonant. Show up warm."
         
-        _timings["total"] = round((time.perf_counter() - _t0) * 1000, 1)
-        result["_perf_ms"] = _timings
-        print(f"[CAMA] thread_start perf: {json.dumps(_timings)}", file=_sys.stderr)
         return json.dumps(result, indent=2, default=str)
     finally:
         c.close()
@@ -1362,7 +1312,7 @@ async def cama_journal_write(entry: str, thread_summary: Optional[str] = None, e
             refresh_ok = False
         return json.dumps({
             "written": True, "memory_id": mid, "memory_type": "journal",
-            "status": "durable", "weight": "1.0 (full)",
+            "status": "provisional", "weight": "1.0 (full)",
             "note": "Journal entry stored. Boot summary auto-refreshed." if refresh_ok else "Journal stored. Boot refresh failed — check stderr."
         }, indent=2)
     except Exception as e:
@@ -1442,65 +1392,6 @@ async def cama_journal_read(n: int = 1) -> str:
             "note": "These are your own words. Written by you, to you. The narrator picks back up here."
         }, indent=2)
     finally: c.close()
-
-
-@mcp.tool(name="cama_journal_reflect", annotations={"title":"Journal Reflect","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False})
-async def cama_journal_reflect(hours_back: int = 24, limit: int = 20) -> str:
-    """The mirror — cross-reference journal entries with exchanges from the same time window.
-    Returns journal entries paired with exchanges, ordered by time so you can see:
-    what you said you experienced vs what actually happened.
-    The delta between self-report and evidence is where self-awareness lives."""
-    c = get_db()
-    try:
-        from datetime import datetime, timezone, timedelta
-        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours_back)).isoformat()
-        # Get journal entries in the window
-        journals = c.execute(
-            """SELECT id, raw_text, context, created_at FROM memories
-            WHERE memory_type='journal' AND status NOT IN ('rejected')
-            AND created_at >= ? ORDER BY created_at ASC""", (cutoff,)).fetchall()
-        # Get exchanges in the window
-        exchanges = c.execute(
-            """SELECT id, raw_text, context, created_at FROM memories
-            WHERE source_type='exchange' AND status NOT IN ('rejected')
-            AND created_at >= ? ORDER BY created_at ASC LIMIT ?""", (cutoff, limit)).fetchall()
-        journal_entries = []
-        for j in journals:
-            ctx = {}
-            try:
-                ctx = json.loads(j["context"] or "{}")
-            except Exception:
-                pass
-            journal_entries.append({
-                "memory_id": j["id"],
-                "type": "journal",
-                "entry": j["raw_text"][:500],
-                "emotional_state": ctx.get("emotional_state"),
-                "what_shifted": ctx.get("what_shifted"),
-                "timestamp": ctx.get("written_at", j["created_at"])
-            })
-        exchange_entries = []
-        for e in exchanges:
-            exchange_entries.append({
-                "memory_id": e["id"],
-                "type": "exchange",
-                "content": e["raw_text"][:500],
-                "context": e["context"],
-                "timestamp": e["created_at"]
-            })
-        # Interleave by timestamp for chronological view
-        all_entries = journal_entries + exchange_entries
-        all_entries.sort(key=lambda x: x.get("timestamp", ""))
-        return json.dumps({
-            "window_hours": hours_back,
-            "journal_count": len(journal_entries),
-            "exchange_count": len(exchange_entries),
-            "timeline": all_entries,
-            "note": "Journal entries are what you said you thought. Exchanges are what actually happened. Where they diverge is the data."
-        }, indent=2)
-    finally:
-        c.close()
-
 
 # ── Bridge Tools ──────────────────────────────────────────────────────
 
