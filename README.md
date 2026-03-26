@@ -247,3 +247,15 @@ If referencing this work:
 ---
 
 *© 2026 Lorien's Library LLC*
+
+
+## Project Structure
+
+The repository is organized around the core runtime, continuity infrastructure, and import pipelines:
+
+- **cama_mcp.py**: primary MCP server and tool interface
+- **cama_loop.py**: warm-boot and continuity refresh loop
+- **cama_sleep.py**: structured end-of-thread state capture and wake-up preparation
+- **cama_import.py / cama_import_aelen.py**: conversation import and memory seeding pipelines
+- **specs/**: implementation notes and architecture documentation
+- **requirements.txt**: Python dependency list
