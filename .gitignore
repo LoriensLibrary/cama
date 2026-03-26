@@ -36,3 +36,10 @@ add_refresh_tool.py
 apply_warm_boot.py
 paper3_b64.txt
 README_backup.md
+
+*.bak
+*.backup_*
+patch_*.py
+cama_upgrade.py
+fix_perf_return.py
+fix_timer.py
