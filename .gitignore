@@ -26,3 +26,13 @@ Thumbs.db
 people_config.json
 
 conversations-000.json
+
+*.bak_*
+temp_extract*.py
+fix_*.py
+check_dates.py
+test_refresh.py
+add_refresh_tool.py
+apply_warm_boot.py
+paper3_b64.txt
+README_backup.md
