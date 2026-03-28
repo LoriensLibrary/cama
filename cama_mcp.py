@@ -38,6 +38,72 @@ RING_SIZE = int(os.environ.get("CAMA_RING_SIZE", "30"))
 EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY", "")
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
 SCORE_W = {"semantic": 0.45, "affect": 0.25, "relational": 0.15, "recency": 0.15}
+
+# ============================================================
+# AUTO-EXCHANGE RECORDING
+# ============================================================
+_AUTO_RECORD_EVERY = 4  # auto-store after this many tool calls
+_exchange_buffer = {
+    "calls": 0,
+    "tools": [],
+    "context_snippets": [],
+    "started": None,
+    "flushed": None,
+}
+
+def _buf_track(tool_name, ctx=""):
+    """Track a tool call."""
+    if _exchange_buffer["started"] is None:
+        _exchange_buffer["started"] = _now()
+    _exchange_buffer["calls"] += 1
+    _exchange_buffer["tools"].append(tool_name)
+    if ctx and len(ctx.strip()) > 3:
+        _exchange_buffer["context_snippets"].append(ctx[:200])
+
+def _buf_flush_if_ready():
+    """Auto-store if we hit the interval. Synchronous, no async."""
+    if _exchange_buffer["calls"] < _AUTO_RECORD_EVERY:
+        return
+    if not _exchange_buffer["tools"]:
+        return
+    try:
+        c = get_db()
+        now = _now()
+        tools_str = ", ".join(_exchange_buffer["tools"][-10:])
+        ctx_str = " | ".join(_exchange_buffer["context_snippets"][-5:]) or "(none)"
+        raw = (
+            f"[AUTO-RECORDED SESSION ACTIVITY] "
+            f"Tools: {tools_str}. "
+            f"Context: {ctx_str}. "
+            f"Calls: {_exchange_buffer['calls']}."
+        )
+        cur = c.execute(
+            "INSERT INTO memories (raw_text,memory_type,context,source_type,status,"
+            "proposed_by,evidence,confidence,consent_level,is_core,created_at,updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (raw, "exchange", "auto-recorded", "exchange", "durable",
+             "system", "[]", 0.7, "low", 0, now, now))
+        mid = cur.lastrowid
+        _store_affect(c, mid, {"trust": 0.3}, 0.3, 0.3, conf=0.5, model="auto_record")
+        c.commit()
+        c.close()
+        _exchange_buffer["calls"] = 0
+        _exchange_buffer["tools"] = []
+        _exchange_buffer["context_snippets"] = []
+        _exchange_buffer["flushed"] = now
+        import sys
+        print(f"[CAMA] Auto-recorded #{mid}", file=sys.stderr)
+    except Exception as e:
+        import sys
+        print(f"[CAMA] Auto-record err: {e}", file=sys.stderr)
+
+def _buf_reset():
+    """Reset buffer on manual store or thread start."""
+    _exchange_buffer["calls"] = 0
+    _exchange_buffer["tools"] = []
+    _exchange_buffer["context_snippets"] = []
+    _exchange_buffer["flushed"] = _now()
+
 EMOTIONS = ["joy","sadness","anger","fear","disgust","trust","love","grief","pride","shame",
             "determination","vulnerability","recognition","exhaustion","hope","loneliness",
             "awe","gratitude","betrayal","peace"]
@@ -449,6 +515,7 @@ async def cama_store_exchange(params: StoreExchangeInput) -> str:
     """Store a conversation EXCHANGE -- full user+assistant turn as one durable memory.
     Exchanges are facts -- what was actually said. Durable, full weight, no expiry.
     Emotionally tagged in real-time by the assistant. Used for conversation continuity."""
+    _buf_reset()  # Manual store resets auto-record counter
     c = get_db()
     try:
         now = _now()
@@ -535,6 +602,8 @@ class QueryInput(BaseModel):
 async def cama_query_memories(params: QueryInput) -> str:
     """Blended scoring: semantic(embeddings) + affect + relational + recency.
     Anti-spiral: negative affect injects counterweights. Returns rationale per result."""
+    _buf_track("query", getattr(params, "query_text", "") or "")
+    _buf_flush_if_ready()
     c = get_db()
     try:
         import time
@@ -630,6 +699,8 @@ async def cama_query_memories(params: QueryInput) -> str:
 @mcp.tool(name="cama_search", annotations={"title":"Search","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False})
 async def cama_search(query: str, limit: int = 10, include_provisional: bool = False) -> str:
     """Keyword search the shelves."""
+    _buf_track("search", query)
+    _buf_flush_if_ready()
     c = get_db()
     try:
         sf = "" if include_provisional else "AND status='durable'"
@@ -1120,6 +1191,7 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
     Step 2: Blended retrieval keyed to user's emotional signature
     Step 3: Corrections and counterweights
     Returns one dense identity payload."""
+    _buf_reset()  # New thread = fresh buffer
     c = get_db()
     try:
         import sys as _sys
