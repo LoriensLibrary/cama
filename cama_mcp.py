@@ -259,8 +259,15 @@ def _init(c):
 # ============================================================
 def _now(): return datetime.now(timezone.utc).isoformat()
 def _parse_t(t):
-    try: return datetime.fromisoformat(t)
-    except: return datetime.now(timezone.utc)
+    """Parse ISO timestamp, handling Z-suffix that Python 3.10 cannot parse."""
+    if not t:
+        return datetime.now(timezone.utc)
+    try:
+        if isinstance(t, str) and t.endswith('Z'):
+            t = t[:-1] + '+00:00'
+        return datetime.fromisoformat(t)
+    except (ValueError, TypeError):
+        return datetime.now(timezone.utc)
 
 def _store_affect(c, mid, emos, val=0.0, aro=0.0, dom=0.0, conf=0.5, model="manual"):
     c.execute("INSERT OR REPLACE INTO memory_affect (memory_id,valence,arousal,dominance,emotion_json,confidence,computed_at,model) VALUES (?,?,?,?,?,?,?,?)",
@@ -530,6 +537,9 @@ async def cama_query_memories(params: QueryInput) -> str:
     Anti-spiral: negative affect injects counterweights. Returns rationale per result."""
     c = get_db()
     try:
+        import time
+        _t0 = time.perf_counter()
+        _timings = {}
         # Get query embedding
         query_vec = await _get_embedding(params.query_text) if params.query_text else []
         

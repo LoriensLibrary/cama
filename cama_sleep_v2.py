@@ -52,6 +52,18 @@ import math
 import random
 import argparse
 import logging
+
+
+def _cosine_sim(a, b):
+    """Cosine similarity between two vectors."""
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x*y for x,y in zip(a,b))
+    na = math.sqrt(sum(x*x for x in a))
+    nb = math.sqrt(sum(x*x for x in b))
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, List, Any, Tuple
 from collections import Counter, defaultdict
@@ -134,6 +146,7 @@ def _parse_t(t):
     if not t:
         return datetime.now(timezone.utc)
     try:
+        # Python 3.10 fromisoformat can't handle 'Z' suffix
         if isinstance(t, str) and t.endswith('Z'):
             t = t[:-1] + '+00:00'
         return datetime.fromisoformat(t)
@@ -142,18 +155,6 @@ def _parse_t(t):
 
 
 # ============================================================
-
-def _cosine_sim_sleep(a, b):
-    """Cosine similarity between two embedding vectors."""
-    if not a or not b or len(a) != len(b):
-        return 0.0
-    dot = sum(x*y for x,y in zip(a,b))
-    na = math.sqrt(sum(x*x for x in a))
-    nb = math.sqrt(sum(x*x for x in b))
-    if na == 0 or nb == 0:
-        return 0.0
-    return dot / (na * nb)
-
 # PHASE 1: CONSOLIDATE — Cross-temporal resonance discovery
 # ============================================================
 def _get_consolidation_cursor(c) -> int:
@@ -324,7 +325,8 @@ def consolidate_memories(c) -> dict:
                 )
                 
                 if dist < EMOTIONAL_DISTANCE_THRESHOLD:
-                    # Embedding gate: require minimum semantic similarity
+                    # Embedding gate: verify semantic similarity before creating edge
+                    # This prevents mass-connecting the trust cluster on affect alone
                     sem_sim = 0.0
                     a_emb = c.execute("SELECT embedding_json FROM memory_embeddings WHERE memory_id=?",
                                       (anchor["id"],)).fetchone()
@@ -332,17 +334,17 @@ def consolidate_memories(c) -> dict:
                                       (cand["id"],)).fetchone()
                     if a_emb and c_emb:
                         try:
-                            sem_sim = _cosine_sim_sleep(
+                            sem_sim = _cosine_sim(
                                 json.loads(a_emb["embedding_json"]),
                                 json.loads(c_emb["embedding_json"])
                             )
                         except:
                             sem_sim = 0.0
                     
-                    if sem_sim < 0.25:
-                        continue  # Skip: no semantic overlap
+                    if sem_sim < 0.25:  # Minimum semantic overlap required
+                        continue
                     
-                    weight = max(0.3, (1.0 - dist) * 0.5 + sem_sim * 0.5)
+                    weight = max(0.3, (1.0 - dist) * 0.5 + sem_sim * 0.5)  # Blend affect + semantic
                     ts = _now()
                     try:
                         c.execute("""INSERT OR IGNORE INTO edges 
