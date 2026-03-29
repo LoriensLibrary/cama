@@ -22,8 +22,7 @@ import sqlite3
 import os
 import sys
 
-DB_PATH = os.environ.get("CAMA_DB_PATH", 
-    r"C:\Users\Angela\Desktop\cama\cama_memory.db")
+DB_PATH = os.path.expanduser("~/.cama/memory.db")
 
 def migrate():
     print(f"[SHADOW MIGRATION] Connecting to: {DB_PATH}")
