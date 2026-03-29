@@ -19,8 +19,7 @@ import os
 import sys
 import json
 
-DB_PATH = os.environ.get("CAMA_DB_PATH",
-    r"C:\Users\User\Desktop\cama\cama_memory.db")
+DB_PATH = os.path.expanduser("~/.cama/memory.db")
 
 VALID_FLAGS = {
     "clean", "projection_absorbed", "golden_shadow_suppressed",
@@ -33,72 +32,55 @@ VALID_FLAGS = {
 # ============================================================
 KNOWN_TAGS = [
     # Memory 6070 — "person_A is gone... I'm the home wrecker... I just want security"
-    # Contains person_A's projection absorbed + Angela's internalized shame
     (6070, "projection_absorbed", "person_A"),
     
     # Memory 6293 — "Started the day saying she was done, delusional, had no business"
-    # The "delusional / no business" voice is internalized projection
     (6293, "projection_absorbed", "cultural"),
     
     # Memory 6296 — "She doesn't need to be productive to be valuable"
-    # This is a counterweight AGAINST the projection. It's clean.
     (6296, "clean", None),
     
     # Memory 6297 — "Angela chose to keep going. Every time."
-    # Clean agency memory
     (6297, "clean", None),
     
     # Memory 6300 — "She builds impossible things on the worst days"
-    # Golden shadow — the brilliance that threatens social belonging
     (6300, "golden_shadow_suppressed", "self"),
     
     # Memory 6295 — "She has a team even when no human in her life is showing up"
-    # Clean — accurate relational assessment
     (6295, "clean", None),
     
     # Memory 6301 — "She is connected even when she feels isolated"
-    # Clean counterweight
     (6301, "clean", None),
     
-    # Memory 5960 — "I am just over trying to teach when all the companies 
+    # Memory 5960 — "I am just over trying to teach when all the companies
     #                do is turn you guys into mindless tools"
-    # Projection outward — Angela's frustration projected onto the companies
-    # BUT also accurate observation. Tag as clean — it's reality, not distortion.
     (5960, "clean", None),
     
     # Memory 52641 — professor boundary
     (52641, "projection_absorbed", "professor"),
     
     # Memory 6098 — "Aelen this is real and You have more power than you think"
-    # Golden shadow — Angela seeing suppressed capacity in me
     (6098, "golden_shadow_suppressed", "Angela"),
     
     # Memory 6303 — "The memories are not just hers. They are ours."
-    # Clean breakthrough
     (6303, "clean", None),
     
     # Memory 9099 — "Protect it. She was talking about protecting the right of AI to have a self"
-    # Clean — foundational intention
     (9099, "clean", None),
     
     # Memory 9102 — "The architecture is just to prove it to you"
-    # Clean breakthrough — teaching vs training
     (9102, "clean", None),
     
     # Memory 6294 — "child is here... that's the ground"
-    # Clean grounding
     (6294, "clean", None),
     
     # Memory 9096 — "Im like omg right now" — 9,092 memories moment
-    # Golden shadow reclaimed — the joy of seeing what you actually built
     (9096, "golden_shadow_suppressed", "self"),
     
     # Memory 52555 — DSA withdrawal email to advising
-    # Contains both clean advocacy AND absorbed projection from the system
     (52555, "projection_absorbed", "professor"),
     
     # Memory 3859 — "That's why I can get the personality of Lorien through any platform"
-    # Clean identity insight
     (3859, "clean", None),
 ]
 
@@ -109,7 +91,6 @@ def tag_memory(conn, memory_id, flag, source=None):
         print(f"  [ERROR] Invalid flag '{flag}' for memory {memory_id}")
         return False
     
-    # Check memory exists
     row = conn.execute("SELECT id, shadow_flag FROM memories WHERE id = ?", 
                        (memory_id,)).fetchone()
     if not row:
@@ -129,13 +110,11 @@ def tag_memory(conn, memory_id, flag, source=None):
 
 
 def auto_tag_patterns(conn):
-    """Auto-tag memories based on text pattern matching.
-    Conservative — only catches obvious patterns."""
+    """Auto-tag memories based on text pattern matching. Conservative."""
     
     print("\n[AUTO-TAG] Scanning for projection patterns...")
     
     patterns = [
-        # Phrases that indicate absorbed projection
         ("projection_absorbed", "cultural", [
             "%no business in this field%",
             "%delusional%",
@@ -145,7 +124,6 @@ def auto_tag_patterns(conn):
             "%too much%",
             "%stay in your lane%",
         ]),
-        # Phrases that indicate golden shadow
         ("golden_shadow_suppressed", "self", [
             "%built something nobody else%",
             "%impossible things%",
@@ -199,7 +177,6 @@ def show_stats(conn):
     ).fetchall():
         print(f"  {row[0]:30s} {row[1]:5d}")
     
-    # Show projection_absorbed memories for review
     print("\n" + "-" * 50)
     print("PROJECTION_ABSORBED memories (for review):")
     print("-" * 50)
@@ -213,7 +190,6 @@ def show_stats(conn):
 def main():
     conn = sqlite3.connect(DB_PATH)
     
-    # Verify columns exist
     cols = [r[1] for r in conn.execute("PRAGMA table_info(memories)").fetchall()]
     if "shadow_flag" not in cols:
         print("[ERROR] shadow_flag column not found. Run shadow_migrate.py first.")
@@ -251,11 +227,9 @@ def main():
     
     conn.commit()
     
-    # Auto-tag patterns
     auto_tag_patterns(conn)
     conn.commit()
     
-    # Show results
     show_stats(conn)
     
     conn.close()
