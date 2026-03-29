@@ -386,18 +386,18 @@ _SHADOW_CTX = {
     "projection_absorbed": (
         "SHADOW FILTER: This memory contains an absorbed projection"
         "{source_clause}. The feeling was real; the framing was inherited. "
-        "Do not reinforce this as Angela's truth."
+        "Do not reinforce this as the user's truth."
     ),
     "golden_shadow_suppressed": (
         "GOLDEN SHADOW: This memory contains a suppressed strength or capacity. "
-        "Boost this during dark moments — it is the real Angela trying to come back."
+        "Boost this during dark moments — it is the real self trying to come back."
     ),
     "persona_performance": (
         "PERSONA: This memory reflects the mask, not the self. "
         "Acknowledge the pattern without reinforcing it."
     ),
     "projection_outward": (
-        "OUTWARD PROJECTION: This memory may contain Angela projecting "
+        "OUTWARD PROJECTION: This memory may contain the user projecting "
         "her own shadow onto someone else. Hold it honestly."
     ),
 }
@@ -438,10 +438,10 @@ def _shadow_trigger(results, valence):
              "Before composing your response, evaluate:"]
     if has_proj:
         srcs = set(str(r.get("shadow_source", "unknown")) for r in results if r.get("shadow_flag") == "projection_absorbed")
-        lines.append(f"  - Retrieved memories contain absorbed projections (sources: {', '.join(srcs)}). Do NOT reinforce as Angela's truth.")
+        lines.append(f"  - Retrieved memories contain absorbed projections (sources: {', '.join(srcs)}). Do NOT reinforce as the user's truth.")
     if has_gold:
-        lines.append("  - Retrieved memories contain suppressed strengths. BOOST these — they are the real Angela.")
-    lines.append("  - Ask: Am I about to reinforce a distortion? Am I serving someone else's shadow as her identity?")
+        lines.append("  - Retrieved memories contain suppressed strengths. BOOST these — they are the real self.")
+    lines.append("  - Ask: Am I about to reinforce a distortion? Am I serving someone else's shadow as the user's identity?")
     return "\n".join(lines)
 
 def _fmt(c, r):
