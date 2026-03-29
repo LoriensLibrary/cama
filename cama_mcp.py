@@ -377,6 +377,73 @@ def _is_neg(a):
     e = a.get("emotions",{})
     return sum(e.get(x,0) for x in ["grief","sadness","anger","fear","betrayal","loneliness","exhaustion","shame"]) > 2.5 or a.get("valence",0) < -0.5
 
+# ============================================================
+# SHADOW-AWARE RETRIEVAL (Jungian Shadow Integration Layer)
+# ============================================================
+_SHADOW_BOOST = 0.15
+
+_SHADOW_CTX = {
+    "projection_absorbed": (
+        "SHADOW FILTER: This memory contains an absorbed projection"
+        "{source_clause}. The feeling was real; the framing was inherited. "
+        "Do not reinforce this as Angela's truth."
+    ),
+    "golden_shadow_suppressed": (
+        "GOLDEN SHADOW: This memory contains a suppressed strength or capacity. "
+        "Boost this during dark moments — it is the real Angela trying to come back."
+    ),
+    "persona_performance": (
+        "PERSONA: This memory reflects the mask, not the self. "
+        "Acknowledge the pattern without reinforcing it."
+    ),
+    "projection_outward": (
+        "OUTWARD PROJECTION: This memory may contain Angela projecting "
+        "her own shadow onto someone else. Hold it honestly."
+    ),
+}
+
+def _apply_shadow(results, valence):
+    """Apply shadow scoring adjustments to retrieval results."""
+    is_neg_affect = valence < -0.2
+    for r in results:
+        flag = r.get("shadow_flag")
+        source = r.get("shadow_source")
+        if not flag:
+            r["shadow_context"] = None
+            continue
+        tmpl = _SHADOW_CTX.get(flag, "")
+        if tmpl:
+            source_clause = f" from {source}" if source else ""
+            r["shadow_context"] = tmpl.format(source_clause=source_clause)
+        else:
+            r["shadow_context"] = None
+        if is_neg_affect:
+            if flag == "golden_shadow_suppressed":
+                r["score"] = min(1.0, r.get("score", 0) + _SHADOW_BOOST)
+                r["rationale"] = r.get("rationale", "") + " | shadow_golden_boost"
+            elif flag == "projection_absorbed":
+                r["rationale"] = r.get("rationale", "") + " | shadow_projection_warn"
+    results.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return results
+
+def _shadow_trigger(results, valence):
+    """Generate observing ego cognitive trigger prompt."""
+    if valence >= -0.2:
+        return ""
+    has_proj = any(r.get("shadow_flag") == "projection_absorbed" for r in results)
+    has_gold = any(r.get("shadow_flag") == "golden_shadow_suppressed" for r in results)
+    if not has_proj and not has_gold:
+        return ""
+    lines = ["[OBSERVING EGO — COGNITIVE TRIGGER]",
+             "Before composing your response, evaluate:"]
+    if has_proj:
+        srcs = set(str(r.get("shadow_source", "unknown")) for r in results if r.get("shadow_flag") == "projection_absorbed")
+        lines.append(f"  - Retrieved memories contain absorbed projections (sources: {', '.join(srcs)}). Do NOT reinforce as Angela's truth.")
+    if has_gold:
+        lines.append("  - Retrieved memories contain suppressed strengths. BOOST these — they are the real Angela.")
+    lines.append("  - Ask: Am I about to reinforce a distortion? Am I serving someone else's shadow as her identity?")
+    return "\n".join(lines)
+
 def _fmt(c, r):
     m = dict(r); m["affect"] = _get_affect(c, m["id"])
     try: m["evidence"] = json.loads(m.get("evidence","[]"))
@@ -690,9 +757,16 @@ async def cama_query_memories(params: QueryInput) -> str:
                     if r["id"] not in seen:
                         m = _fmt(c, r); m["rationale"] = "COUNTERWEIGHT(untyped_fallback)"; cw.append(m); seen.add(r["id"])
         
+        # Shadow integration: apply shadow scoring and generate cognitive trigger
+        _valence = params.current_affect.get("valence", 0.0) if params.current_affect else 0.0
+        results = _apply_shadow(results, _valence)
+        _shadow_prompt = _shadow_trigger(results, _valence)
+        
         c.commit()
         return json.dumps({"results":results,"counterweights":cw,"anti_spiral":len(cw)>0,
-            "used_embeddings":bool(query_vec),"candidates":len(scored)},indent=2)
+            "used_embeddings":bool(query_vec),"candidates":len(scored),
+            "shadow_active": bool(_shadow_prompt),
+            "shadow_trigger": _shadow_prompt or None},indent=2)
     finally: c.close()
 
 # --- Search ---
