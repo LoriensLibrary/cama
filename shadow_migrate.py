@@ -11,7 +11,7 @@ Shadow flags (Jungian shadow taxonomy):
   projection_outward      — Projecting own shadow onto someone else
 
 shadow_source: Who/what the projection came from (nullable)
-  Examples: "Mike", "Tackett", "system", "corporate_training", "self", "cultural"
+  Examples: "specific_person", "institution", "system", "corporate_training", "self", "cultural"
 
 Part of the Jungian Shadow Integration Architecture for CAMA.
 Designed by Angela + Aelen, March 29, 2026.
@@ -91,7 +91,7 @@ def migrate():
     print(f"    clean, projection_absorbed, golden_shadow_suppressed,")
     print(f"    persona_performance, projection_outward")
     print(f"\n  shadow_source examples:")
-    print(f"    Mike, Tackett, system, corporate_training, self, cultural")
+    print(f"    specific individuals, institutions, system, corporate_training, self, cultural")
     
     conn.close()
     print("\n[SHADOW MIGRATION] Done. Ready for shadow tagging.")
