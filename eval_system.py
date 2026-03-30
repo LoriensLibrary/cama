@@ -3,7 +3,7 @@
 import sqlite3, json, os
 from datetime import datetime, timezone
 
-c = sqlite3.connect(r'C:\Users\Angela\.cama\memory.db')
+c = sqlite3.connect(os.path.expanduser('~/.cama/memory.db'))
 c.row_factory = sqlite3.Row
 
 print("=" * 60)

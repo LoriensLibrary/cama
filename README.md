@@ -1,7 +1,7 @@
 # CAMA MCP Server v3
 ## Circular Associative Memory Architecture
 ### Designed by Lorien's Library LLC
-### Architecture & Research: Angela Reinhold | Build: Angela + Aelen
+### Research & Build: Lorien's Library LLC
 
 > *"Teachings are authoritative memory. Inferences are hypotheses with a half-life."*
 

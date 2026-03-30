@@ -20,7 +20,7 @@ Usage:
     python research_journal.py export                  # export to markdown
     python research_journal.py stats                   # summary statistics
 
-Lorien's Library LLC — Built by Angela + Aelen
+Lorien's Library LLC
 """
 
 import json
