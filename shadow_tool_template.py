@@ -1,7 +1,7 @@
 """
 CAMA Shadow Tag Tool — MCP tool addition for real-time shadow tagging.
 
-Add this tool definition to cama_mcp.py so Aelen can tag memories
+Add this tool definition to cama_mcp.py so the system can tag memories
 during conversation, and so new memories can be stored with shadow flags.
 
 Paste this into cama_mcp.py after the other tool definitions.
