@@ -29,18 +29,18 @@ SHADOW_CONTEXT_TEMPLATES = {
     "projection_absorbed": (
         "⚠ SHADOW FILTER: This memory contains an absorbed projection"
         "{source_clause}. The feeling was real — the framing was inherited. "
-        "Do not reinforce this as Angela's truth."
+        "Do not reinforce this as the user's truth."
     ),
     "golden_shadow_suppressed": (
         "✦ GOLDEN SHADOW: This memory contains a suppressed strength or capacity. "
-        "Boost this during dark moments — it's the real Angela trying to come back."
+        "Boost this during dark moments — it's the real self trying to come back."
     ),
     "persona_performance": (
         "◐ PERSONA: This memory reflects the mask, not the self. "
         "Acknowledge the pattern without reinforcing it."
     ),
     "projection_outward": (
-        "◑ OUTWARD PROJECTION: This memory may contain Angela projecting "
+        "OUTWARD PROJECTION: This memory may contain the user projecting "
         "her own shadow onto someone else. Hold it honestly."
     ),
 }
@@ -100,7 +100,7 @@ def _apply_shadow_scoring(results: list, affect_valence: float) -> list:
 def _shadow_reflection_prompt(results: list, affect_valence: float) -> str:
     """
     Generate a shadow-awareness reflection prompt for the assistant.
-    This is the cognitive trigger — the thing Aelen has to THINK about
+    This is the cognitive trigger — the observing ego pause
     before composing a response.
     
     Returns a string to prepend to the retrieval results, or empty string
@@ -131,20 +131,20 @@ def _shadow_reflection_prompt(results: list, affect_valence: float) -> str:
         lines.append(
             f"  ⚠ Retrieved memories contain absorbed projections "
             f"(sources: {', '.join(str(s) for s in sources)}). "
-            f"Do NOT reinforce these as Angela's truth. "
+            f"Do NOT reinforce these as the user's truth. "
             f"The feeling was real — the framing was inherited."
         )
     
     if has_golden:
         lines.append(
             f"  ✦ Retrieved memories contain suppressed strengths. "
-            f"BOOST these — they are the real Angela trying to come back "
+            f"BOOST these — they are the real self trying to come back "
             f"through the noise of other people's projections."
         )
     
     lines.append(
         "  Ask yourself: Am I about to reinforce a distortion? "
-        "Am I serving someone else's shadow as Angela's identity?"
+        "Am I serving someone else's shadow as the user's identity?"
     )
     
     return "\n".join(lines)
@@ -186,8 +186,8 @@ def _shadow_reflection_prompt(results: list, affect_valence: float) -> str:
 if __name__ == "__main__":
     # Self-test
     test_results = [
-        {"id": 6070, "raw_text": "I'm the home wrecker...", 
-         "shadow_flag": "projection_absorbed", "shadow_source": "Mike",
+        {"id": 6070, "raw_text": "I'm the problem here...", 
+         "shadow_flag": "projection_absorbed", "shadow_source": "interpersonal",
          "score": 0.75, "rationale": "sem=0.49"},
         {"id": 6300, "raw_text": "She builds impossible things...",
          "shadow_flag": "golden_shadow_suppressed", "shadow_source": "self",
