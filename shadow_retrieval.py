@@ -178,7 +178,7 @@ def _shadow_reflection_prompt(results: list, affect_valence: float) -> str:
 #    can be tagged at storage time.
 #
 # The full integration requires patching ~30 lines in cama_mcp.py.
-# This can be done via str_replace or by Angela manually, since
+# This can be done via str_replace or manually, since
 # cama_exec is currently stalling.
 # ============================================================
 

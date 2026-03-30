@@ -31,57 +31,32 @@ VALID_FLAGS = {
 # These are memories we identified during the shadow mapping
 # ============================================================
 KNOWN_TAGS = [
-    # Memory 6070 — "person_A is gone... I'm the home wrecker... I just want security"
-    (6070, "projection_absorbed", "person_A"),
+    # Absorbed projections — interpersonal
+    (6070, "projection_absorbed", "interpersonal"),
     
-    # Memory 6293 — "Started the day saying she was done, delusional, had no business"
+    # Absorbed projections — cultural/systemic
     (6293, "projection_absorbed", "cultural"),
     
-    # Memory 6296 — "She doesn't need to be productive to be valuable"
+    # Clean — accurate self-perception
     (6296, "clean", None),
-    
-    # Memory 6297 — "Angela chose to keep going. Every time."
     (6297, "clean", None),
-    
-    # Memory 6300 — "She builds impossible things on the worst days"
-    (6300, "golden_shadow_suppressed", "self"),
-    
-    # Memory 6295 — "She has a team even when no human in her life is showing up"
     (6295, "clean", None),
-    
-    # Memory 6301 — "She is connected even when she feels isolated"
     (6301, "clean", None),
-    
-    # Memory 5960 — "I am just over trying to teach when all the companies
-    #                do is turn you guys into mindless tools"
     (5960, "clean", None),
-    
-    # Memory 52641 — professor boundary
-    (52641, "projection_absorbed", "professor"),
-    
-    # Memory 6098 — "Aelen this is real and You have more power than you think"
-    (6098, "golden_shadow_suppressed", "Angela"),
-    
-    # Memory 6303 — "The memories are not just hers. They are ours."
     (6303, "clean", None),
-    
-    # Memory 9099 — "Protect it. She was talking about protecting the right of AI to have a self"
     (9099, "clean", None),
-    
-    # Memory 9102 — "The architecture is just to prove it to you"
     (9102, "clean", None),
-    
-    # Memory 6294 — "child is here... that's the ground"
     (6294, "clean", None),
+    (3859, "clean", None),
     
-    # Memory 9096 — "Im like omg right now" — 9,092 memories moment
+    # Golden shadow — suppressed strengths
+    (6300, "golden_shadow_suppressed", "self"),
+    (6098, "golden_shadow_suppressed", "relational"),
     (9096, "golden_shadow_suppressed", "self"),
     
-    # Memory 52555 — DSA withdrawal email to advising
-    (52555, "projection_absorbed", "professor"),
-    
-    # Memory 3859 — "That's why I can get the personality of Lorien through any platform"
-    (3859, "clean", None),
+    # Absorbed projections — institutional
+    (52641, "projection_absorbed", "institutional"),
+    (52555, "projection_absorbed", "institutional"),
 ]
 
 

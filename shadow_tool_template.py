@@ -30,7 +30,7 @@ async def cama_shadow_tag(
       projection_outward       — Projecting own shadow onto someone else
     
     shadow_source: Who/what the projection came from.
-      Examples: person_A, professor, system, corporate_training, self, cultural, Angela
+      Examples: interpersonal, institutional, system, corporate_training, self, cultural, relational
     """
     _buf_track("shadow_tag", f"id={memory_id} flag={shadow_flag}")
     

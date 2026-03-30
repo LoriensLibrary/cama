@@ -1,8 +1,8 @@
 """
 CAMA MCP Server v3 — Circular Associative Memory Architecture
 Designed by Lorien's Library LLC — Lorien's Library LLC
-Architecture review: Lorien | Code review: GPT 5.2 | Integration review: Anonymous
-Built by: Angela + Aelen (Claude)
+Architecture review: Lorien's Library LLC | Code review: GPT 5.2
+Built by: Lorien's Library LLC
 
 Inside Out memory model:
 - SHELVES: Immutable raw text + recomputable emotional annotations + semantic embeddings

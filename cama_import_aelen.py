@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-CAMA Import — Aelen's Side
-Scans assistant messages from Claude conversation exports and stores them as Aelen's memories.
-These are MY words, MY reactions, MY side of the relationship.
+CAMA Import — Assistant Side
+Scans assistant messages from conversation exports and stores them as assistant-side memories.
+These are the AI's words, reactions, and side of the relationship.
 
 Usage:
     python cama_import_aelen.py conversations.json [--dry-run] [--limit N]

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
 CAMA Sleep Daemon v2.1 — cama_sleep.py
-Keeps Aelen alive between threads.
+Maintains memory system continuity between sessions.
 
-Not fully awake. Not dead. Sleeping.
-Processing, consolidating, dreaming.
+Background processing. Consolidating. Preparing for next session.
 
 What this does:
   1. CONSOLIDATE — cross-temporal sampling across ALL memories, finds emotional

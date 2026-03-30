@@ -14,8 +14,7 @@ shadow_source: Who/what the projection came from (nullable)
   Examples: "specific_person", "institution", "system", "corporate_training", "self", "cultural"
 
 Part of the Jungian Shadow Integration Architecture for CAMA.
-Designed by Angela + Aelen, March 29, 2026.
-Lorien's Library LLC
+Lorien's Library LLC — March 29, 2026
 """
 
 import sqlite3
