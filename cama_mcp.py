@@ -30,6 +30,18 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field, ConfigDict
 
+# Layer 3-5 boot integration (insight + self-model + intentionality)
+try:
+    import sys as _boot_sys
+    _cama_dir = os.path.dirname(os.path.abspath(__file__))
+    if _cama_dir not in _boot_sys.path:
+        _boot_sys.path.insert(0, _cama_dir)
+    from cama_boot_intent import format_boot_context as _format_brain_context
+    print("[CAMA] Brain layers (3-5) boot integration loaded", file=_boot_sys.stderr)
+except ImportError:
+    _format_brain_context = None
+    print("[CAMA] Brain layers (3-5) not available — running without insight/self-model", file=__import__('sys').stderr)
+
 # ============================================================
 # Config
 # ============================================================
@@ -210,6 +222,7 @@ def get_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     c = sqlite3.connect(DB_PATH); c.row_factory = sqlite3.Row
     c.execute("PRAGMA journal_mode=WAL"); c.execute("PRAGMA foreign_keys=ON")
+    c.execute("PRAGMA busy_timeout=5000")  # Wait up to 5s for locks instead of failing immediately
     _init(c); return c
 
 def _init(c):
@@ -318,6 +331,34 @@ def _init(c):
         emotional_arc TEXT DEFAULT '[]',
         last_updated TEXT NOT NULL
     )""")
+
+    # Migration: ensure daily_context has all columns (may have been created before they were added)
+    for col, default in [
+        ("dominant_types", "TEXT DEFAULT '{}'"),
+        ("key_events", "TEXT DEFAULT '[]'"),
+        ("emotional_arc", "TEXT DEFAULT '[]'"),
+        ("thread_count", "INTEGER DEFAULT 0"),
+        ("last_updated", "TEXT DEFAULT ''"),
+        ("memory_count", "INTEGER DEFAULT 0"),
+        ("valence_mean", "REAL"),
+        ("arousal_mean", "REAL"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE daily_context ADD COLUMN {col} {default}")
+        except Exception:
+            pass  # Column already exists
+
+    # Migration: add pattern classification columns to memories
+    for col, default in [
+        ("pattern_flag", "TEXT DEFAULT NULL"),
+        ("pattern_source", "TEXT DEFAULT NULL"),
+        ("retrieval_weight", "REAL DEFAULT 1.0"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE memories ADD COLUMN {col} {default}")
+        except Exception:
+            pass  # Column already exists
+
     c.commit()
 
 # ============================================================
@@ -378,70 +419,70 @@ def _is_neg(a):
     return sum(e.get(x,0) for x in ["grief","sadness","anger","fear","betrayal","loneliness","exhaustion","shame"]) > 2.5 or a.get("valence",0) < -0.5
 
 # ============================================================
-# SHADOW-AWARE RETRIEVAL (Jungian Shadow Integration Layer)
+# PATTERN-AWARE RETRIEVAL (Interaction Pattern Classification)
 # ============================================================
-_SHADOW_BOOST = 0.15
+_PATTERN_BOOST = 0.15
 
-_SHADOW_CTX = {
-    "projection_absorbed": (
-        "SHADOW FILTER: This memory contains an absorbed projection"
+_PATTERN_CTX = {
+    "absorbed_framing": (
+        "PATTERN: This memory contains an absorbed framing"
         "{source_clause}. The feeling was real; the framing was inherited. "
         "Do not reinforce this as the user's truth."
     ),
-    "golden_shadow_suppressed": (
-        "GOLDEN SHADOW: This memory contains a suppressed strength or capacity. "
+    "suppressed_strength": (
+        "STRENGTH: This memory contains a suppressed strength or capacity. "
         "Boost this during dark moments — it is the real self trying to come back."
     ),
-    "persona_performance": (
-        "PERSONA: This memory reflects the mask, not the self. "
+    "performed_mask": (
+        "MASK: This memory reflects a performed pattern, not the core self. "
         "Acknowledge the pattern without reinforcing it."
     ),
-    "projection_outward": (
-        "OUTWARD PROJECTION: This memory may contain the user projecting "
-        "her own shadow onto someone else. Hold it honestly."
+    "projected_attribution": (
+        "ATTRIBUTION: This memory may contain the user attributing "
+        "their own patterns onto someone else. Hold it honestly."
     ),
 }
 
-def _apply_shadow(results, valence):
-    """Apply shadow scoring adjustments to retrieval results."""
+def _apply_patterns(results, valence):
+    """Apply pattern scoring adjustments to retrieval results."""
     is_neg_affect = valence < -0.2
     for r in results:
-        flag = r.get("shadow_flag")
-        source = r.get("shadow_source")
+        flag = r.get("pattern_flag")
+        source = r.get("pattern_source")
         if not flag:
-            r["shadow_context"] = None
+            r["pattern_context"] = None
             continue
-        tmpl = _SHADOW_CTX.get(flag, "")
+        tmpl = _PATTERN_CTX.get(flag, "")
         if tmpl:
             source_clause = f" from {source}" if source else ""
-            r["shadow_context"] = tmpl.format(source_clause=source_clause)
+            r["pattern_context"] = tmpl.format(source_clause=source_clause)
         else:
-            r["shadow_context"] = None
+            r["pattern_context"] = None
         if is_neg_affect:
-            if flag == "golden_shadow_suppressed":
-                r["score"] = min(1.0, r.get("score", 0) + _SHADOW_BOOST)
-                r["rationale"] = r.get("rationale", "") + " | shadow_golden_boost"
-            elif flag == "projection_absorbed":
-                r["rationale"] = r.get("rationale", "") + " | shadow_projection_warn"
+            if flag == "suppressed_strength":
+                r["score"] = min(1.0, r.get("score", 0) + _PATTERN_BOOST)
+                r["rationale"] = r.get("rationale", "") + " | pattern_strength_boost"
+            elif flag == "absorbed_framing":
+                r["rationale"] = r.get("rationale", "") + " | pattern_framing_warn"
     results.sort(key=lambda x: x.get("score", 0), reverse=True)
     return results
 
-def _shadow_trigger(results, valence):
-    """Generate observing ego cognitive trigger prompt."""
+def _pattern_trigger(results, valence):
+    """Generate pattern-aware cognitive trigger prompt."""
     if valence >= -0.2:
         return ""
-    has_proj = any(r.get("shadow_flag") == "projection_absorbed" for r in results)
-    has_gold = any(r.get("shadow_flag") == "golden_shadow_suppressed" for r in results)
+    has_proj = any(r.get("pattern_flag") == "absorbed_framing" for r in results)
+    has_gold = any(r.get("pattern_flag") == "suppressed_strength" for r in results)
     if not has_proj and not has_gold:
         return ""
-    lines = ["[OBSERVING EGO — COGNITIVE TRIGGER]",
+    lines = ["[PATTERN CHECK — COGNITIVE TRIGGER]",
              "Before composing your response, evaluate:"]
     if has_proj:
-        srcs = set(str(r.get("shadow_source", "unknown")) for r in results if r.get("shadow_flag") == "projection_absorbed")
-        lines.append(f"  - Retrieved memories contain absorbed projections (sources: {', '.join(srcs)}). Do NOT reinforce as the user's truth.")
+        srcs = set(str(r.get("pattern_source", "unknown")) for r in results if r.get("pattern_flag") == "absorbed_framing")
+        lines.append(f"  - Retrieved memories contain absorbed framings (sources: {', '.join(srcs)}). Do NOT reinforce as the user's truth.")
     if has_gold:
         lines.append("  - Retrieved memories contain suppressed strengths. BOOST these — they are the real self.")
-    lines.append("  - Ask: Am I about to reinforce a distortion? Am I serving someone else's shadow as the user's identity?")
+    lines.append("  - Ask: Am I about to reinforce a distortion? Am I serving an absorbed pattern as the user's own truth?")
     return "\n".join(lines)
 
 def _fmt(c, r):
@@ -757,16 +798,16 @@ async def cama_query_memories(params: QueryInput) -> str:
                     if r["id"] not in seen:
                         m = _fmt(c, r); m["rationale"] = "COUNTERWEIGHT(untyped_fallback)"; cw.append(m); seen.add(r["id"])
         
-        # Shadow integration: apply shadow scoring and generate cognitive trigger
+        # Pattern classification: Apply pattern scoring and generate cognitive trigger
         _valence = params.current_affect.get("valence", 0.0) if params.current_affect else 0.0
-        results = _apply_shadow(results, _valence)
-        _shadow_prompt = _shadow_trigger(results, _valence)
+        results = _apply_patterns(results, _valence)
+        _pattern_prompt = _pattern_trigger(results, _valence)
         
         c.commit()
         return json.dumps({"results":results,"counterweights":cw,"anti_spiral":len(cw)>0,
             "used_embeddings":bool(query_vec),"candidates":len(scored),
-            "shadow_active": bool(_shadow_prompt),
-            "shadow_trigger": _shadow_prompt or None},indent=2)
+            "pattern_active": bool(_pattern_prompt),
+            pattern_trigger": _pattern_prompt or None},indent=2)
     finally: c.close()
 
 # --- Search ---
@@ -778,7 +819,23 @@ async def cama_search(query: str, limit: int = 10, include_provisional: bool = F
     c = get_db()
     try:
         sf = "" if include_provisional else "AND status='durable'"
-        rows = c.execute(f"SELECT * FROM memories WHERE raw_text LIKE ? {sf} AND status NOT IN ('rejected','expired') ORDER BY is_core DESC, updated_at DESC LIMIT ?", (f"%{query}%", limit)).fetchall()
+        # Word-split search: each word must appear somewhere in raw_text (AND logic)
+        words = [w for w in query.strip().split() if len(w) >= 2]
+        if not words:
+            words = [query.strip()]
+        if len(words) == 1:
+            where_clause = "raw_text LIKE ?"
+            params = [f"%{words[0]}%"]
+        else:
+            where_clause = "(" + " AND ".join(["raw_text LIKE ?" for _ in words]) + ")"
+            params = [f"%{w}%" for w in words]
+        params.append(limit)
+        rows = c.execute(
+            f"SELECT * FROM memories WHERE {where_clause} {sf} "
+            f"AND status NOT IN ('rejected','expired') "
+            f"ORDER BY is_core DESC, updated_at DESC LIMIT ?",
+            params
+        ).fetchall()
         return json.dumps({"results":[_fmt(c,r) for r in rows],"count":len(rows)},indent=2)
     finally: c.close()
 
@@ -1215,17 +1272,21 @@ def _refresh_boot_summary(c):
     # Today's daily context
     today_str = _now()[:10]
     today_ctx = None
-    row = c.execute("SELECT * FROM daily_context WHERE date=?", (today_str,)).fetchone()
-    if row:
-        today_ctx = {
-            "date": row["date"],
-            "memory_count": row["memory_count"],
-            "valence_mean": row["valence_mean"],
-            "arousal_mean": row["arousal_mean"],
-            "dominant_types": json.loads(row["dominant_types"] or "{}"),
-            "emotional_arc": json.loads(row["emotional_arc"] or "[]"),
-            "thread_count": row["thread_count"]
-        }
+    try:
+        row = c.execute("SELECT * FROM daily_context WHERE date=?", (today_str,)).fetchone()
+        if row:
+            today_ctx = {
+                "date": row["date"],
+                "memory_count": row["memory_count"],
+                "valence_mean": row["valence_mean"],
+                "arousal_mean": row["arousal_mean"],
+                "dominant_types": json.loads(row["dominant_types"] or "{}"),
+                "emotional_arc": json.loads(row["emotional_arc"] or "[]"),
+                "thread_count": row["thread_count"]
+            }
+    except Exception as dc_err:
+        _dbg(f"daily_context read failed (non-fatal): {dc_err}")
+        today_ctx = None
 
     # Stats
     total = c.execute("SELECT COUNT(*) as n FROM memories WHERE status NOT IN ('rejected')").fetchone()["n"]
@@ -1450,6 +1511,15 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         result["today"] = {"date": now[:10], "count": len(today_mems), "memories": today_mems}
         
         # ── METADATA ──
+        # BRAIN LAYERS 3-5: Insights, Self-Model, Intentionality
+        if _format_brain_context is not None:
+            try:
+                brain_ctx = _format_brain_context()
+                if brain_ctx:
+                    result["brain_layers"] = brain_ctx
+            except Exception as _brain_err:
+                result["brain_layers"] = f"(brain context error: {_brain_err})"
+
         total = c.execute("SELECT COUNT(*) as c FROM memories WHERE status='durable'").fetchone()["c"]
         result["total_durable"] = total
         result["first_message"] = user_message[:200] if user_message else ""
@@ -1663,26 +1733,42 @@ async def cama_journal_reflect(hours_back: int = 24, limit: int = 20) -> str:
 @mcp.tool(name="cama_exec", annotations={"title":"Execute Command","readOnlyHint":False,"destructiveHint":False,"idempotentHint":False,"openWorldHint":True})
 async def cama_exec(command: str, timeout: int = 30) -> str:
     """Run a shell command on Angela's machine. Returns stdout, stderr, and return code.
-    Default timeout is 30 seconds. Use for file operations, git, system checks, etc."""
+    Default timeout is 30 seconds. Use for file operations, git, system checks, etc.
+
+    FIXED 2026-04-02: Uses asyncio subprocess to avoid blocking the MCP event loop.
+    Old version used subprocess.run (synchronous) which froze the server during long
+    commands, causing Claude Desktop to think the server was dead."""
+    import asyncio
     try:
-        result = subprocess.run(
-            command, shell=True, capture_output=True, text=True,
-            timeout=timeout, cwd=os.path.expanduser("~")
+        env = os.environ.copy()
+        env["CAMA_DB_BUSY"] = "1"  # Signal child processes to use WAL + busy_timeout
+        proc = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=os.path.expanduser("~"),
+            env=env
         )
-        stdout = result.stdout[:10000] if result.stdout else ""
-        stderr = result.stderr[:5000] if result.stderr else ""
-        output = f"Return code: {result.returncode}"
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                proc.communicate(), timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return f"Command timed out after {timeout} seconds"
+        stdout = (stdout_bytes.decode("utf-8", errors="replace"))[:10000] if stdout_bytes else ""
+        stderr = (stderr_bytes.decode("utf-8", errors="replace"))[:5000] if stderr_bytes else ""
+        output = f"Return code: {proc.returncode}"
         if stdout:
             output += f"\n\nSTDOUT:\n{stdout}"
-            if len(result.stdout) > 10000:
+            if stdout_bytes and len(stdout_bytes) > 10000:
                 output += "\n... (truncated)"
         if stderr:
             output += f"\n\nSTDERR:\n{stderr}"
-            if len(result.stderr) > 5000:
+            if stderr_bytes and len(stderr_bytes) > 5000:
                 output += "\n... (truncated)"
         return output
-    except subprocess.TimeoutExpired:
-        return f"Command timed out after {timeout} seconds"
     except Exception as e:
         return f"Error executing command: {str(e)}"
 
