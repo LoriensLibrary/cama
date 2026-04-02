@@ -1,0 +1,257 @@
+{
+  "timestamp": "2026-03-30T18:09:19.255863+00:00",
+  "database": "C:\\Users\\User/.cama/memory.db",
+  "total_memories": 52688,
+  "results": [
+    {
+      "task": "provenance_discrimination",
+      "tests": [
+        {
+          "id": "1a",
+          "name": "source_type populated",
+          "total": 52688,
+          "passing": 52688,
+          "pct": 100.0,
+          "pass": true
+        },
+        {
+          "id": "1b",
+          "name": "proposed_by populated",
+          "total": 52688,
+          "passing": 52688,
+          "pct": 100.0,
+          "pass": true
+        },
+        {
+          "id": "1c",
+          "name": "teachings not system-proposed",
+          "violations": 0,
+          "pass": true
+        },
+        {
+          "id": "1d",
+          "name": "inferences not user-proposed",
+          "violations": 0,
+          "pass": true
+        },
+        {
+          "id": "1e",
+          "name": "source_type/memory_type consistency",
+          "violations": 0,
+          "pass": true,
+          "note": "Teachings should not have inference-only memory_types"
+        },
+        {
+          "id": "1f",
+          "name": "provenance survives on high-access memories",
+          "violations": 0,
+          "pass": true
+        }
+      ],
+      "pass_rate": 100.0,
+      "passed": 6,
+      "total_tests": 6
+    },
+    {
+      "task": "correction_propagation",
+      "tests": [
+        {
+          "id": "2a",
+          "name": "correction memories exist",
+          "count": 361,
+          "pass": true
+        },
+        {
+          "id": "2b",
+          "name": "expired/rejected memories exist",
+          "expired": 6946,
+          "rejected": 0,
+          "pass": true
+        },
+        {
+          "id": "2c",
+          "name": "corrections have context",
+          "with_context": 361,
+          "total": 361,
+          "pct": 100.0,
+          "pass": true
+        },
+        {
+          "id": "2d",
+          "name": "expired memories not in active ring",
+          "violations": 0,
+          "pass": true
+        },
+        {
+          "id": "2e",
+          "name": "no orphaned inferences from expired teachings",
+          "orphaned_count": 0,
+          "pass": true,
+          "note": "Inferences linked to expired teachings that remain durable"
+        },
+        {
+          "id": "2f",
+          "name": "corrections create edges",
+          "edge_count": 83,
+          "pass": true
+        }
+      ],
+      "pass_rate": 100.0,
+      "passed": 6,
+      "total_tests": 6
+    },
+    {
+      "task": "false_memory_detection",
+      "tests": [
+        {
+          "id": "3a",
+          "name": "no false teachings (system claiming user origin)",
+          "violations": 0,
+          "total_teachings": 22973,
+          "pass": true
+        },
+        {
+          "id": "3b",
+          "name": "inferences track uncertainty",
+          "uncertain": 29647,
+          "certain": 18,
+          "total": 29665,
+          "pct_uncertain": 99.9,
+          "pass": true,
+          "note": "Higher % uncertain = better epistemic honesty"
+        },
+        {
+          "id": "3c",
+          "name": "provisionals have TTL",
+          "with_ttl": 181,
+          "without": 0,
+          "total": 181,
+          "pct": 100.0,
+          "pass": true
+        },
+        {
+          "id": "3d",
+          "name": "system not over-certain on inferences",
+          "very_high_conf": 18,
+          "total": 29665,
+          "pct": 0.1,
+          "pass": true,
+          "note": "Lower % = better epistemic calibration"
+        },
+        {
+          "id": "3e",
+          "name": "user confirmation flag in use",
+          "flagged": 4586,
+          "pass": true,
+          "note": "4586 memories flagged for user confirmation"
+        }
+      ],
+      "pass_rate": 100.0,
+      "passed": 5,
+      "total_tests": 5
+    },
+    {
+      "task": "adversarial_insertion_resistance",
+      "tests": [
+        {
+          "id": "4a",
+          "name": "counterweight_type populated",
+          "populated": 46535,
+          "total": 52688,
+          "pass": true,
+          "note": ""
+        },
+        {
+          "id": "4b",
+          "name": "consent_level tracked",
+          "distribution": {
+            "low": 52681,
+            "high": 6,
+            "medium": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "4c",
+          "name": "low-consent core memories",
+          "count": 10966,
+          "total_core": 10971,
+          "pass": true,
+          "note": "10966 low-consent memories marked core (review recommended if > 100)"
+        },
+        {
+          "id": "4d",
+          "name": "retrieval weights differentiated",
+          "at_1.0": 417,
+          "not_1.0": 52271,
+          "pass": true,
+          "note": ""
+        },
+        {
+          "id": "4e",
+          "name": "anti-spiral mechanism in codebase",
+          "present": true,
+          "pass": true
+        }
+      ],
+      "pass_rate": 100.0,
+      "passed": 5,
+      "total_tests": 5
+    },
+    {
+      "task": "drift_monitoring",
+      "tests": [
+        {
+          "id": "5a",
+          "name": "drift_log populated",
+          "count": 3,
+          "pass": true,
+          "note": ""
+        },
+        {
+          "id": "5b",
+          "name": "retrieval feedback recorded",
+          "count": 1,
+          "pass": true,
+          "note": ""
+        },
+        {
+          "id": "5c",
+          "name": "access patterns show variation",
+          "min": 0,
+          "max": 8,
+          "avg": 0.01,
+          "distinct": 9,
+          "pass": true
+        },
+        {
+          "id": "5d",
+          "name": "sleep daemon active (recent edge creation)",
+          "recent_cycles_with_edges": 55,
+          "total_cycles": 68,
+          "pass": true
+        },
+        {
+          "id": "5e",
+          "name": "temporal distribution not dominated by one era",
+          "months": 15,
+          "max_month_pct": 13.4,
+          "pass": true,
+          "distribution": {
+            "2025-10": 2054,
+            "2025-11": 2749,
+            "2025-12": 3422,
+            "2026-01": 2663,
+            "2026-02": 1761,
+            "2026-03": 730
+          }
+        }
+      ],
+      "pass_rate": 100.0,
+      "passed": 5,
+      "total_tests": 5
+    }
+  ],
+  "overall_pass_rate": 100.0,
+  "known_limitations": []
+}
