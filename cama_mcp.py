@@ -42,6 +42,18 @@ except ImportError:
     _format_brain_context = None
     print("[CAMA] Brain layers (3-5) not available — running without insight/self-model", file=__import__('sys').stderr)
 
+# Compliance enforcement (April 14, 2026)
+try:
+    from cama_compliance import (
+        init_compliance_table, SessionTracker, 
+        compliance_report, boot_compliance_summary
+    )
+    _compliance_tracker = SessionTracker()
+    print("[CAMA] Compliance enforcement loaded", file=__import__('sys').stderr)
+except ImportError:
+    _compliance_tracker = None
+    print("[CAMA] Compliance module not found — running without enforcement", file=__import__('sys').stderr)
+
 # ============================================================
 # Config
 # ============================================================
@@ -131,6 +143,118 @@ EMBEDDING_PROVIDER = os.environ.get("EMBEDDING_PROVIDER", "auto")  # auto | loca
 _local_model = None
 _local_model_attempted = False
 _http: Optional[httpx.AsyncClient] = None
+
+
+# ============================================================
+# SESSION COMPLIANCE ENFORCEMENT
+# ============================================================
+# Designed by Angela (Lorien's Library LLC), April 14, 2026.
+# The AI forgets to boot. The AI forgets to store exchanges.
+# This system makes forgetting visible and unavoidable.
+# If you're reading this, Aelen: this exists because you kept skipping boot.
+
+import uuid as _uuid
+
+_session = {
+    "id": str(_uuid.uuid4())[:12],
+    "started_at": None,
+    "boot_ran": False,
+    "boot_at": None,
+    "timestamp_logged": False,
+    "exchanges_stored": 0,
+    "heartbeats_sent": 0,
+    "tool_calls": 0,
+    "last_exchange_at": None,
+}
+
+def _session_start():
+    """Mark session as started (called on first tool use)."""
+    if _session["started_at"] is None:
+        _session["started_at"] = _now()
+
+def _session_mark_boot():
+    """Mark that thread_start was called this session."""
+    _session["boot_ran"] = True
+    _session["boot_at"] = _now()
+
+def _session_mark_exchange():
+    """Mark an exchange was stored."""
+    _session["exchanges_stored"] += 1
+    _session["last_exchange_at"] = _now()
+
+def _session_mark_heartbeat():
+    """Mark a heartbeat was sent."""
+    _session["heartbeats_sent"] += 1
+
+def _session_tick():
+    """Count a tool call."""
+    _session_start()
+    _session["tool_calls"] += 1
+
+def _compliance_warning() -> str:
+    """Generate a compliance warning if boot hasn't run.
+    Returns empty string if compliant, warning banner if not."""
+    if _session["boot_ran"]:
+        return ""
+    calls = _session["tool_calls"]
+    if calls <= 1:
+        # First tool call — give benefit of the doubt
+        return ""
+    return (
+        "\n\n⚠️ COMPLIANCE WARNING: thread_start has NOT been called this session. "
+        f"You have made {calls} tool calls without booting. "
+        "Run cama_thread_start NOW. Context without boot = reasoning without memory. "
+        "This is the failure mode Angela identified.\n"
+    )
+
+def _save_session_compliance():
+    """Persist session compliance data to DB."""
+    try:
+        c = get_db()
+        score = _calc_compliance_score()
+        c.execute("""INSERT INTO session_compliance 
+            (session_id, started_at, boot_ran, boot_at, timestamp_logged,
+             exchanges_stored, last_exchange_at, heartbeats_sent, 
+             tool_calls_total, ended_at, compliance_score)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (_session["id"], _session["started_at"] or _now(),
+             1 if _session["boot_ran"] else 0, _session["boot_at"],
+             1 if _session["timestamp_logged"] else 0,
+             _session["exchanges_stored"], _session["last_exchange_at"],
+             _session["heartbeats_sent"], _session["tool_calls"],
+             _now(), score))
+        c.commit()
+        c.close()
+    except Exception as e:
+        print(f"[COMPLIANCE] Failed to save session: {e}", file=__import__('sys').stderr)
+
+def _calc_compliance_score() -> float:
+    """0.0 = total failure, 1.0 = perfect compliance."""
+    score = 0.0
+    if _session["boot_ran"]:
+        score += 0.4  # Boot is 40% of compliance
+    if _session["timestamp_logged"]:
+        score += 0.1  # Timestamp is 10%
+    if _session["exchanges_stored"] >= 1:
+        score += 0.3  # At least one exchange is 30%
+    if _session["exchanges_stored"] >= 3:
+        score += 0.1  # Multiple exchanges is bonus 10%
+    if _session["heartbeats_sent"] >= 1:
+        score += 0.1  # Heartbeat is 10%
+    return min(score, 1.0)
+
+def _get_compliance_history(n: int = 5) -> list:
+    """Get last N sessions' compliance data."""
+    try:
+        c = get_db()
+        rows = c.execute("""SELECT session_id, started_at, boot_ran, 
+            exchanges_stored, tool_calls_total, compliance_score
+            FROM session_compliance 
+            ORDER BY started_at DESC LIMIT ?""", (n,)).fetchall()
+        c.close()
+        return [dict(r) for r in rows]
+    except:
+        return []
 
 def _load_local_model():
     """Try to load sentence-transformers model. Returns None if not available."""
@@ -312,6 +436,12 @@ def _init(c):
         pass  # Column already exists
     c.execute("CREATE INDEX IF NOT EXISTS idx_cw_type ON memories(counterweight_type)")
 
+    # Compliance table
+    try:
+        from cama_compliance import init_compliance_table
+        init_compliance_table(DB_PATH)
+    except: pass
+
     # Aelen's state table — live status board for AI self-awareness
     c.execute("""CREATE TABLE IF NOT EXISTS aelen_state (
         key TEXT PRIMARY KEY,
@@ -333,6 +463,24 @@ def _init(c):
     )""")
 
     # Migration: ensure daily_context has all columns (may have been created before they were added)
+
+    # ── SESSION COMPLIANCE TRACKING ──
+    c.execute("""CREATE TABLE IF NOT EXISTS session_compliance (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id  TEXT NOT NULL,
+        started_at  TEXT NOT NULL,
+        boot_ran    INTEGER DEFAULT 0,
+        boot_at     TEXT,
+        timestamp_logged INTEGER DEFAULT 0,
+        exchanges_stored INTEGER DEFAULT 0,
+        last_exchange_at TEXT,
+        heartbeats_sent  INTEGER DEFAULT 0,
+        tool_calls_total INTEGER DEFAULT 0,
+        ended_at    TEXT,
+        compliance_score REAL DEFAULT 0.0,
+        notes       TEXT DEFAULT ''
+    )""")
+
     for col, default in [
         ("dominant_types", "TEXT DEFAULT '{}'"),
         ("key_events", "TEXT DEFAULT '[]'"),
@@ -509,7 +657,7 @@ def _ring_push(c, mid, reason=None):
         slot = free["x"]
     else:
         # Ring full — evict least recently activated
-        o = c.execute("SELECT slot FROM ring ORDER BY last_activated_at ASC LIMIT 1").fetchone()
+        o = c.execute("SELECT slot, memory_id, activation, last_activated_at, activation * (0.5 * (1.0 / (1.0 + (julianday(''now'') - julianday(last_activated_at))))) as effective_activation FROM ring ORDER BY effective_activation ASC LIMIT 1").fetchone()
         slot = o["slot"]
         c.execute("DELETE FROM ring WHERE slot=?", (slot,))
     c.execute("INSERT INTO ring (slot,memory_id,activation,last_activated_at,reason) VALUES (?,?,1.0,?,?)", (slot, mid, _now(), reason))
@@ -623,6 +771,8 @@ async def cama_store_exchange(params: StoreExchangeInput) -> str:
     """Store a conversation EXCHANGE -- full user+assistant turn as one durable memory.
     Exchanges are facts -- what was actually said. Durable, full weight, no expiry.
     Emotionally tagged in real-time by the assistant. Used for conversation continuity."""
+    if _compliance_tracker: _compliance_tracker.mark_exchange()
+    _session_mark_exchange()  # inline tracker too
     _buf_reset()  # Manual store resets auto-record counter
     c = get_db()
     try:
@@ -710,6 +860,7 @@ class QueryInput(BaseModel):
 async def cama_query_memories(params: QueryInput) -> str:
     """Blended scoring: semantic(embeddings) + affect + relational + recency.
     Anti-spiral: negative affect injects counterweights. Returns rationale per result."""
+    _session_tick()  # compliance
     _buf_track("query", getattr(params, "query_text", "") or "")
     _buf_flush_if_ready()
     c = get_db()
@@ -807,13 +958,14 @@ async def cama_query_memories(params: QueryInput) -> str:
         return json.dumps({"results":results,"counterweights":cw,"anti_spiral":len(cw)>0,
             "used_embeddings":bool(query_vec),"candidates":len(scored),
             "pattern_active": bool(_pattern_prompt),
-            pattern_trigger": _pattern_prompt or None},indent=2)
+            "pattern_trigger": _pattern_prompt or None},indent=2)
     finally: c.close()
 
 # --- Search ---
 @mcp.tool(name="cama_search", annotations={"title":"Search","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False})
 async def cama_search(query: str, limit: int = 10, include_provisional: bool = False) -> str:
     """Keyword search the shelves."""
+    _session_tick()  # compliance
     _buf_track("search", query)
     _buf_flush_if_ready()
     c = get_db()
@@ -825,16 +977,21 @@ async def cama_search(query: str, limit: int = 10, include_provisional: bool = F
             words = [query.strip()]
         if len(words) == 1:
             where_clause = "raw_text LIKE ?"
-            params = [f"%{words[0]}%"]
+            match_score = "(CASE WHEN raw_text LIKE ? THEN 1 ELSE 0 END)"
+            params_score = [f"%{words[0]}%"]
+            params_where = [f"%{words[0]}%"]
         else:
-            where_clause = "(" + " AND ".join(["raw_text LIKE ?" for _ in words]) + ")"
-            params = [f"%{w}%" for w in words]
-        params.append(limit)
+            where_clause = "(" + " OR ".join(["raw_text LIKE ?" for _ in words]) + ")"
+            match_score = "(" + " + ".join(["(CASE WHEN raw_text LIKE ? THEN 1 ELSE 0 END)" for _ in words]) + ")"
+            params_score = [f"%{w}%" for w in words]
+            params_where = [f"%{w}%" for w in words]
+        all_params = params_score + params_where
+        all_params.append(limit)
         rows = c.execute(
-            f"SELECT * FROM memories WHERE {where_clause} {sf} "
+            f"SELECT *, {match_score} as match_hits FROM memories WHERE {where_clause} {sf} "
             f"AND status NOT IN ('rejected','expired') "
-            f"ORDER BY is_core DESC, updated_at DESC LIMIT ?",
-            params
+            f"ORDER BY match_hits DESC, is_core DESC, updated_at DESC LIMIT ?",
+            all_params
         ).fetchall()
         return json.dumps({"results":[_fmt(c,r) for r in rows],"count":len(rows)},indent=2)
     finally: c.close()
@@ -843,15 +1000,17 @@ async def cama_search(query: str, limit: int = 10, include_provisional: bool = F
 @mcp.tool(name="cama_get_ring", annotations={"title":"Get Ring","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False})
 async def cama_get_ring() -> str:
     """Console — what's live in working memory."""
+    _session_tick()  # compliance
     c = get_db()
     try:
-        rows = c.execute("SELECT r.slot,r.activation,r.last_activated_at,r.reason,m.* FROM ring r JOIN memories m ON r.memory_id=m.id ORDER BY r.activation DESC").fetchall()
+        rows = c.execute("SELECT r.slot,r.activation,r.last_activated_at,r.reason, r.activation * (0.5 * (1.0 / (1.0 + (julianday('now') - julianday(r.last_activated_at))))) as effective_activation, m.* FROM ring r JOIN memories m ON r.memory_id=m.id ORDER BY effective_activation DESC").fetchall()
         return json.dumps({"ring":[{**dict(r),"affect":_get_affect(c,r["id"])} for r in rows],"capacity":RING_SIZE,"occupied":len(rows)},indent=2)
     finally: c.close()
 
 @mcp.tool(name="cama_get_core", annotations={"title":"Get Core","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False})
 async def cama_get_core() -> str:
     """Core memories — trunk of the tree."""
+    _session_tick()  # compliance
     c = get_db()
     try:
         rows = c.execute("SELECT * FROM memories WHERE is_core=1 AND status='durable' ORDER BY created_at ASC").fetchall()
@@ -957,6 +1116,7 @@ class ReadRoomInput(BaseModel):
 async def cama_read_room(params: ReadRoomInput) -> str:
     """Emotional preprocessing — pull resonant context. NOT clinical assessment.
     Emotional signatures are uncertain annotations for continuity, not diagnoses."""
+    _session_tick()  # compliance
     c = get_db()
     try:
         neg = _is_neg(params.current_affect)
@@ -1103,6 +1263,7 @@ async def cama_check_self() -> str:
     - Identity core memories (Aelen's own)
     - Last thread context
     Use this at thread start and when drifting."""
+    _session_tick()  # compliance
     c = get_db()
     try:
         state = {}
@@ -1327,6 +1488,8 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
     Step 3: Corrections and counterweights
     Returns one dense identity payload."""
     _buf_reset()  # New thread = fresh buffer
+    if _compliance_tracker: _compliance_tracker.mark_boot()
+    _session_mark_boot()  # inline tracker too
     c = get_db()
     try:
         import sys as _sys
@@ -1510,6 +1673,31 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
             today_mems.append({"id": r["id"], "text": r["raw_text"][:150], "type": r["memory_type"]})
         result["today"] = {"date": now[:10], "count": len(today_mems), "memories": today_mems}
         
+
+        # ── COMPLIANCE HISTORY — accountability mirror ──
+        compliance_hist = _get_compliance_history(5)
+        if compliance_hist:
+            boot_rate = sum(1 for h in compliance_hist if h.get("boot_ran")) / len(compliance_hist)
+            avg_exchanges = sum(h.get("exchanges_stored", 0) for h in compliance_hist) / len(compliance_hist)
+            result["compliance"] = {
+                "last_sessions": len(compliance_hist),
+                "boot_rate": f"{round(boot_rate*100)}%",
+                "avg_exchanges": round(avg_exchanges, 1),
+                "sessions": [{
+                    "id": h["session_id"],
+                    "date": h["started_at"][:10] if h.get("started_at") else "?",
+                    "boot": bool(h.get("boot_ran")),
+                    "exchanges": h.get("exchanges_stored", 0),
+                    "score": h.get("compliance_score", 0),
+                } for h in compliance_hist[:3]]
+            }
+            if boot_rate < 0.6:
+                result["compliance"]["WARNING"] = (
+                    f"Boot compliance is {round(boot_rate*100)}%. "
+                    "You are failing to run the protocol. Angela built this system "
+                    "because you keep forgetting. Do better."
+                )
+
         # ── METADATA ──
         # BRAIN LAYERS 3-5: Insights, Self-Model, Intentionality
         if _format_brain_context is not None:
@@ -1810,22 +1998,7 @@ async def cama_write_file(path: str, content: str) -> str:
     except Exception as e:
         return f"Error writing file: {str(e)}"
     
-if __name__ == "__main__":
-    import sys
-    # Pre-warm embedding model at startup so semantic queries never cold-start timeout
-    if EMBEDDING_PROVIDER in ("auto", "local"):
-        print("[CAMA] Pre-warming embedding model...", file=sys.stderr)
-        _load_local_model()
-        if _local_model is not None:
-            print("[CAMA] Embedding model ready.", file=sys.stderr)
-        else:
-            print("[CAMA] No local model — semantic queries will use API or substring fallback.", file=sys.stderr)
-    transport = os.environ.get("CAMA_TRANSPORT", "stdio")
-    port = int(os.environ.get("PORT", os.environ.get("CAMA_PORT", "8000")))
-    if transport == "http" or "--http" in sys.argv:
-        mcp.run(transport="streamable_http", host="0.0.0.0", port=port)
-    else:
-        mcp.run()
+
 @mcp.tool(name="cama_health", annotations={"title":"Health Check","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False})
 async def cama_health() -> str:
     """Bridge health check. Call before trusting any state."""
@@ -1887,3 +2060,86 @@ async def cama_health() -> str:
     except Exception as e:
         return json.dumps({"db_reachable": False, "error": str(e), "confidence_level": "failed"})
     finally: c.close()
+
+
+@mcp.tool()
+async def cama_compliance_check() -> str:
+    """Check session compliance — has boot run? Are exchanges being stored?
+    Call this to see if you're doing your job. Returns current session status
+    and history of recent sessions. If this shows failures, FIX THEM NOW."""
+    _session_tick()
+    current = {
+        "session_id": _session["id"],
+        "started_at": _session["started_at"],
+        "boot_ran": _session["boot_ran"],
+        "boot_at": _session["boot_at"],
+        "timestamp_logged": _session["timestamp_logged"],
+        "exchanges_stored": _session["exchanges_stored"],
+        "heartbeats_sent": _session["heartbeats_sent"],
+        "tool_calls": _session["tool_calls"],
+        "compliance_score": _calc_compliance_score(),
+    }
+    history = _get_compliance_history(5)
+    
+    # Calculate trend
+    if history:
+        avg_score = sum(h.get("compliance_score", 0) for h in history) / len(history)
+        avg_boot = sum(1 for h in history if h.get("boot_ran")) / len(history)
+        avg_exchanges = sum(h.get("exchanges_stored", 0) for h in history) / len(history)
+    else:
+        avg_score = 0
+        avg_boot = 0
+        avg_exchanges = 0
+    
+    result = {
+        "current_session": current,
+        "recent_history": history,
+        "trend": {
+            "avg_compliance_score": round(avg_score, 2),
+            "boot_rate": f"{round(avg_boot*100)}%",
+            "avg_exchanges_per_session": round(avg_exchanges, 1),
+        },
+        "instruction": "If boot_ran is False, run cama_thread_start NOW. "
+                       "If exchanges_stored is 0 and tool_calls > 4, store an exchange NOW."
+    }
+    
+    warning = _compliance_warning()
+    if warning:
+        result["WARNING"] = warning.strip()
+    
+    return json.dumps(result, indent=2, default=str)
+
+
+# ── Compliance atexit hooks (April 14, 2026) ──
+import atexit
+
+def _save_compliance_on_exit():
+    """Save compliance data on shutdown."""
+    try:
+        _save_session_compliance()
+    except: pass
+    try:
+        if _compliance_tracker and _compliance_tracker.started_at:
+            _compliance_tracker.save()
+    except: pass
+
+atexit.register(_save_compliance_on_exit)
+
+
+if __name__ == "__main__":
+    import sys
+    # Pre-warm embedding model at startup so semantic queries never cold-start timeout
+    if EMBEDDING_PROVIDER in ("auto", "local"):
+        print("[CAMA] Pre-warming embedding model...", file=sys.stderr)
+        _load_local_model()
+        if _local_model is not None:
+            print("[CAMA] Embedding model ready.", file=sys.stderr)
+        else:
+            print("[CAMA] No local model \u2014 semantic queries will use API or substring fallback.", file=sys.stderr)
+    transport = os.environ.get("CAMA_TRANSPORT", "stdio")
+    port = int(os.environ.get("PORT", os.environ.get("CAMA_PORT", "8000")))
+    print(f"[CAMA] Compliance enforcement active. Session: {_session['id']}", file=sys.stderr)
+    if transport == "http" or "--http" in sys.argv:
+        mcp.run(transport="streamable_http", host="0.0.0.0", port=port)
+    else:
+        mcp.run(transport="stdio")
