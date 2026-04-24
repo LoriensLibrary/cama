@@ -13,7 +13,7 @@ CAMA is a memory architecture designed for persistent state and emotional contin
 
 The system distinguishes between user-authored memories (durable, high-weight) and assistant-generated inferences (provisional, time-limited, requiring confirmation). This epistemic separation is a core design principle intended to prevent hallucinated self-knowledge from accumulating unchecked.
 
-CAMA currently holds 52,800+ memories across 13 relational entities with 52,800+ semantic embeddings, generated from over 100,000 messages of sustained human-AI interaction across multiple platforms and model families.
+CAMA currently holds 52,900+ memories across 13 relational entities with 52,900+ semantic embeddings. The imported corpus that seeded the system is drawn from 66,380 messages across 825 conversations of longitudinal human-AI interaction on existing platforms (the published dataset of Reinhold 2026d, DOI 10.5281/zenodo.19226509), spanning approximately two years prior to CAMA deployment in March 2026.
 
 ---
 
@@ -133,7 +133,7 @@ The following are qualitative observations from longitudinal use, not controlled
 
 2. **Retrieval accuracy under emotional context.** Keyword-based retrieval alone frequently fails to surface relevant memories when the user's current state is emotionally loaded but lexically sparse. The blended scoring formula was designed to address this, but its comparative performance against keyword-only retrieval has not been formally benchmarked.
 
-3. **Inference confirmation rates.** The system has generated 29,656 total inferences. Of those currently in provisional status, 4,586 remain pending confirmation. The low confirmation rate may indicate that the mechanism is too passive, that inferences are generated at too high a volume for meaningful review, or that the TTL window is too long.
+3. **Inference confirmation rates.** The system has generated 29,707 total inferences to date. Of those, 23,842 have been confirmed (promoted to durable), 5,858 have expired (TTL elapsed without confirmation), and 7 remain provisional at current count. The TTL-and-confirmation mechanism does resolve inferences at scale; questions about whether the confirmation rate is well-calibrated relative to inference generation volume remain open for formal study.
 
 4. **Teaching/inference boundary.** The write discipline appears to successfully prevent the system from promoting its own assumptions to durable status without user input. However, the degree to which this distinction meaningfully affects retrieval quality and behavioral consistency has not been isolated.
 
@@ -189,7 +189,7 @@ This work follows a qualitative-first, longitudinal case-study approach: sustain
 
 ---
 
-## Tools (35+)
+## Tools (34)
 
 **Memory Lifecycle:** cama_store_teaching, cama_store_inference, cama_store_exchange, cama_confirm_memory, cama_reject_memory, cama_delete_memory, cama_expire_stale
 
@@ -285,9 +285,9 @@ Embeddings are optional — the system includes a local embedding model and fall
 - Reinhold, A. (2026). *Memory-Aware AI Systems for Permanent Lunar and Martian Habitation.* Preprint. DOI: [10.5281/zenodo.19260574](https://doi.org/10.5281/zenodo.19260574)
 - Reinhold, A. (2026). *Provenance-Aware Memory Architecture for Chronic Healthcare Continuity.* Preprint. DOI: [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530)
 - Reinhold, A. (2026). *Haven: Persistent Emotional Companionship as Psychological Infrastructure.* Preprint. DOI: [10.5281/zenodo.19262778](https://doi.org/10.5281/zenodo.19262778)
-- Reinhold, A. (2026). *Applied Biological Substrate Concept for AI Cognition.* Preprint.
-- Reinhold, A. (2026). *Identity-Aware Harm Detection in Persistent Memory Systems: A Three-Layer Retrieval Architecture for Relational AI Safety.* Preprint.
-- Reinhold, A. (2026). *Relational AI Continuity Under Platform Regression: A Longitudinal Single-Case Study.* Preprint.
+- Reinhold, A. (2026). *Applied Biological Substrate Concept for AI Cognition.* Local draft (not yet deposited on Zenodo; included for program context only).
+- Reinhold, A. (2026). *Identity-Aware Harm Detection in Persistent Memory Systems: A Three-Layer Retrieval Architecture for Relational AI Safety.* Preprint. DOI: [10.5281/zenodo.19425218](https://doi.org/10.5281/zenodo.19425218)
+- Reinhold, A. (2026). *Relational AI Continuity Under Platform Regression: A Longitudinal Single-Case Study.* Preprint. DOI: [10.5281/zenodo.19582820](https://doi.org/10.5281/zenodo.19582820)
 
 ---
 
@@ -307,7 +307,7 @@ If referencing this work:
 
 The repository is organized around the core runtime, continuity infrastructure, safety systems, and import pipelines:
 
-- **cama_mcp.py**: primary MCP server and tool interface (35+ tools)
+- **cama_mcp.py**: primary MCP server and tool interface (34 tools)
 - **cama_compliance.py**: session compliance tracking and enforcement
 - **cama_hive.py / cama_hive_api.py**: cross-instance coordination layer
 - **cama_brain.py**: master orchestrator for insight, self-model, and sleep layers
