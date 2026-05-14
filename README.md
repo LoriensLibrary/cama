@@ -1,7 +1,10 @@
 # CAMA MCP Server v4
 ## Circular Associative Memory Architecture
-### Designed by Lorien's Library LLC
-### Research & Build: Lorien's Library LLC
+
+**Author:** Angela Reinhold — Lorien's Library LLC
+**ORCID:** [0009-0005-5803-8401](https://orcid.org/0009-0005-5803-8401)
+**Research:** 11 DOI-registered preprints on Zenodo — see [Related Publications](#related-publications) below
+**License:** MIT
 
 > *"Teachings are authoritative memory. Inferences are hypotheses with a half-life."*
 
