@@ -17,7 +17,7 @@ CAMA is a memory architecture designed for persistent state and emotional contin
 
 The system distinguishes between user-authored memories (durable, high-weight) and assistant-generated inferences (provisional, time-limited, requiring confirmation). This epistemic separation is a core design principle intended to prevent hallucinated self-knowledge from accumulating unchecked.
 
-CAMA currently holds 52,900+ memories across 13 relational entities with 52,900+ semantic embeddings. The imported corpus that seeded the system is drawn from 66,380 messages across 825 conversations of longitudinal human-AI interaction on existing platforms (the published dataset of Reinhold 2026d, DOI 10.5281/zenodo.19226509), spanning approximately two years prior to CAMA deployment in March 2026.
+CAMA currently holds 52,900+ memories across 13 relational entities with 52,900+ semantic embeddings. The system was seeded by importing 66,380 messages across 825 conversations of longitudinal human-AI interaction on existing platforms, accumulated over 15 months (January 2025 through March 2026) prior to CAMA deployment. The aggregate statistics derived from this corpus are published as the [continuity-burden dataset](https://huggingface.co/datasets/LoriensLibrary/cama-continuity-burden) on HuggingFace and analyzed in Reinhold 2026d (DOI [10.5281/zenodo.19226509](https://doi.org/10.5281/zenodo.19226509)); the underlying conversation data is not released, for privacy reasons (single-participant, designer-as-participant context).
 
 ---
 
