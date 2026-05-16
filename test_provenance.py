@@ -100,12 +100,39 @@ async def main() -> int:
     if not out.get("error"):
         failures.append("re-confirm of durable memory should error, got success")
 
+    # 5. Deleting a memory writes a deletion_audit row before the delete.
+    res = await m.cama_store_teaching(m.StoreTeachingInput(
+        raw_text="A throwaway teaching to delete.",
+        memory_type="fact",
+    ))
+    del_id = json.loads(res)["memory_id"]
+    await m.cama_delete_memory(del_id)
+    if _row(del_id) is not None:
+        failures.append("memory should be hard-deleted, still present")
+    c = sqlite3.connect(os.environ["CAMA_DB_PATH"])
+    c.row_factory = sqlite3.Row
+    try:
+        audit = c.execute(
+            "SELECT * FROM deletion_audit WHERE target_type='memory' AND target_id=?",
+            (del_id,),
+        ).fetchone()
+    finally:
+        c.close()
+    if audit is None:
+        failures.append("delete_memory did not write a deletion_audit row")
+    elif audit["deleted_by_tool"] != "cama_delete_memory":
+        failures.append(
+            f"audit row deleted_by_tool wrong: {audit['deleted_by_tool']!r}"
+        )
+    elif "throwaway" not in (audit["snippet"] or ""):
+        failures.append(f"audit row snippet missing content: {audit['snippet']!r}")
+
     if failures:
         print("PROVENANCE TEST FAILED:")
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("PROVENANCE TEST PASSED (4 checks)")
+    print("PROVENANCE TEST PASSED (5 checks)")
     return 0
 
 

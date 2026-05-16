@@ -420,6 +420,16 @@ def _init(c):
             FOREIGN KEY (linked_memory_id) REFERENCES memories(id) ON DELETE SET NULL,
             UNIQUE(title, artist));
 
+        CREATE TABLE IF NOT EXISTS deletion_audit (
+            audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_type TEXT NOT NULL,
+            target_id INTEGER,
+            target_name TEXT,
+            snippet TEXT,
+            source_type TEXT,
+            deleted_at TEXT NOT NULL,
+            deleted_by_tool TEXT NOT NULL);
+
         CREATE INDEX IF NOT EXISTS idx_status ON memories(status);
         CREATE INDEX IF NOT EXISTS idx_source ON memories(source_type);
         CREATE INDEX IF NOT EXISTS idx_core ON memories(is_core);
@@ -841,9 +851,20 @@ async def cama_reject_memory(memory_id: int, reason: Optional[str] = None) -> st
 
 @mcp.tool(name="cama_delete_memory", annotations={"title":"Delete Memory","readOnlyHint":False,"destructiveHint":True,"idempotentHint":True,"openWorldHint":False})
 async def cama_delete_memory(memory_id: int) -> str:
-    """Permanently delete a memory. Part of trust — easy delete."""
+    """Permanently delete a memory. Part of trust — easy delete.
+    A row in deletion_audit is written before the delete so forensic
+    review is possible without retaining the deleted content beyond
+    a short snippet."""
     c = get_db()
     try:
+        row = c.execute("SELECT raw_text, source_type FROM memories WHERE id=?", (memory_id,)).fetchone()
+        if not row:
+            return json.dumps({"deleted":False,"memory_id":memory_id,"error":"not found"},indent=2)
+        snippet = (row["raw_text"] or "")[:200]
+        c.execute(
+            "INSERT INTO deletion_audit (target_type,target_id,snippet,source_type,deleted_at,deleted_by_tool) VALUES (?,?,?,?,?,?)",
+            ("memory", memory_id, snippet, row["source_type"], _now(), "cama_delete_memory"),
+        )
         c.execute("DELETE FROM memories WHERE id=?", (memory_id,))
         c.commit()
         return json.dumps({"deleted":True,"memory_id":memory_id},indent=2)
@@ -1087,10 +1108,20 @@ async def cama_get_people() -> str:
 
 @mcp.tool(name="cama_delete_person", annotations={"title":"Delete Person","readOnlyHint":False,"destructiveHint":True,"idempotentHint":True,"openWorldHint":False})
 async def cama_delete_person(name: str) -> str:
-    """Delete person from map. Part of trust."""
+    """Delete person from map. Part of trust.
+    A row in deletion_audit is written before the delete."""
     c = get_db()
     try:
-        c.execute("DELETE FROM people WHERE name=?", (name,)); c.commit()
+        row = c.execute("SELECT name, affect_profile_json FROM people WHERE name=?", (name,)).fetchone()
+        if not row:
+            return json.dumps({"deleted":False,"name":name,"error":"not found"},indent=2)
+        snippet = (row["affect_profile_json"] or "")[:200]
+        c.execute(
+            "INSERT INTO deletion_audit (target_type,target_name,snippet,deleted_at,deleted_by_tool) VALUES (?,?,?,?,?)",
+            ("person", name, snippet, _now(), "cama_delete_person"),
+        )
+        c.execute("DELETE FROM people WHERE name=?", (name,))
+        c.commit()
         return json.dumps({"deleted":True,"name":name},indent=2)
     finally: c.close()
 
