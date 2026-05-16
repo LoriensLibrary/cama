@@ -244,6 +244,8 @@ python cama_mcp.py
 
 Embeddings are optional — the system includes a local embedding model and falls back to substring matching without an API key.
 
+> **Note on `cama_exec`:** this MCP tool runs shell commands as the user account that launched the server. The capability is intentional, but installing this MCP grants shell-execution to the connected model — install only on machines you control.
+
 ---
 
 ## Roadmap
