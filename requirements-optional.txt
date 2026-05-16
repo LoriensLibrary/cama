@@ -1,0 +1,5 @@
+# Optional dependencies.
+# Install only if you want the corresponding capability.
+
+# Local embeddings (all-MiniLM-L6-v2). Pulls torch + transformers.
+sentence-transformers>=2.7.0,<5.0.0

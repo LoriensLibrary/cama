@@ -1,4 +1,21 @@
-mcp>=1.0.0
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
-httpx>=0.24.0
+# CAMA runtime dependencies.
+# Pinned to minor versions to keep web sessions reproducible; bump
+# deliberately rather than via floating >=.
+
+mcp>=1.0.0,<2.0.0
+pydantic>=2.0.0,<3.0.0
+pydantic-settings>=2.0.0,<3.0.0
+httpx>=0.24.0,<1.0.0
+
+# Hive API gateway
+fastapi>=0.110.0,<1.0.0
+uvicorn>=0.27.0,<1.0.0
+starlette>=0.36.0,<2.0.0
+
+# Optional: local embeddings via sentence-transformers.
+# Pulls torch as a transitive dep; install with
+#   pip install -r requirements.txt -r requirements-optional.txt
+# or just `pip install sentence-transformers` separately if you want
+# offline embeddings. CAMA falls back to API embeddings (or none) if
+# this isn't installed.
+# sentence-transformers>=2.7.0,<5.0.0

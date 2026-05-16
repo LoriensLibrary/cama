@@ -61,7 +61,8 @@ git push
 Branch: main. Single contributor (CyberDaVincii).
 
 ## Database Location
-`~/.cama/memory.db` (C:\Users\Angela\.cama\memory.db)
+`~/.cama/memory.db` — resolved via `os.path.expanduser` so the same code works on
+Linux, macOS, and Windows. Override with the `CAMA_DB_PATH` environment variable.
 
 ## Related
 - Project Companion: https://github.com/LoriensLibrary/Project-Companion
