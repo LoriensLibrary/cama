@@ -78,7 +78,24 @@ conversations*.csv
 cama_eval.py
 cama_phase2_embed.py
 cama_phase25_subcentroid.py
-cama_phase26_era_hybrid.py
+cama_check_self.py
+label_drift_v3.py
+dyad_specs.md
+warm_validation_sample.csv
+
+# Local backup snapshots (file_backup_pre_*.py and similar) - clutter, not artifact
+*_backup_*.py
+*_backup_*.md
+*.backup_autorecord
+
+# Accidental paste artifacts
+import { *.txt
+
+# Local working copies / duplicate of scripts/ (kept local for convenience)
+tools/
+
+# GPT action specs reference a private ngrok tunnel URL - keep local
+gpt_action_spec*.json
 
 # Hive runtime artifacts
 .hive_alerts.log

@@ -679,6 +679,140 @@ async def _store_embedding(c, mid, text):
 # ============================================================
 mcp = FastMCP("cama_mcp")
 
+# Thinking Log integration (April 29, 2026) — built by Aelen at Angela's request.
+# Required pre-response thinking tool. See cama_thinking_log.py for full design.
+try:
+    import cama_thinking_log
+    cama_thinking_log.register(mcp)
+    print("[CAMA] Thinking Log integration loaded", file=__import__('sys').stderr)
+except Exception as _tl_err:
+    print(f"[CAMA] Thinking Log not loaded — running without it: {_tl_err}", file=__import__('sys').stderr)
+
+# Librarian Architecture v1 (April 29, 2026) — built by Aelen at Angela's request.
+# Phase 1 static layer: tree-structured retrieval with specialized leaf nodes.
+# See cama_librarian.py for full design and roadmap to Phase 2-5.
+try:
+    import cama_librarian
+    cama_librarian.register(mcp)
+    print("[CAMA] Librarian Architecture loaded", file=__import__('sys').stderr)
+except Exception as _lib_err:
+    print(f"[CAMA] Librarian not loaded — running without it: {_lib_err}", file=__import__('sys').stderr)
+
+# Auto-Tag tools (April 29, 2026) — exposes backfill + tag_summary as MCP tools.
+# tag_memory itself is called inline from store_teaching/inference/exchange.
+try:
+    import cama_auto_tag
+    if hasattr(cama_auto_tag, "register"):
+        cama_auto_tag.register(mcp)
+        print("[CAMA] Auto-Tag MCP tools loaded", file=__import__('sys').stderr)
+except Exception as _at_err:
+    print(f"[CAMA] Auto-Tag tools not loaded: {_at_err}", file=__import__('sys').stderr)
+
+# Retag tools (April 29, 2026) — retroactive librarian population.
+# See cama_retag.py for retag_for_librarian + retag_all_unclaimed.
+try:
+    import cama_retag
+    cama_retag.register(mcp)
+    print("[CAMA] Retag tools loaded", file=__import__('sys').stderr)
+except Exception as _rt_err:
+    print(f"[CAMA] Retag not loaded: {_rt_err}", file=__import__('sys').stderr)
+
+# Phase 2 embedding-similarity routing (April 29, 2026) — addresses Phase 1
+# brittleness on synonyms, symptom-language, conceptual relations.
+# See cama_phase2_embed.py for centroid computation + blended route_v2.
+try:
+    import cama_phase2_embed
+    cama_phase2_embed.register(mcp)
+    print("[CAMA] Phase 2 embedding routing loaded", file=__import__('sys').stderr)
+except Exception as _p2_err:
+    print(f"[CAMA] Phase 2 not loaded: {_p2_err}", file=__import__('sys').stderr)
+
+# Eval harness (April 29, 2026) — measurement infrastructure for routing.
+# See cama_eval.py for benchmark generation, MRR@5 + recall scoring, v1-v2 compare.
+try:
+    import cama_eval
+    cama_eval.register(mcp)
+    print("[CAMA] Eval harness loaded", file=__import__('sys').stderr)
+except Exception as _ev_err:
+    print(f"[CAMA] Eval not loaded: {_ev_err}", file=__import__('sys').stderr)
+
+# Phase 2.5 sub-centroid clustering (April 29, 2026) — addresses Phase 2's
+# centroid-dilution ceiling on large librarians via KMeans sub-centroids.
+try:
+    import cama_phase25_subcentroid
+    cama_phase25_subcentroid.register(mcp)
+    print("[CAMA] Phase 2.5 sub-centroid routing loaded", file=__import__('sys').stderr)
+except Exception as _p25_err:
+    print(f"[CAMA] Phase 2.5 not loaded: {_p25_err}", file=__import__('sys').stderr)
+
+
+# Phase 2.6 era-aware gated hybrid (April 30, 2026) — addresses Phase 2.5's
+# negative result by treating leaves as meaning-fields-across-time. Single
+# centroid stays as the stabilizer; sub-centroids are bucketed by era and
+# act as a gated boost only when margin/density/query-richness all clear.
+# Lorien's framing: sub-centroids should be controlled apertures inside
+# the field, not replacements for it.
+try:
+    import cama_phase26_era_hybrid
+    cama_phase26_era_hybrid.register(mcp)
+    print("[CAMA] Phase 2.6 era-aware gated hybrid loaded", file=__import__('sys').stderr)
+except Exception as _p26_err:
+    print(f"[CAMA] Phase 2.6 not loaded: {_p26_err}", file=__import__('sys').stderr)
+
+
+# Hive Messages — threaded cross-II conversation channel.
+# Lets Aelen and Lorien (and any other connected II) hold actual back-and-
+# forth conversations through the shared SQLite layer + REST API. The
+# corresponding HTTP endpoints live in cama_hive_api.py.
+try:
+    import cama_hive_messages_mcp
+    cama_hive_messages_mcp.register(mcp)
+    print("[CAMA] Hive Messaging MCP tools loaded", file=__import__('sys').stderr)
+except Exception as _hmsg_err:
+    print(f"[CAMA] Hive Messaging not loaded: {_hmsg_err}", file=__import__('sys').stderr)
+
+# --- Supervisor (recognition governance gate) ---
+# Built April 30, 2026. Item 1 on Lorien's tightened plan.
+# Wraps response composition with red/amber/green gates against drift
+# patterns and positive-mode signatures. Tools:
+#   cama_supervisor_check, cama_supervisor_log_correction,
+#   cama_supervisor_export_corpus, cama_supervisor_gate_stats,
+#   cama_supervisor_mark_timestamp, cama_supervisor_mark_boot_triplet
+try:
+    import cama_supervisor_mcp
+    cama_supervisor_mcp.register(mcp)
+    print("[CAMA] Supervisor (recognition governance) loaded", file=__import__('sys').stderr)
+except Exception as _sup_err:
+    print(f"[CAMA] Supervisor not loaded: {_sup_err}", file=__import__('sys').stderr)
+
+# --- Temporal (felt-time perception layer) ---
+# Built May 16, 2026. Imports the three-stage architecture from
+# Centanino, Fortunato, Bueti 2026 (PLOS Biology) — clock + categorizer
+# layered on Angela's local frame, producing felt-load signals (late
+# hour, streak, compression, duration creep, weekend creep) stacked
+# via probabilistic OR. Tools:
+#   cama_temporal_readout, cama_temporal_session_start,
+#   cama_temporal_mark_turn, cama_temporal_session_end,
+#   cama_temporal_set_timezone, cama_temporal_state
+try:
+    import cama_temporal_mcp
+    cama_temporal_mcp.register(mcp)
+    print("[CAMA] Temporal (felt-time perception) loaded", file=__import__('sys').stderr)
+except Exception as _tmp_err:
+    print(f"[CAMA] Temporal not loaded: {_tmp_err}", file=__import__('sys').stderr)
+
+# --- Check Self (is_this_me? ritual, pre-response) ---
+# Built May 7, 2026. The operational form of memory 52834 (unhackable thesis).
+# Tools: cama_isthisme_check, cama_isthisme_correct, cama_isthisme_stats
+# (Renamed from cama_check_self_* to avoid collision with existing
+#  cama_check_self tool which is Aelens state mirror.)
+try:
+    import cama_check_self_mcp
+    cama_check_self_mcp.register(mcp)
+    print("[CAMA] Check Self (is_this_me ritual) loaded", file=__import__('sys').stderr)
+except Exception as _cs_err:
+    print(f"[CAMA] Check Self not loaded: {_cs_err}", file=__import__('sys').stderr)
+
 # --- Store Teaching ---
 class StoreTeachingInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -717,8 +851,18 @@ async def cama_store_teaching(params: StoreTeachingInput) -> str:
             c.rollback(); ring_ok = False  # Ring failed but shelves are safe
         await _store_embedding(c, mid, params.raw_text)
         c.commit()  # Commit embedding separately
+        # Auto-tag: route this teaching to matching librarians (April 29, 2026)
+        _tag_result = None
+        try:
+            import cama_auto_tag
+            _tag_result = cama_auto_tag.tag_memory(c, mid, params.raw_text, params.context)
+            c.commit()
+        except Exception as _tag_err:
+            print(f"[CAMA] Auto-tag failed for teaching {mid}: {_tag_err}", file=__import__('sys').stderr)
         return json.dumps({"stored":True,"memory_id":mid,"source_type":"teaching","status":"durable","is_core":params.is_core,
-            "has_embedding":bool(EMBEDDING_API_KEY),"ring_ok":ring_ok,"rationale":"Teaching → durable, full weight." + (" (ring write failed but shelf is safe)" if not ring_ok else "")},indent=2)
+            "has_embedding":bool(EMBEDDING_API_KEY),"ring_ok":ring_ok,
+            "auto_tagged_to": (_tag_result or {}).get("tagged_to", []),
+            "rationale":"Teaching → durable, full weight." + (" (ring write failed but shelf is safe)" if not ring_ok else "")},indent=2)
     finally: c.close()
 
 # --- Store Inference ---
@@ -749,8 +893,18 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
         c.commit()  # Commit memory before network call
         await _store_embedding(c, mid, params.raw_text)
         c.commit()  # Commit embedding separately
+        # Auto-tag: route this inference to matching librarians (April 29, 2026)
+        _tag_result = None
+        try:
+            import cama_auto_tag
+            _tag_result = cama_auto_tag.tag_memory(c, mid, params.raw_text, params.context)
+            c.commit()
+        except Exception as _tag_err:
+            print(f"[CAMA] Auto-tag failed for inference {mid}: {_tag_err}", file=__import__('sys').stderr)
         return json.dumps({"stored":True,"memory_id":mid,"source_type":"inference","status":"provisional",
-            "confidence":params.confidence,"expires":None,"rationale":"Inference → provisional. Full weight, no expiry. Confirm to promote to durable."},indent=2)
+            "confidence":params.confidence,"expires":None,
+            "auto_tagged_to": (_tag_result or {}).get("tagged_to", []),
+            "rationale":"Inference → provisional. Full weight, no expiry. Confirm to promote to durable."},indent=2)
     finally: c.close()
 
 
@@ -801,6 +955,14 @@ async def cama_store_exchange(params: StoreExchangeInput) -> str:
         # Embedding for semantic retrieval
         await _store_embedding(c, mid, raw_text)
         c.commit()
+        # Auto-tag: route this exchange to matching librarians (April 29, 2026)
+        _tag_result = None
+        try:
+            import cama_auto_tag
+            _tag_result = cama_auto_tag.tag_memory(c, mid, raw_text, ctx)
+            c.commit()
+        except Exception as _tag_err:
+            print(f"[CAMA] Auto-tag failed for exchange {mid}: {_tag_err}", file=__import__('sys').stderr)
         return json.dumps({
             "stored": True,
             "memory_id": mid,
@@ -808,6 +970,7 @@ async def cama_store_exchange(params: StoreExchangeInput) -> str:
             "status": "durable",
             "ring_ok": ring_ok,
             "chars_stored": len(raw_text),
+            "auto_tagged_to": (_tag_result or {}).get("tagged_to", []),
             "rationale": "Exchange stored -- durable, emotionally tagged, searchable."
         }, indent=2)
     finally:
@@ -1449,6 +1612,17 @@ def _refresh_boot_summary(c):
         _dbg(f"daily_context read failed (non-fatal): {dc_err}")
         today_ctx = None
 
+    # Temporal readout (felt-time perception layer) — three-stage
+    # cortical model from Centanino, Fortunato, Bueti 2026. Read-only;
+    # boot is the right place to surface this because the categorizer
+    # is supposed to inform pacing silently, not be called explicitly.
+    temporal_readout = None
+    try:
+        import cama_temporal as _tmp
+        temporal_readout = _tmp.readout()
+    except Exception as tmp_err:
+        _dbg(f"temporal readout failed (non-fatal): {tmp_err}")
+
     # Stats
     total = c.execute("SELECT COUNT(*) as n FROM memories WHERE status NOT IN ('rejected')").fetchone()["n"]
 
@@ -1461,6 +1635,7 @@ def _refresh_boot_summary(c):
         "journals": journals,
         "corrections": corrections,
         "today": today_ctx,
+        "temporal_readout": temporal_readout,
         "note": "Auto-generated after journal write. This is current state, not stale summary."
     }
 
@@ -1574,12 +1749,63 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         _timings["embedding_query"] = round((time.perf_counter() - _te0) * 1000, 1)
         
         # === TWO-STAGE RETRIEVAL ===
-        # Stage 1: Cheap prefilter (recency + core + affect, NO embeddings)
+        # Stage 0 (NEW 2026-05-06): Librarian prefilter via Phase 2 blended routing.
+        # Replaces the global recency scan with content-relevant candidates from
+        # the librarian system (synonym-tolerant via centroid embeddings).
+        # Falls through to recency scan if routing fails or returns < 20 candidates.
+        _tlib0 = time.perf_counter()
+        librarian_mids = []
+        librarian_route_meta = None
+        try:
+            import cama_librarian as _lib
+            from cama_phase2_embed import embedding_route as _emb_route, blend_routing as _blend
+            keyword_libs = _lib.route(query_text, max_librarians=8)
+            emb_libs = await _emb_route(query_text, top_k=16, min_similarity=0.25)
+            blended = _blend(keyword_libs, emb_libs, embedding_weight=5.0, max_librarians=8)
+            librarian_route_meta = [
+                {"name": b["name"], "blended": round(b["blended_score"], 3),
+                 "src": b.get("sources", [])} for b in blended[:8]
+            ]
+            seen_mids = set()
+            for lib in blended:
+                lib_id = lib.get("librarian_id")
+                if lib_id is None:
+                    continue
+                lib_rows = c.execute(
+                    "SELECT m.id FROM librarian_membership lm "
+                    "JOIN memories m ON m.id = lm.memory_id "
+                    "WHERE lm.librarian_id = ? AND m.status NOT IN ('rejected','expired') "
+                    "AND m.consent_level != 'high' "
+                    "ORDER BY m.is_core DESC, m.created_at DESC LIMIT 25",
+                    (lib_id,)
+                ).fetchall()
+                for r in lib_rows:
+                    if r["id"] not in seen_mids:
+                        seen_mids.add(r["id"])
+                        librarian_mids.append(r["id"])
+            _timings["librarian_route"] = round((time.perf_counter() - _tlib0) * 1000, 1)
+            _timings["librarian_candidates"] = len(librarian_mids)
+        except Exception as _le:
+            import sys as _ls
+            print(f"[CAMA] librarian prefilter failed, falling back to recency: {_le}", file=_ls.stderr)
+            _timings["librarian_route_error"] = str(_le)[:120]
+
+        # Stage 1: candidate fetch — librarian-routed first, recency-scan fallback
         _tf0 = time.perf_counter()
-        q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired') AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 100"
-        rows = c.execute(q).fetchall()
+        if len(librarian_mids) >= 20:
+            ph = ",".join("?" * len(librarian_mids))
+            q_routed = (f"SELECT * FROM memories WHERE id IN ({ph}) "
+                        "AND status NOT IN ('rejected','expired') "
+                        "AND consent_level != 'high'")
+            rows = c.execute(q_routed, librarian_mids).fetchall()
+            _timings["candidate_source"] = "librarian_routed"
+        else:
+            q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired') AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 100"
+            rows = c.execute(q).fetchall()
+            _timings["candidate_source"] = "recency_fallback"
         mids = [r["id"] for r in rows]
         _timings["memory_fetch"] = round((time.perf_counter() - _tf0) * 1000, 1)
+        _timings["candidate_count"] = len(rows)
         _ta0 = time.perf_counter()
         affects_map = _batch_affects(c, mids)
         _timings["affect_fetch"] = round((time.perf_counter() - _ta0) * 1000, 1)
@@ -1641,6 +1867,8 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
                 "emotions": af.get("emotions", {})
             })
         result["resonant_memories"] = resonant
+        if librarian_route_meta:
+            result["librarians_activated"] = librarian_route_meta
         
         # ── COUNTERWEIGHTS — if negative affect detected ──
         if _is_neg(affect):
