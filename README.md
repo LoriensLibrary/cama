@@ -343,6 +343,56 @@ The published evidence base for the regression-analysis paper, plus three benchm
 
 ---
 
+## Stability and Reproducibility Boundary
+
+CAMA grew fast and is best understood in tiers. A skeptical reviewer should be able to draw a line between *what they can rely on* and *what's actively under research*.
+
+### Stable core (the part the README's claims rest on)
+- Three-layer schema (SHELVES / RACKS / CONSOLE) — pinned by the test suite
+- Provenance contract: `source_type` / `status` / `proposed_by` / `counterweight_type` columns + their NOT NULL + default behavior
+- Memory lifecycle MCP tools: `store_teaching`, `store_inference`, `store_exchange`, `confirm`, `reject`, `delete`, `expire_stale`
+- Retrieval scoring formula: blended `semantic + affect + relational + recency` with counterweight injection on strongly-negative valence
+- The 27 safety-benchmark sub-tests in `safety_benchmarks.py` + the most recent `benchmark_results.json`
+
+### Experimental modules (auto-load via `try/except` in cama_mcp; absent on a fresh clone = graceful no-op)
+- Thinking Log (`cama_thinking_log.py`) — pre-response thinking tool
+- Librarian Architecture (`cama_librarian.py`) — Phase 1 tree-structured retrieval
+- Auto-Tag (`cama_auto_tag.py`) and Retag (`cama_retag.py`) — tag-on-write + retroactive backfill
+- Phase 2.6 era-aware hybrid routing (`cama_phase26_era_hybrid.py`)
+- Hive messaging (`cama_hive_messages.py`, `cama_hive_messages_mcp.py`) — cross-II coordination
+- Supervisor (`cama_supervisor.py`, `cama_supervisor_mcp.py`)
+- Temporal layer (`cama_temporal.py`, `cama_temporal_mcp.py`) — newest; built 2026-05-16; expect rough edges
+- `cama_v2.py` — secondary MCP server addressing warm-register flattening
+
+### Tested in CI (`tests/` + `.github/workflows/ci.yml`)
+- Schema integrity (all 12 documented tables, idempotent re-init)
+- Provenance defaults + NOT NULL contract
+- Status-weight, recency-decay, `_is_neg`, `_now` / `_parse_t` round-trip
+- Anti-spiral counterweight schema round-trip
+
+### Not yet in CI (open as issue [#3](https://github.com/LoriensLibrary/cama/issues/3))
+- Behavior tests for the experimental modules above
+- The benchmark suites in `benchmark_continuity.py` / `benchmark_counterweight.py` / `benchmark_stale.py` run locally; result JSONs are committed but the suites themselves aren't wired into CI yet
+
+### Local-only (kept out of the public repo, on purpose)
+- `cama_eval.py`, `cama_phase2_embed.py`, `cama_phase25_subcentroid.py`, `cama_check_self.py`, `label_drift_v3.py`, `dyad_specs.md`, `warm_validation_sample.csv` — these reference real individuals by name in their evaluation fixtures
+- The raw private corpus (66,380-message single-participant accumulation, January 2025 – March 2026) and the live `~/.cama/memory.db` — never tracked
+- User-specific identity sentinel configs (`cama_librarians.py`) — architecture documented in the paper; the file itself stays local
+
+### Public reproducibility surface
+- All source code published here
+- 15-test pytest suite + green CI badge (the contract)
+- 5 benchmark scripts + 2 committed result JSONs (the methodology)
+- Aggregate statistics dataset on [HuggingFace](https://huggingface.co/datasets/LoriensLibrary/cama-continuity-burden) — derived from the private corpus
+- 11 DOI-registered preprints linked from this README
+
+### Planned (issues are open if you want to track)
+- `pyproject.toml` for `pip install -e .` ([#1](https://github.com/LoriensLibrary/cama/issues/1))
+- `Dockerfile` + seeded synthetic demo DB for end-to-end fork-and-run ([#2](https://github.com/LoriensLibrary/cama/issues/2))
+- CI coverage for the experimental subsystems ([#3](https://github.com/LoriensLibrary/cama/issues/3))
+
+---
+
 ## Setup
 
 Requires Python 3.10+
