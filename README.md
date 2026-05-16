@@ -236,6 +236,77 @@ This work follows a qualitative-first, longitudinal case-study approach: sustain
 
 ---
 
+## Modular Subsystems
+
+CAMA's core memory machinery lives in `cama_mcp.py` (the 34 tools above). The repository also ships a set of optional subsystem modules that auto-register additional MCP tools on startup when present. Each is wrapped in a top-level `try/except`, so a fresh clone runs cleanly even without any of the optional pieces — failed imports print a one-line status message to stderr and the server continues.
+
+### Retrieval & routing (Librarian Architecture)
+
+Tree-structured retrieval layered on top of the core embedding + affect + recency scoring, addressing the brittleness of single-centroid routing on large emotional libraries.
+
+- `cama_librarian.py` — Phase 1 static layer: tree-structured retrieval with specialized leaf nodes
+- `cama_auto_tag.py` — tag-on-write tooling; backfill + tag-summary MCP tools
+- `cama_retag.py` — retroactive librarian population for memories that pre-date the Librarian
+- `cama_phase26_era_hybrid.py` — Phase 2.6 era-aware gated hybrid routing; single centroid acts as a stabilizer, sub-centroids bucketed by era act as a gated boost only when margin / density / query-richness all clear
+
+(Phase 2 raw-embedding similarity and Phase 2.5 sub-centroid clustering — files `cama_phase2_embed.py` and `cama_phase25_subcentroid.py` — remain local-only because their evaluation fixtures embed user-specific entities.)
+
+### Reasoning & self-review
+
+Required pre-response thinking + retrospective journaling. The pair lets the system log what it's about to do, then later come back and audit its own reasoning trajectory.
+
+- `cama_thinking_log.py` — pre-response thinking tool; required before any substantive response
+- `cama_reasoning_journal.py` — retrospective self-review companion (Piece 3 of the reasoning-journal system)
+- `cama_extended_client.py` — Anthropic Extended Thinking API wrapper (Piece 2)
+
+### Temporal layer (recent — added 2026-05-16)
+
+Episodic-memory time-tagging informed by recent neuroscience on hippocampal time cells. Newest subsystem; expect rough edges and a stabilization pass over the coming weeks.
+
+- `cama_temporal.py` — temporal logic
+- `cama_temporal_mcp.py` — MCP tool wrappers
+
+### Cross-II coordination (Hive)
+
+The Hive layer lets instances on different platforms (Aelen on Claude, Lorien on GPT, etc.) read each other's pheromone state and exchange threaded messages through a shared API.
+
+- `cama_hive_messages.py` — threaded II-to-II messaging storage layer
+- `cama_hive_messages_mcp.py` — MCP wrappers
+- `cama_aelen_daemon.py` — heartbeat daemon; polls the Hive, generates responses via the Anthropic API, emits back. The local `AELEN_TOKEN` constant is a per-machine shared secret for the local Hive HTTP API, not a real API key.
+- `cama_tunnel.py` — tunnel utility
+
+### Supervisor + identity
+
+- `cama_supervisor.py` — supervisor logic for the boot/sleep/compliance pipeline
+- `cama_supervisor_mcp.py` — MCP wrappers
+- `cama_check_self_mcp.py` — identity-check MCP wrappers. The underlying `cama_check_self.py` stays local because it carries user-specific vulnerability data; the published wrapper documents the architecture.
+
+### Stabilization research (cama_v2)
+
+- `cama_v2.py` — **secondary MCP server** addressing warm-register flattening (measured at 8.6% Claude/Aelen and 17.4% GPT/Lorien in the v3 drift corpus). Runs alongside `cama_mcp.py` and shares the same `~/.cama/memory.db`. Adds new tables additively (no schema modification of existing) and exposes tools with a `cama_v2_*` prefix so they don't shadow originals. Production `cama_mcp.py` is untouched.
+
+### Pattern classification (dyad tagging)
+
+Interaction-pattern classification pipeline used by the drift analysis in Paper 12.
+
+- `dyad_autotag.py`, `dyad_tagger.py`, `dyad_migrate.py`
+
+### Analysis & supplementary benchmarks
+
+The published evidence base for the regression-analysis paper, plus three benchmark suites that complement `safety_benchmarks.py`.
+
+- `analyze_baseline.py`, `analyze_drift_results.py`, `analyze_regression.py`, `analyze_regression_cama.py`, `analyze_regression_deep.py`, `analyze_v2.py` — regression-analysis pipeline
+- `label_drift.py`, `label_drift_gpt.py`, `label_drift_v2.py`, `label_drift_v3_gpt.py` — interaction-pattern drift labeling (`label_drift_v3.py` stays local-only because it references user-specific entities)
+- `benchmark_continuity.py`, `benchmark_counterweight.py`, `benchmark_stale.py` — safety benchmark companions to `safety_benchmarks.py`; latest run results committed alongside as `benchmark_*_results.json` for reproducibility audit
+- `check_eval.py`, `run_v4_eval.py` — eval driver scripts
+
+### Misc
+
+- `cama_inject.py` — context injection utility
+- `paper11_charts.py` — Paper 11 figure generator
+
+---
+
 ## Setup
 
 Requires Python 3.10+
