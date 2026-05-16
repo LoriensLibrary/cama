@@ -64,6 +64,42 @@ CAMA is designed as a research platform for studying and mitigating these risks.
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    subgraph WRITE[Write path]
+        direction TB
+        U([User]) -->|teaching| ST[cama_store_teaching]
+        A([Assistant]) -->|inference| SI[cama_store_inference]
+        ST --> SH
+        SI --> SH
+        SH[(SHELVES<br/>immutable<br/>archive)]
+        SH -.affect chord.-> AFF[(memory_affect)]
+        SH -.embeddings.-> EMB[(memory_embeddings)]
+        SH -.edges.-> RACK[(RACKS<br/>relational<br/>graph)]
+    end
+
+    subgraph READ[Read path]
+        direction TB
+        Q([Query]) --> SCORE{Blended score<br/>0.45 semantic<br/>+ 0.25 affect<br/>+ 0.15 relational<br/>+ 0.15 recency}
+        SCORE --> RES[Top-K results]
+        SCORE -.strongly neg<br/>valence.-> CW[Counterweight<br/>injection]
+        CW --> RES
+        RES --> RING[(CONSOLE<br/>30-slot<br/>active ring)]
+    end
+
+    AFF -.-> SCORE
+    EMB -.-> SCORE
+    RACK -.-> SCORE
+    SH -.-> SCORE
+
+    classDef store fill:#1e293b,stroke:#60a5fa,color:#e0e7ff
+    classDef tool fill:#0f172a,stroke:#a78bfa,color:#e0e7ff
+    classDef io fill:#0f172a,stroke:#65d9a8,color:#e0e7ff
+    class SH,AFF,EMB,RACK,RING store
+    class ST,SI,SCORE,CW,RES tool
+    class U,A,Q io
+```
+
 ### Three Layers
 
 | Layer | Function | Formal Equivalent |
