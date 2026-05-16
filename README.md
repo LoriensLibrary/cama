@@ -15,6 +15,23 @@
 
 ---
 
+## Start Here
+
+**What this is:** a local Python MCP server implementing provenance-aware persistent memory for human-AI interaction. Runs on Windows + Claude Desktop; embedded SQLite database; 34 MCP tools.
+
+**What it demonstrates:** memory write discipline (teaching vs. inference separation), blended retrieval scoring (semantic + affect + relational + recency), counterweight injection on strongly-negative affect, an automated safety benchmark suite, and a local web dashboard.
+
+**What it does NOT claim:** generalizable multi-user evidence. This is an **N=1, single-participant, designer-as-participant** deployment — see [Scope and Limitations](#scope-and-limitations) before drawing conclusions about generalization.
+
+**Quickstart:** `pip install -r requirements.txt && python cama_mcp.py`. See [Setup](#setup) for the Claude Desktop MCP config. Run `pytest tests/` to exercise the schema + provenance contract.
+
+**Reviewing for a role?**
+- **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `safety_benchmarks.py` (27 sub-tests, 100% pass rate, see `benchmark_results.json`).
+- **Healthcare AI / chronic-care continuity:** see Paper 7 (DOI [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530)) and the applied prototype at [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos).
+- **Software engineering:** the [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos) prototype is the strongest applied artifact (React 19 + TS + Vercel + Neon, 34 passing tests).
+
+---
+
 ## Overview
 
 CAMA is a memory architecture designed for persistent state and emotional continuity in human-AI interaction. It provides structured long-term memory to AI systems through three functional layers: an immutable archive, a relational index organized by emotional signature, and a bounded working memory buffer.
