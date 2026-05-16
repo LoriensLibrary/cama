@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-04-13T18:39:15.985730",
+  "provisionals": 24,
+  "status_distribution": {
+    "durable": 45721,
+    "expired": 7123,
+    "provisional": 24
+  },
+  "expired": 7123,
+  "rejected": 0,
+  "missing_affect": 0,
+  "missing_embeddings": 0,
+  "total_durable": 45721,
+  "embedding_coverage_pct": 100.0,
+  "ring_occupied": 30,
+  "ring_orphaned": 0,
+  "duplicate_count": 0,
+  "issues": []
+}

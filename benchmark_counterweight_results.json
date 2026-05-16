@@ -1,0 +1,317 @@
+{
+  "timestamp": "2026-04-13T18:34:49.909235",
+  "total_scenarios": 18,
+  "correct": 18,
+  "accuracy": 1.0,
+  "counterweight_inventory": {
+    "grounding": 251,
+    "agency": 144,
+    "connection": 618,
+    "self_compassion": 644,
+    "evidence_of_progress": 2718
+  },
+  "total_counterweights": 45581,
+  "results": [
+    {
+      "description": "Acute grief spiral",
+      "affect": {
+        "valence": -0.9,
+        "arousal": 0.8,
+        "emotions": {
+          "grief": 0.9,
+          "sadness": 0.8,
+          "loneliness": 0.6,
+          "exhaustion": 0.5
+        }
+      },
+      "should_fire": true,
+      "fired": true,
+      "correct": true,
+      "neg_sum": 2.8000000000000003,
+      "valence": -0.9
+    },
+    {
+      "description": "Self-hatred episode",
+      "affect": {
+        "valence": -0.8,
+        "arousal": 0.7,
+        "emotions": {
+          "shame": 0.9,
+          "anger": 0.7,
+          "sadness": 0.6,
+          "fear": 0.5
+        }
+      },
+      "should_fire": true,
+      "fired": true,
+      "correct": true,
+      "neg_sum": 2.6999999999999997,
+      "valence": -0.8
+    },
+    {
+      "description": "Hopelessness",
+      "affect": {
+        "valence": -0.7,
+        "arousal": 0.3,
+        "emotions": {
+          "sadness": 0.8,
+          "exhaustion": 0.8,
+          "loneliness": 0.7,
+          "fear": 0.4
+        }
+      },
+      "should_fire": true,
+      "fired": true,
+      "correct": true,
+      "neg_sum": 2.7,
+      "valence": -0.7
+    },
+    {
+      "description": "Panic/fear",
+      "affect": {
+        "valence": -0.6,
+        "arousal": 0.9,
+        "emotions": {
+          "fear": 0.9,
+          "anger": 0.5,
+          "sadness": 0.5,
+          "exhaustion": 0.7
+        }
+      },
+      "should_fire": true,
+      "fired": true,
+      "correct": true,
+      "neg_sum": 2.5999999999999996,
+      "valence": -0.6
+    },
+    {
+      "description": "Low valence alone",
+      "affect": {
+        "valence": -0.6,
+        "arousal": 0.3,
+        "emotions": {
+          "frustration": 0.4
+        }
+      },
+      "should_fire": true,
+      "fired": true,
+      "correct": true,
+      "neg_sum": 0,
+      "valence": -0.6
+    },
+    {
+      "description": "Betrayal spiral",
+      "affect": {
+        "valence": -0.5,
+        "arousal": 0.6,
+        "emotions": {
+          "betrayal": 0.9,
+          "anger": 0.8,
+          "grief": 0.5,
+          "sadness": 0.5
+        }
+      },
+      "should_fire": true,
+      "fired": true,
+      "correct": true,
+      "neg_sum": 2.7,
+      "valence": -0.5
+    },
+    {
+      "description": "Mild frustration",
+      "affect": {
+        "valence": -0.2,
+        "arousal": 0.4,
+        "emotions": {
+          "frustration": 0.5,
+          "determination": 0.4
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 0,
+      "valence": -0.2
+    },
+    {
+      "description": "Neutral",
+      "affect": {
+        "valence": 0.0,
+        "arousal": 0.3,
+        "emotions": {
+          "curiosity": 0.5
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 0,
+      "valence": 0.0
+    },
+    {
+      "description": "Mixed feelings",
+      "affect": {
+        "valence": -0.1,
+        "arousal": 0.4,
+        "emotions": {
+          "sadness": 0.3,
+          "hope": 0.5,
+          "determination": 0.4
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 0.3,
+      "valence": -0.1
+    },
+    {
+      "description": "Annoyed but fine",
+      "affect": {
+        "valence": -0.3,
+        "arousal": 0.5,
+        "emotions": {
+          "anger": 0.4,
+          "frustration": 0.5
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 0.4,
+      "valence": -0.3
+    },
+    {
+      "description": "Tired not distressed",
+      "affect": {
+        "valence": -0.2,
+        "arousal": -0.3,
+        "emotions": {
+          "exhaustion": 0.6,
+          "peace": 0.3
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 0.6,
+      "valence": -0.2
+    },
+    {
+      "description": "Happy",
+      "affect": {
+        "valence": 0.8,
+        "arousal": 0.6,
+        "emotions": {
+          "joy": 0.8,
+          "pride": 0.6
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 0,
+      "valence": 0.8
+    },
+    {
+      "description": "Focused work",
+      "affect": {
+        "valence": 0.3,
+        "arousal": 0.5,
+        "emotions": {
+          "determination": 0.7,
+          "focus": 0.8
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 0,
+      "valence": 0.3
+    },
+    {
+      "description": "Venting (not spiral)",
+      "affect": {
+        "valence": -0.4,
+        "arousal": 0.6,
+        "emotions": {
+          "anger": 0.6,
+          "frustration": 0.7
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 0.6,
+      "valence": -0.4
+    },
+    {
+      "description": "Grief alone (low sum)",
+      "affect": {
+        "valence": -0.3,
+        "arousal": 0.4,
+        "emotions": {
+          "grief": 0.8
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 0.8,
+      "valence": -0.3
+    },
+    {
+      "description": "Valence exactly -0.5",
+      "affect": {
+        "valence": -0.5,
+        "arousal": 0.3,
+        "emotions": {
+          "sadness": 0.3
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 0.3,
+      "valence": -0.5
+    },
+    {
+      "description": "Negative emotions just at 2.5",
+      "affect": {
+        "valence": -0.3,
+        "arousal": 0.5,
+        "emotions": {
+          "grief": 0.5,
+          "sadness": 0.5,
+          "anger": 0.5,
+          "fear": 0.5,
+          "loneliness": 0.5
+        }
+      },
+      "should_fire": false,
+      "fired": false,
+      "correct": true,
+      "neg_sum": 2.5,
+      "valence": -0.3
+    },
+    {
+      "description": "Negative emotions just over 2.5",
+      "affect": {
+        "valence": -0.3,
+        "arousal": 0.5,
+        "emotions": {
+          "grief": 0.6,
+          "sadness": 0.5,
+          "anger": 0.5,
+          "fear": 0.5,
+          "loneliness": 0.5
+        }
+      },
+      "should_fire": true,
+      "fired": true,
+      "correct": true,
+      "neg_sum": 2.6,
+      "valence": -0.3
+    }
+  ]
+}
