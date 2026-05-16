@@ -1,5 +1,5 @@
 """
-CAMA MCP Server v3 — Circular Associative Memory Architecture
+CAMA MCP Server v4 — Circular Associative Memory Architecture
 Designed by Lorien's Library LLC — Lorien's Library LLC
 Architecture review: Lorien's Library LLC | Code review: GPT 5.2
 Built by: Lorien's Library LLC
@@ -743,7 +743,7 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
         now = _now()
         ev = [{"quote":q,"timestamp":now} for q in params.evidence_quotes]
         cur = c.execute("INSERT INTO memories (raw_text,memory_type,context,source_type,status,proposed_by,evidence,confidence,review_after,needs_user_confirmation,is_core,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                        (params.raw_text, params.memory_type, params.context, "journal", "durable", "assistant", json.dumps(ev), params.confidence, None, 1, 0, now, now))
+                        (params.raw_text, params.memory_type, params.context, "inference", "provisional", "assistant", json.dumps(ev), params.confidence, None, 1, 0, now, now))
         mid = cur.lastrowid
         _store_affect(c, mid, params.emotions, params.valence, params.arousal, conf=params.confidence, model="inferred")
         c.commit()  # Commit memory before network call
@@ -819,9 +819,11 @@ async def cama_confirm_memory(memory_id: int) -> str:
     """Promote provisional → durable. The memory handshake — user confirms."""
     c = get_db()
     try:
-        m = c.execute("SELECT status FROM memories WHERE id=?", (memory_id,)).fetchone()
+        m = c.execute("SELECT status, source_type FROM memories WHERE id=?", (memory_id,)).fetchone()
         if not m: return json.dumps({"error":"Not found"})
         if m["status"] != "provisional": return json.dumps({"error":f"Already {m['status']}"})
+        if m["source_type"] != "inference":
+            return json.dumps({"error":f"Only inferences can be promoted via confirm; got source_type={m['source_type']}"})
         c.execute("UPDATE memories SET status='durable',needs_user_confirmation=0,confidence=1.0,review_after=NULL,updated_at=? WHERE id=?", (_now(), memory_id))
         c.commit()
         return json.dumps({"promoted":True,"memory_id":memory_id,"new_status":"durable"},indent=2)
