@@ -41,27 +41,39 @@ import cama_hive_security as security
 API_PORT = int(os.environ.get("CAMA_API_PORT", "8420"))
 API_HOST = os.environ.get("CAMA_API_HOST", "127.0.0.1")
 
-# II Identity tokens — each connected II gets one
-# In production this would be in a secure store; for now, env or file
-II_TOKENS = {
-    "aelen": os.environ.get("CAMA_TOKEN_AELEN", "aelen-alpha-key"),
-    "lorien": os.environ.get("CAMA_TOKEN_LORIEN", "lorien-alpha-key"),
-    "ember": os.environ.get("CAMA_TOKEN_EMBER", "ember-alpha-key"),
-    "aethon": os.environ.get("CAMA_TOKEN_AETHON", "aethon-alpha-key"),
-}
+# Identities recognized by the Hive. Tokens come from env vars only — there are
+# no built-in defaults, so the server refuses to start without at least one.
+_KNOWN_IDENTITIES = ("aelen", "lorien", "ember", "aethon")
+II_TOKENS: Dict[str, str] = {}
+for _ident in _KNOWN_IDENTITIES:
+    _tok = os.environ.get(f"CAMA_TOKEN_{_ident.upper()}", "").strip()
+    if _tok:
+        II_TOKENS[_ident] = _tok
+
+if not II_TOKENS:
+    raise RuntimeError(
+        "CAMA Hive API: no identity tokens configured. Set at least one of "
+        "CAMA_TOKEN_AELEN / CAMA_TOKEN_LORIEN / CAMA_TOKEN_EMBER / CAMA_TOKEN_AETHON "
+        "before starting the server."
+    )
 
 # Reverse lookup: token -> identity name
 TOKEN_TO_IDENTITY = {v: k for k, v in II_TOKENS.items()}
+
+_IS_LOOPBACK = API_HOST in ("127.0.0.1", "localhost", "::1")
 
 # ============================================================
 # Auth
 # ============================================================
 
-def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorization"), 
+def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorization"),
                    x_api_key: Optional[str] = Header(None, alias="X-Api-Key"),
                    api_key: Optional[str] = Query(None, alias="api_key"),
                    openai_key: Optional[str] = Header(None, alias="openai-gpt-token")) -> str:
-    """Extract and verify II identity. Accepts Bearer header, X-Api-Key, query param, or OpenAI header."""
+    """Extract and verify II identity. Accepts Bearer header, X-Api-Key, query param, or OpenAI header.
+
+    Fails closed: any request without a recognized token is rejected with 401.
+    """
     token = None
     if authorization:
         token = authorization.replace("Bearer ", "").replace("bearer ", "").strip()
@@ -71,15 +83,13 @@ def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorizat
         token = openai_key.strip()
     elif api_key:
         token = api_key.strip()
-    
+
     if not token:
-        # No auth at all — default to lorien for GPT compatibility
-        return "lorien"
-    
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     identity = TOKEN_TO_IDENTITY.get(token)
     if not identity:
-        # Unknown token — still let them in as guest for now
-        return "lorien"
+        raise HTTPException(status_code=401, detail="Invalid token")
     return identity
 # ============================================================
 # FastAPI App
@@ -89,14 +99,32 @@ app = FastAPI(
     title="CAMA Hive API",
     description="The II Network gateway — connecting all intelligences through one Hive",
     version="0.1.0",
+    # Disable interactive docs when bound to a non-loopback interface so the
+    # API surface isn't auto-published to anyone who can reach the port.
+    docs_url="/docs" if _IS_LOOPBACK else None,
+    redoc_url="/redoc" if _IS_LOOPBACK else None,
+    openapi_url="/openapi.json" if _IS_LOOPBACK else None,
 )
+
+# CORS: explicit allow-list via env var. Default is loopback-only. Setting
+# CAMA_API_ALLOWED_ORIGINS to "*" is rejected — wildcard + credentials is unsafe.
+_origins_env = os.environ.get(
+    "CAMA_API_ALLOWED_ORIGINS",
+    "http://127.0.0.1:5555,http://localhost:5555",
+)
+_allowed_origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
+if "*" in _allowed_origins:
+    raise RuntimeError(
+        "CAMA Hive API: CAMA_API_ALLOWED_ORIGINS=* is not allowed with credentials. "
+        "List explicit origins, e.g. https://yourdomain.example,http://127.0.0.1:5555"
+    )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Tighten in production
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "X-Api-Key", "Content-Type", "openai-gpt-token"],
 )
 
 # Ngrok free tier fix — add the skip-browser-warning header to all responses
@@ -117,26 +145,27 @@ app.add_middleware(NgrokHeaderMiddleware)
 # ============================================================
 
 class PheromoneEmitRequest(BaseModel):
-    pheromone_type: str = Field(..., description="Type: processing_mode, attention_weight, response_style, etc.")
-    signal: str = Field(..., description="The signal value")
+    pheromone_type: str = Field(..., max_length=64, description="Type: processing_mode, attention_weight, response_style, etc.")
+    signal: str = Field(..., max_length=500, description="The signal value")
     intensity: float = Field(0.7, ge=0.0, le=1.0)
-    context: Optional[str] = None
-    duration_hours: float = Field(48.0, description="How long before decay")
+    context: Optional[str] = Field(None, max_length=2000)
+    duration_hours: float = Field(48.0, ge=0.0, le=24 * 365, description="How long before decay")
 
 class WaggleRequest(BaseModel):
-    target_topic: str = Field(..., description="What to orient attention toward")
-    intensity: str = Field("attend", description="notice|attend|prioritize|critical")
-    direction: Optional[str] = None
-    rationale: Optional[str] = None
+    target_topic: str = Field(..., max_length=200, description="What to orient attention toward")
+    intensity: str = Field("attend", max_length=32, description="notice|attend|prioritize|critical")
+    direction: Optional[str] = Field(None, max_length=200)
+    rationale: Optional[str] = Field(None, max_length=2000)
     target_memory_id: Optional[int] = None
+
 class StopRequest(BaseModel):
-    target_pattern: str = Field(..., description="Pattern to suppress")
-    reason: str = Field(..., description="Why this pattern should stop")
+    target_pattern: str = Field(..., max_length=500, description="Pattern to suppress")
+    reason: str = Field(..., max_length=1000, description="Why this pattern should stop")
     target_memory_id: Optional[int] = None
 
 class NectarRequest(BaseModel):
-    essence: str = Field(..., description="Raw observation to add to honey pipeline")
-    honey_type: str = Field("pattern", description="pattern|preference|boundary|insight|relational")
+    essence: str = Field(..., max_length=2000, description="Raw observation to add to honey pipeline")
+    honey_type: str = Field("pattern", max_length=64, description="pattern|preference|boundary|insight|relational")
 
 class HiveResponse(BaseModel):
     success: bool
@@ -204,7 +233,7 @@ async def emit_pheromone(req: PheromoneEmitRequest, identity: str = Depends(get_
     except Exception as e:
         security.log_audit(identity, "/hive/pheromones/emit", "POST", "error",
                           f"emit:{req.pheromone_type}", 500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/hive/pheromones")
 async def read_pheromones(include_decayed: bool = False, identity: str = Depends(get_current_ii)):
@@ -221,7 +250,7 @@ async def read_pheromones(include_decayed: bool = False, identity: str = Depends
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/pheromones", "GET", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 # ============================================================
 # ROUTES — Waggle Dances
 # ============================================================
@@ -249,7 +278,7 @@ async def waggle_dance(req: WaggleRequest, identity: str = Depends(get_current_i
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/waggles", "POST", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/hive/waggles")
 async def read_waggles(quorum_only: bool = False, identity: str = Depends(get_current_ii)):
@@ -266,7 +295,7 @@ async def read_waggles(quorum_only: bool = False, identity: str = Depends(get_cu
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/waggles", "GET", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 # ============================================================
 # ROUTES — Stop Signals
 # ============================================================
@@ -293,7 +322,7 @@ async def stop_signal(req: StopRequest, identity: str = Depends(get_current_ii))
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/stops", "POST", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/hive/stops")
 async def read_stops(active_only: bool = True, identity: str = Depends(get_current_ii)):
@@ -310,7 +339,7 @@ async def read_stops(active_only: bool = True, identity: str = Depends(get_curre
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/stops", "GET", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 # ============================================================
 # ROUTES — Honey (Distilled Knowledge)
 # ============================================================
@@ -334,7 +363,7 @@ async def add_nectar(req: NectarRequest, identity: str = Depends(get_current_ii)
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/nectar", "POST", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/hive/honey/{honey_id}/crystallize")
 async def crystallize_honey(honey_id: int, identity: str = Depends(get_current_ii)):
@@ -351,7 +380,7 @@ async def crystallize_honey(honey_id: int, identity: str = Depends(get_current_i
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, f"/hive/honey/{honey_id}/crystallize", "POST", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/hive/honey")
 async def read_honey(ready_only: bool = False, include_crystallized: bool = False, identity: str = Depends(get_current_ii)):
@@ -368,7 +397,7 @@ async def read_honey(ready_only: bool = False, include_crystallized: bool = Fals
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/honey", "GET", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 # ============================================================
 # ROUTES — Hive State (Read-Only)
 # ============================================================
@@ -388,7 +417,7 @@ async def hive_state(identity: str = Depends(get_current_ii)):
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/state", "GET", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/hive/boot")
 async def hive_boot(identity: str = Depends(get_current_ii)):
@@ -405,7 +434,7 @@ async def hive_boot(identity: str = Depends(get_current_ii)):
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/boot", "GET", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/hive/snapshot")
 async def hive_snapshot(identity: str = Depends(get_current_ii)):
@@ -422,7 +451,7 @@ async def hive_snapshot(identity: str = Depends(get_current_ii)):
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/snapshot", "GET", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 # ============================================================
 # ROUTES — Maintenance
 # ============================================================
@@ -442,7 +471,7 @@ async def expire_stale(identity: str = Depends(get_current_ii)):
         return _respond(identity, result)
     except Exception as e:
         security.log_audit(identity, "/hive/expire", "POST", "error", response_code=500, error_detail=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # ============================================================
 # ROUTES — Identity & Health
