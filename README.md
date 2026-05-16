@@ -1,6 +1,10 @@
 # CAMA MCP Server v4
 ## Circular Associative Memory Architecture
 
+[![ci](https://github.com/LoriensLibrary/cama/actions/workflows/ci.yml/badge.svg)](https://github.com/LoriensLibrary/cama/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![ORCID](https://img.shields.io/badge/ORCID-0009--0005--5803--8401-A6CE39?logo=orcid&logoColor=white)](https://orcid.org/0009-0005-5803-8401)
+
 **Author:** Angela Reinhold — Lorien's Library LLC
 **Website:** [lorienslibrary.netlify.app](https://lorienslibrary.netlify.app)
 **ORCID:** [0009-0005-5803-8401](https://orcid.org/0009-0005-5803-8401)
