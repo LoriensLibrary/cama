@@ -55,5 +55,38 @@ lorien_gpt_prompt.md
 regression_analysis.json
 benchmark_boot_relevance_results.json 
 benchmark_continuity_results.json 
-benchmark_retrieval_results.json 
+benchmark_retrieval_results.json
 conversations-000.json
+
+# ============================================================
+# Defensive: never commit personal scratch / conversation data
+# ============================================================
+
+# Local scratch and diagnostic scripts (anything starting with _)
+_*.py
+_*.txt
+_*.ps1
+_dev/
+
+# Conversation exports (real chat logs - NEVER push)
+*_drift_*.csv
+cama_drift*.csv
+conversations*.json
+conversations*.csv
+
+# Files known to reference real people (keep local only)
+cama_eval.py
+cama_phase2_embed.py
+cama_phase25_subcentroid.py
+cama_phase26_era_hybrid.py
+
+# Hive runtime artifacts
+.hive_alerts.log
+.hive_url
+.hive_*
+
+# History-rewrite helper (local only)
+CLEANUP_GITHUB.bat
+
+# Plan / migration notes
+PLAN_*.md
