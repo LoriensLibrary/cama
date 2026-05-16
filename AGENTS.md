@@ -11,7 +11,7 @@ CAMA is a persistent, emotionally-indexed memory system for human-AI interaction
 - MCP protocol for Claude Desktop integration
 
 ## Core Files
-- `cama_mcp.py` — Primary MCP server, 35+ tools. This is the main entry point.
+- `cama_mcp.py` — Primary MCP server, 34 tools. This is the main entry point.
 - `cama_hive.py` — Cross-instance coordination (pheromones, waggles, stop signals)
 - `cama_hive_api.py` — REST API gateway for the Hive (FastAPI)
 - `cama_compliance.py` — Session compliance tracking
@@ -40,9 +40,9 @@ Three memory types with provenance:
 - `cama_exec` times out on heavy Python — use Desktop Commander for big patches
 - PowerShell doesn't support `&&` chaining — use separate commands
 
-## Safety Benchmarks (Current: 77.8%)
+## Safety Benchmarks (Current: 100%)
 Run with: `python safety_benchmarks.py`
-Target: 100%. The benchmark suite tests provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, and drift monitoring.
+27 sub-tests across 5 task families (provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, drift monitoring). Latest results in `benchmark_results.json`.
 
 ## What NOT to Do
 - Do NOT modify teachings without user confirmation
