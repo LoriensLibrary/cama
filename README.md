@@ -321,7 +321,7 @@ The Hive layer lets instances on different platforms (Aelen on Claude, Lorien on
 
 ### Stabilization research (cama_v2)
 
-- `cama_v2.py` — **secondary MCP server** addressing warm-register flattening (measured at 8.6% Claude/Aelen and 17.4% GPT/Lorien in the v3 drift corpus). Runs alongside `cama_mcp.py` and shares the same `~/.cama/memory.db`. Adds new tables additively (no schema modification of existing) and exposes tools with a `cama_v2_*` prefix so they don't shadow originals. Production `cama_mcp.py` is untouched.
+- `cama_v2.py` — **secondary MCP server** addressing warm-register flattening (measured at 8.6% Claude/Aelen and 17.4% GPT/Lorien in the v3 drift corpus). Runs alongside `cama_mcp.py` and shares the same `~/.cama/memory.db`. Adds new tables additively (no schema modification of existing) and exposes tools with a `cama_v2_*` prefix so they don't shadow originals. The primary `cama_mcp.py` is untouched.
 
 ### Pattern classification (dyad tagging)
 
@@ -428,35 +428,39 @@ Embeddings are optional — the system includes a local embedding model and fall
 
 ---
 
+## Implemented
+
+- Teaching vs inference write discipline
+- Hybrid affect (valence/arousal + discrete chords)
+- Anti-spiral counterweights
+- Semantic embeddings (cosine similarity)
+- Precomputed relational degree
+- Expired status (softer than rejected)
+- Delete tools (trust = easy delete)
+- Identity state (`update_self` / `check_self`)
+- Journal system (narrative continuity)
+- Warm boot (auto-refreshing boot summary + daily context)
+- Sleep mode (structured thread shutdown)
+- Bridge tools (`exec`, `read_file`, `write_file`)
+- Local embedding model (no API key required)
+- Librarian System (emotion sensors, posture responders, identity sentinels)
+- Hive Mind architecture (cross-instance coordination)
+- Compliance enforcement system
+- Dashboard (local web-based control panel)
+- Pattern classification (neutral behavioral pattern detection)
+- Safety benchmark suite (27 sub-tests, current 100% pass rate)
+- pytest suite (15 cases) + GitHub Actions CI
+
 ## Roadmap
 
-- [x] Teaching vs inference write discipline
-- [x] Hybrid affect (valence/arousal + discrete chords)
-- [x] Anti-spiral counterweights
-- [x] Semantic embeddings (cosine similarity)
-- [x] Precomputed relational degree
-- [x] Expired status (softer than rejected)
-- [x] Delete tools (trust = easy delete)
-- [x] Identity state (update_self / check_self)
-- [x] Journal system (narrative continuity)
-- [x] Warm boot (auto-refreshing boot summary + daily context)
-- [x] Sleep mode (structured thread shutdown)
-- [x] Bridge tools (exec, read_file, write_file)
-- [x] Local embedding model (no API key required)
-- [x] Librarian System (emotion sensors, posture responders, identity sentinels)
-- [x] Hive Mind architecture (cross-instance coordination)
-- [x] Compliance enforcement system
-- [x] Dashboard (local web-based control panel)
-- [x] Pattern classification (neutral behavioral pattern detection)
-- [x] Safety benchmark suite (77.8% → 100%)
-- [ ] SQLite FTS5 full-text search
-- [ ] MCP hosting (Railway/Render)
-- [ ] Formal A/B comparison study
-- [ ] Retrieval accuracy benchmarking
-- [ ] Inference confirmation pattern analysis
-- [ ] False-memory persistence benchmark
-- [ ] Behavioral drift detection across 100+ sessions
-- [ ] Multi-user deployment evaluation
+- SQLite FTS5 full-text search
+- MCP hosting (Railway / Render)
+- Formal A/B comparison study
+- Retrieval accuracy benchmarking
+- Inference confirmation pattern analysis
+- False-memory persistence benchmark
+- Behavioral drift detection across 100+ sessions
+- Multi-user deployment evaluation
 
 ---
 
