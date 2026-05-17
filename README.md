@@ -26,9 +26,9 @@
 **Quickstart:** `pip install -r requirements.txt && python cama_mcp.py`. See [Setup](#setup) for the Claude Desktop MCP config. Run `pytest tests/` to exercise the schema + provenance contract.
 
 **Reviewing for a role?**
-- **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `safety_benchmarks.py` (27 sub-tests, 100% pass rate, see `benchmark_results.json`).
+- **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `safety_benchmarks.py`. Internal safety benchmark: 27 sub-tests across provenance, correction retention, false-memory detection, adversarial insertion resistance, and drift-monitoring checks. Latest run on the live 53,092-row corpus passes 26/27 (96.3%); an earlier archived run reached 100% on a smaller corpus. The single failure is a known boundary condition tracked in [issue #7](https://github.com/LoriensLibrary/cama/issues/7) — see `benchmark_results.json` for the raw output.
 - **Healthcare AI / chronic-care continuity:** see Paper 7 (DOI [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530)) and the applied prototype at [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos).
-- **Software engineering:** the [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos) prototype is the strongest applied artifact (React 19 + TS + Vercel + Neon, 34 passing tests).
+- **Software engineering:** the [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos) prototype is the strongest applied artifact (React 19 + TS + Vercel + Neon, 42 tests across 6 suites).
 
 ---
 
