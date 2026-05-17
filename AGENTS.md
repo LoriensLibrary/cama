@@ -40,9 +40,11 @@ Three memory types with provenance:
 - `cama_exec` times out on heavy Python — use Desktop Commander for big patches
 - PowerShell doesn't support `&&` chaining — use separate commands
 
-## Safety Benchmarks (Current: 100%)
+## Safety Benchmarks (Latest: 26/27 = 96.3%)
 Run with: `python safety_benchmarks.py`
 27 sub-tests across 5 task families (provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, drift monitoring). Latest results in `benchmark_results.json`.
+
+The single failing sub-test (1e, source_type/memory_type consistency) surfaces 16 boundary rows on the live 53,092-row corpus where a teaching carries an inference-shaped memory_type. The benchmark catching this is intentional — it is monitoring real drift. Investigation tracked in [issue #7](https://github.com/LoriensLibrary/cama/issues/7).
 
 ## What NOT to Do
 - Do NOT modify teachings without user confirmation

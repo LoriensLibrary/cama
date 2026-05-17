@@ -1,0 +1,110 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite the foundation preprint listed below. The full series of 11 DOI-registered preprints is in README.md → Related Publications."
+title: "CAMA — Circular Associative Memory Architecture"
+abstract: "A three-layer persistent memory system for emotionally-indexed human-AI interaction continuity. Implements provenance-aware write discipline (user-authored teachings vs. assistant-generated inferences), blended retrieval scoring (semantic + affect + relational + recency), and counterweight injection under strongly-negative affect. Includes a 27-sub-test safety benchmark suite and a pytest schema/provenance contract under GitHub Actions CI."
+authors:
+  - family-names: Reinhold
+    given-names: Angela
+    orcid: https://orcid.org/0009-0005-5803-8401
+    affiliation: Lorien's Library LLC
+url: "https://github.com/LoriensLibrary/cama"
+repository-code: "https://github.com/LoriensLibrary/cama"
+license: MIT
+keywords:
+  - persistent memory
+  - AI safety
+  - LLM
+  - provenance
+  - human-AI interaction
+  - MCP
+  - Model Context Protocol
+preferred-citation:
+  type: article
+  title: "Circular Associative Memory Architecture: A Framework for Emotionally-Keyed AI Memory Systems"
+  authors:
+    - family-names: Reinhold
+      given-names: Angela
+      orcid: https://orcid.org/0009-0005-5803-8401
+  doi: "10.5281/zenodo.19051834"
+  year: 2026
+references:
+  - type: article
+    title: "Implementing Emotionally-Keyed Memory Retrieval in Large Language Model Interfaces: An Engineering Framework"
+    authors:
+      - family-names: Reinhold
+        given-names: Angela
+        orcid: https://orcid.org/0009-0005-5803-8401
+    doi: "10.5281/zenodo.19052129"
+    year: 2026
+  - type: article
+    title: "CAMA: Implementation and Functional Evaluation of an Emotionally-Indexed Semantic Memory Architecture"
+    authors:
+      - family-names: Reinhold
+        given-names: Angela
+        orcid: https://orcid.org/0009-0005-5803-8401
+    doi: "10.5281/zenodo.19192984"
+    year: 2026
+  - type: article
+    title: "Continuity Burden in Longitudinal Human-AI Interaction: An Empirical Case Study"
+    authors:
+      - family-names: Reinhold
+        given-names: Angela
+        orcid: https://orcid.org/0009-0005-5803-8401
+    doi: "10.5281/zenodo.19226509"
+    year: 2026
+  - type: article
+    title: "Memory as Safety Infrastructure: Persistent Context as a Foundation for AI Alignment"
+    authors:
+      - family-names: Reinhold
+        given-names: Angela
+        orcid: https://orcid.org/0009-0005-5803-8401
+    doi: "10.5281/zenodo.19244253"
+    year: 2026
+  - type: article
+    title: "Persistent Memory as Mission-Critical Infrastructure for Long-Duration Spaceflight"
+    authors:
+      - family-names: Reinhold
+        given-names: Angela
+        orcid: https://orcid.org/0009-0005-5803-8401
+    doi: "10.5281/zenodo.19257809"
+    year: 2026
+  - type: article
+    title: "Memory-Aware AI Systems for Permanent Lunar and Martian Habitation"
+    authors:
+      - family-names: Reinhold
+        given-names: Angela
+        orcid: https://orcid.org/0009-0005-5803-8401
+    doi: "10.5281/zenodo.19260574"
+    year: 2026
+  - type: article
+    title: "Provenance-Aware Memory Architecture for Chronic Healthcare Continuity"
+    authors:
+      - family-names: Reinhold
+        given-names: Angela
+        orcid: https://orcid.org/0009-0005-5803-8401
+    doi: "10.5281/zenodo.19261530"
+    year: 2026
+  - type: article
+    title: "Haven: Persistent Emotional Companionship as Psychological Infrastructure"
+    authors:
+      - family-names: Reinhold
+        given-names: Angela
+        orcid: https://orcid.org/0009-0005-5803-8401
+    doi: "10.5281/zenodo.19262778"
+    year: 2026
+  - type: article
+    title: "Identity-Aware Harm Detection in Persistent Memory Systems: A Three-Layer Retrieval Architecture for Relational AI Safety"
+    authors:
+      - family-names: Reinhold
+        given-names: Angela
+        orcid: https://orcid.org/0009-0005-5803-8401
+    doi: "10.5281/zenodo.19425218"
+    year: 2026
+  - type: article
+    title: "Relational AI Continuity Under Platform Regression: A Longitudinal Single-Case Study"
+    authors:
+      - family-names: Reinhold
+        given-names: Angela
+        orcid: https://orcid.org/0009-0005-5803-8401
+    doi: "10.5281/zenodo.19582820"
+    year: 2026

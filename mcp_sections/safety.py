@@ -53,9 +53,9 @@ async def cama_health() -> str:
         # Warnings
         warnings = []
         if result.get("boot_status") in ("stale","cold","missing"):
-            warnings.append(f"Boot summary is {result.get('boot_status')} � run cama_loop.py")
+            warnings.append(f"Boot summary is {result.get('boot_status')} — run cama_loop.py")
         if not result.get("daily_context_today"):
-            warnings.append("No daily_context for today � loop may not have run")
+            warnings.append("No daily_context for today — loop may not have run")
         if no_emb > 100:
             warnings.append(f"{no_emb} memories missing embeddings")
         result["warnings"] = warnings

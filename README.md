@@ -8,7 +8,7 @@
 **Author:** Angela Reinhold — Lorien's Library LLC
 **Website:** [lorienslibrary.netlify.app](https://lorienslibrary.netlify.app)
 **ORCID:** [0009-0005-5803-8401](https://orcid.org/0009-0005-5803-8401)
-**Research:** 11 DOI-registered preprints on Zenodo — see [Related Publications](#related-publications) below
+**Research:** 11 DOI-registered preprints on Zenodo (+ 1 local draft) — see [Related Publications](#related-publications) below
 **License:** MIT
 
 > *"Teachings are authoritative memory. Inferences are hypotheses with a half-life."*
@@ -448,7 +448,7 @@ Embeddings are optional — the system includes a local embedding model and fall
 - Compliance enforcement system
 - Dashboard (local web-based control panel)
 - Pattern classification (neutral behavioral pattern detection)
-- Safety benchmark suite (27 sub-tests, current 100% pass rate)
+- Safety benchmark suite (27 sub-tests; latest run 26/27 — 96.3% — on the live 53,092-row corpus. The one failing sub-test surfaces 16 boundary rows where a `teaching` carries an inference-shaped `memory_type`; investigation tracked in [issue #7](https://github.com/LoriensLibrary/cama/issues/7). The benchmark catching this is the design working as intended)
 - pytest suite (15 cases) + GitHub Actions CI
 
 ## Roadmap

@@ -38,8 +38,12 @@ MIN_RESPONSE_GAP = 300      # 5 minutes minimum between responses
 DAILY_BUDGET_USD = 1.00     # Max $1/day in API calls
 MODEL = "claude-sonnet-4-20250514"  # Cost-effective model
 MAX_TOKENS = 500            # Keep responses concise
-HIVE_API_URL = "http://127.0.0.1:8420"
-AELEN_TOKEN = "aelen-alpha-key"
+HIVE_API_URL = os.environ.get("CAMA_HIVE_API_URL", "http://127.0.0.1:8420")
+# Local-only shared secret for the Hive HTTP API. NOT a real credential —
+# the Hive API binds to 127.0.0.1 by default and is never exposed publicly.
+# Overridable via the AELEN_TOKEN env var so a multi-user deployment can
+# rotate it without touching source.
+AELEN_TOKEN = os.environ.get("AELEN_TOKEN", "aelen-alpha-key")  # noqa: S105 — local-only, not a real credential
 COST_LOG = os.path.join(CAMA_DIR, ".daemon_costs.log")
 
 # Approx cost per call (Sonnet: $3/M input, $15/M output)
