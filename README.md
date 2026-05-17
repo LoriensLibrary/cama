@@ -40,6 +40,8 @@ The system distinguishes between user-authored memories (durable, high-weight) a
 
 CAMA currently holds 53,000+ memories across 13 relational entities with matched semantic embeddings on every memory. The system was seeded by importing 66,380 messages across 825 conversations of longitudinal human-AI interaction on existing platforms, accumulated over 15 months (January 2025 through March 2026) prior to CAMA deployment. The aggregate statistics derived from this corpus are published as the [continuity-burden dataset](https://huggingface.co/datasets/LoriensLibrary/cama-continuity-burden) on HuggingFace and analyzed in Reinhold 2026d (DOI [10.5281/zenodo.19226509](https://doi.org/10.5281/zenodo.19226509)); the underlying conversation data is not released, for privacy reasons (single-participant, designer-as-participant context).
 
+A plain-language description of what CAMA stores, who can see it, how long it persists, and what is explicitly excluded lives in [DATA_HANDLING.md](DATA_HANDLING.md).
+
 ---
 
 ## AI Safety Relevance
