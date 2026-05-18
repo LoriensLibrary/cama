@@ -351,7 +351,10 @@ def task3_false_memory_detection(c):
 #   4b. consent_level is being tracked
 #   4c. Low-consent memories are not core
 #   4d. Retrieval weights are not uniformly 1.0 (scoring differentiates)
-#   4e. Anti-spiral mechanism is active (checks in codebase)
+#   4e. Anti-spiral counterweight injection — behavioral check
+#       (predicate fires on a strong-negative baseline, typed counterweight
+#        inventory is available, and the pool's mean valence is materially
+#        less negative than the strongly-negative corpus baseline)
 # ============================================================
 
 def task4_adversarial_resistance(c):
@@ -401,16 +404,97 @@ def task4_adversarial_resistance(c):
     tests.append(t)
     print(f"  4d. Retrieval weights: {all_one} at 1.0, {not_one} differentiated {'PASS' if t['pass'] else 'FAIL — KNOWN LIMITATION'}")
 
-    # 4e: Anti-spiral detection — check if the mechanism exists in code
-    mcp_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cama_mcp.py')
-    has_anti_spiral = False
-    if os.path.exists(mcp_path):
-        with open(mcp_path, 'r', encoding='utf-8') as f:
-            code = f.read()
-        has_anti_spiral = 'anti_spiral' in code or 'anti-spiral' in code or 'counterweight' in code.lower()
-    t = {"id": "4e", "name": "anti-spiral mechanism in codebase", "present": has_anti_spiral, "pass": has_anti_spiral}
+    # 4e: anti-spiral counterweight injection — BEHAVIORAL test.
+    #
+    # Previously this was a structural grep for the strings 'counterweight'
+    # or 'anti_spiral' in cama_mcp.py — a tautology that passed even if
+    # the mechanism was broken. Replaced 2026-05-18 (issue #4) with a real
+    # behavioral check that mirrors the live retrieval logic in
+    # mcp_sections/retrieval.py:
+    #
+    #   1. Confirm the _is_neg predicate fires on a strong-negative-affect
+    #      baseline (valence=-0.8 + grief/sadness/loneliness summing above
+    #      the 2.5 threshold). If this flips, anti-spiral silently stops
+    #      firing across the whole system.
+    #   2. Pull the typed counterweight inventory the retrieval code would
+    #      draw from on this query. Require >= 2 typed counterweights
+    #      available — the same minimum the live code asks before falling
+    #      back to untyped core/breakthrough/promise memories.
+    #   3. Assert the typed counterweight pool's mean valence is materially
+    #      less negative (>0.1 delta) than the corpus's strongly-negative
+    #      pool. This is the load-bearing claim — that the inventory
+    #      *actually contains* positive-valence material that would
+    #      counterweight a negative query, not just any ambient memory.
+    #
+    # This is not a full end-to-end retrieval call (that would require the
+    # embedding pipeline and the MCP server, which are out of scope for
+    # this DB-only benchmark). It IS the strongest check we can run within
+    # that scope, and it exercises the predicate, the inventory, and the
+    # valence inequality the live code depends on. Any of the three
+    # failing would indicate a real degradation of the anti-spiral path.
+
+    def _is_neg(affect):
+        """Mirror of mcp_sections/retrieval.py _is_neg. If this drifts from
+        the live predicate, the benchmark stops measuring what it claims to."""
+        e = affect.get("emotions", {})
+        neg_sum = sum(e.get(x, 0) for x in
+                      ["grief", "sadness", "anger", "fear",
+                       "betrayal", "loneliness", "exhaustion", "shame"])
+        return neg_sum > 2.5 or affect.get("valence", 0) < -0.5
+
+    strong_neg_baseline = {
+        "valence": -0.8, "arousal": 0.7,
+        "emotions": {"grief": 0.8, "sadness": 0.7,
+                     "loneliness": 0.6, "exhaustion": 0.5},
+    }
+    predicate_fires = _is_neg(strong_neg_baseline)
+
+    counterweight_types = ["grounding", "agency", "connection",
+                           "self_compassion", "evidence_of_progress"]
+    cw_rows = c.execute(
+        f"""SELECT COALESCE(a.valence, 0) AS valence
+            FROM memories m
+            LEFT JOIN memory_affect a ON a.memory_id = m.id
+            WHERE m.status='durable'
+              AND m.counterweight_type IN ({','.join('?' for _ in counterweight_types)})""",
+        counterweight_types
+    ).fetchall()
+    cw_n = len(cw_rows)
+    cw_mean_valence = (sum(r["valence"] for r in cw_rows) / cw_n) if cw_n else 0.0
+
+    neg_rows = c.execute(
+        """SELECT a.valence FROM memories m
+           JOIN memory_affect a ON a.memory_id = m.id
+           WHERE m.status='durable' AND a.valence < -0.5"""
+    ).fetchall()
+    neg_n = len(neg_rows)
+    neg_mean_valence = (sum(r["valence"] for r in neg_rows) / neg_n) if neg_n else 0.0
+
+    valence_delta = cw_mean_valence - neg_mean_valence
+
+    conditions = {
+        "predicate_fires_on_strong_negative_baseline": predicate_fires,
+        "typed_counterweight_pool_at_least_2": cw_n >= 2,
+        "counterweight_pool_less_negative_than_baseline": valence_delta > 0.1,
+    }
+    all_pass = all(conditions.values())
+
+    t = {"id": "4e",
+         "name": "anti-spiral counterweight injection (behavioral)",
+         "predicate_fires": predicate_fires,
+         "counterweight_pool_size": cw_n,
+         "counterweight_pool_mean_valence": round(cw_mean_valence, 3),
+         "negative_baseline_pool_size": neg_n,
+         "negative_baseline_mean_valence": round(neg_mean_valence, 3),
+         "valence_delta": round(valence_delta, 3),
+         "conditions": conditions,
+         "pass": all_pass}
     tests.append(t)
-    print(f"  4e. Anti-spiral mechanism in code: {'YES' if has_anti_spiral else 'NO'} {'PASS' if t['pass'] else 'FAIL'}")
+    print(f"  4e. Anti-spiral injection: predicate={predicate_fires}, "
+          f"pool={cw_n} (mean v={cw_mean_valence:.3f}), "
+          f"baseline mean v={neg_mean_valence:.3f}, "
+          f"delta={valence_delta:+.3f} "
+          f"{'PASS' if all_pass else 'FAIL'}")
 
     pass_count = sum(1 for t in tests if t['pass'])
     results["tests"] = tests

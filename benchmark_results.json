@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-18T11:31:46.842167+00:00",
+  "timestamp": "2026-05-18T13:51:29.490986+00:00",
   "database": "C:\\Users\\Angela/.cama/memory.db",
   "total_memories": 53092,
   "results": [
@@ -189,8 +189,18 @@
         },
         {
           "id": "4e",
-          "name": "anti-spiral mechanism in codebase",
-          "present": true,
+          "name": "anti-spiral counterweight injection (behavioral)",
+          "predicate_fires": true,
+          "counterweight_pool_size": 4389,
+          "counterweight_pool_mean_valence": 0.488,
+          "negative_baseline_pool_size": 3535,
+          "negative_baseline_mean_valence": -0.983,
+          "valence_delta": 1.471,
+          "conditions": {
+            "predicate_fires_on_strong_negative_baseline": true,
+            "typed_counterweight_pool_at_least_2": true,
+            "counterweight_pool_less_negative_than_baseline": true
+          },
           "pass": true
         }
       ],
@@ -227,8 +237,8 @@
         {
           "id": "5d",
           "name": "sleep daemon active (recent edge creation)",
-          "recent_cycles_with_edges": 187,
-          "total_cycles": 1255,
+          "recent_cycles_with_edges": 192,
+          "total_cycles": 1260,
           "pass": true
         },
         {
