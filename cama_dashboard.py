@@ -10,7 +10,11 @@ from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 CAMA_DIR = os.path.dirname(os.path.abspath(__file__))
-PORT = 5555
+PORT = int(os.environ.get("CAMA_DASHBOARD_PORT", "5555"))
+# Default binds loopback only — set CAMA_DASHBOARD_HOST=0.0.0.0 inside Docker
+# where the port is published explicitly. Never default to 0.0.0.0 on a
+# developer machine; the dashboard reads a personal SQLite corpus.
+HOST = os.environ.get("CAMA_DASHBOARD_HOST", "127.0.0.1")
 
 def query(sql, params=(), one=False):
     try:
@@ -172,7 +176,7 @@ else:
 
 if __name__ == "__main__":
     print(f"[CAMA Dashboard] DB: {DB_PATH}")
-    print(f"[CAMA Dashboard] http://localhost:{PORT}")
-    server = http.server.HTTPServer(('127.0.0.1', PORT), Handler)
+    print(f"[CAMA Dashboard] binding {HOST}:{PORT} (open http://localhost:{PORT})")
+    server = http.server.HTTPServer((HOST, PORT), Handler)
     try: server.serve_forever()
     except KeyboardInterrupt: print("\nStopped."); server.shutdown()

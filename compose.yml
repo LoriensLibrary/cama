@@ -1,0 +1,23 @@
+# CAMA demo — one-command quickstart.
+#
+# Usage:
+#     docker compose up
+# Then open http://localhost:5555.
+#
+# The container reads/writes only the named `cama-demo-data` volume.
+# Your local ~/.cama/memory.db corpus is never touched.
+
+services:
+  cama-demo:
+    build: .
+    image: cama-demo:local
+    container_name: cama-demo
+    ports:
+      - "5555:5555"
+    volumes:
+      - cama-demo-data:/data
+    restart: unless-stopped
+
+volumes:
+  cama-demo-data:
+    name: cama-demo-data

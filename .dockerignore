@@ -1,0 +1,50 @@
+# Build context hygiene — keep the docker image small and safe.
+
+# Python build / runtime detritus
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Personal corpus paths must never be copied in (defense in depth — the
+# Dockerfile doesn't COPY these anyway, but if the COPY pattern ever
+# broadens, .dockerignore is the second guard).
+*.db
+*.db-wal
+*.db-shm
+.cama/
+memory.db
+data/*.db
+
+# Backup files — the repo carries several cama_*_backup_*.py snapshots
+# that aren't part of the demo image.
+*_backup_*.py
+cama_*_backup_*.py
+
+# Git + editor
+.git/
+.gitignore
+.gitattributes
+.github/
+.vscode/
+.idea/
+
+# Local dev secrets
+.env
+.env.*
+
+# Docs / dev tooling not needed at runtime
+tests/
+scripts/
+docs/
+mcp_sections/__pycache__/
+*.md
+LICENSE
+CITATION.cff
+AGENTS.md

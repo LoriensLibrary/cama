@@ -23,12 +23,63 @@
 
 **What it does NOT claim:** generalizable multi-user evidence. This is an **N=1, single-participant, designer-as-participant** deployment — see [Scope and Limitations](#scope-and-limitations) before drawing conclusions about generalization.
 
-**Quickstart:** `pip install -r requirements.txt && python cama_mcp.py`. See [Setup](#setup) for the Claude Desktop MCP config. Run `pytest tests/` to exercise the schema + provenance contract.
+**Quickstart (Docker — recommended for reviewers):**
+```
+git clone https://github.com/LoriensLibrary/cama.git
+cd cama
+docker compose up
+```
+Then open **http://localhost:5555**. The container seeds a synthetic demo database (~46 fictional memories spanning skill-acquisition, relational, and correction examples), starts the dashboard, and never touches your personal `~/.cama/memory.db`. See [Quickstart](#quickstart) below for the full walkthrough and the local-install path for running the MCP server itself against Claude Desktop.
+
+**Local install (for developers running the MCP server):** `pip install -r requirements.txt && python cama_mcp.py`. See [Setup](#setup) for the Claude Desktop MCP config. Run `pytest tests/` to exercise the schema + provenance contract.
 
 **Reviewing for a role?**
 - **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `safety_benchmarks.py`. Internal safety benchmark: 27 sub-tests across provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, and drift monitoring. Latest run on the live 53,092-row corpus: **27/27 (100%)**. An intermediate 2026-05-17 run came back 26/27 (96.3%); the failure was definition drift in sub-test 1e (the benchmark itself), not a data violation — investigation logged and fix landed via [issue #7](https://github.com/LoriensLibrary/cama/issues/7). See `benchmark_results.json` for the raw output.
 - **Healthcare AI / chronic-care continuity:** see Paper 7 (DOI [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530)) and the applied prototype at [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos).
 - **Software engineering:** the [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos) prototype is the strongest applied artifact (React 19 + TS + Vercel + Neon, 42 tests across 6 suites).
+
+---
+
+## Quickstart
+
+There are two run modes. Most reviewers want **the dashboard demo**; developers wiring CAMA into Claude Desktop want **the local MCP install**.
+
+### Dashboard demo (Docker, ~1 minute)
+
+The fastest way to see CAMA's surfaces light up with realistic-looking content:
+
+```bash
+git clone https://github.com/LoriensLibrary/cama.git
+cd cama
+docker compose up
+```
+
+Open **http://localhost:5555**. The container will:
+
+1. Build a small Python 3.11-slim image (stdlib only — no `sentence-transformers`, no `torch`, ~150 MB).
+2. Run `seed_demo.py` against a fresh SQLite database at `/data/demo.db` inside a named volume (`cama-demo-data`). Seeding is idempotent — it only runs when the DB is empty, so subsequent `docker compose up` calls start instantly.
+3. Launch `cama_dashboard.py` bound to `0.0.0.0:5555` inside the container, published to your host as `localhost:5555`.
+
+The seed populates ~46 synthetic memories across the documented `memory_type` taxonomy (experience, teaching_moment, identity, breakthrough, correction, dream, pattern, insight, promise, relationship, exchange), spread across three small fictional arcs — learning to bake bread, keeping a garden, building a side project — chosen because they're obviously demo data, not a real conversational record. Companion-table rows (`memory_affect`, `edges`, `islands`, `island_members`, `ring`, `session_compliance`, `aelen_state`, `people`) are populated so every dashboard panel renders with data, not empty states.
+
+**Your local `~/.cama/memory.db` corpus is never touched.** The container reads/writes only the named Docker volume.
+
+To wipe the demo state and reseed:
+
+```bash
+docker compose down
+docker volume rm cama-demo-data
+docker compose up
+```
+
+### Local install (for developers running the MCP server against Claude Desktop)
+
+```bash
+pip install -r requirements.txt
+python cama_mcp.py
+```
+
+See [Setup](#setup) for the Claude Desktop `claude_desktop_config.json` snippet. Run `pytest tests/` to exercise the schema + provenance contract. Run `python safety_benchmarks.py` to execute the 27-sub-test safety benchmark against your local CAMA database.
 
 ---
 
@@ -509,6 +560,8 @@ The repository is organized around the core runtime, continuity infrastructure, 
 - **cama_dashboard.py / cama_dashboard.html**: local web control panel
 - **cama_import.py / cama_import_aelen.py**: conversation import and memory seeding pipelines
 - **safety_benchmarks.py**: automated safety benchmark suite
+- **seed_demo.py**: standalone script that creates the schema and populates a fresh SQLite database with ~46 synthetic memories for the dashboard demo. Idempotent.
+- **Dockerfile / compose.yml / .dockerignore**: one-command quickstart for reviewers. Builds a stdlib-only image (~150 MB) that seeds the demo DB and serves the dashboard at localhost:5555. Never touches `~/.cama/memory.db`.
 - **specs/**: implementation notes and architecture documentation
 - **requirements.txt**: Python dependency list
 
