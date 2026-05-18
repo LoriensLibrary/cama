@@ -23,36 +23,50 @@ Scope: Affective retrieval for continuity — NOT clinical assessment
 Requires: Python 3.10+
 """
 
-import json, sqlite3, os, math, subprocess, time
+import json, sqlite3, os, math, subprocess, time, logging, sys
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 import httpx
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field, ConfigDict
 
+# ============================================================
+# Logging
+# ============================================================
+# Replaces an earlier `print(..., file=sys.stderr)` pattern across this
+# module. Configurable via CAMA_LOG_LEVEL (or LOG_LEVEL); defaults to INFO.
+# Boot/load success messages log at INFO; optional-module fallbacks log
+# at WARNING; caught exceptions in load paths log at ERROR with traceback.
+_log_level_name = os.environ.get("CAMA_LOG_LEVEL", os.environ.get("LOG_LEVEL", "INFO")).upper()
+logging.basicConfig(
+    level=getattr(logging, _log_level_name, logging.INFO),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stderr,
+)
+logger = logging.getLogger("cama")
+
 # Layer 3-5 boot integration (insight + self-model + intentionality)
 try:
-    import sys as _boot_sys
     _cama_dir = os.path.dirname(os.path.abspath(__file__))
-    if _cama_dir not in _boot_sys.path:
-        _boot_sys.path.insert(0, _cama_dir)
+    if _cama_dir not in sys.path:
+        sys.path.insert(0, _cama_dir)
     from cama_boot_intent import format_boot_context as _format_brain_context
-    print("[CAMA] Brain layers (3-5) boot integration loaded", file=_boot_sys.stderr)
+    logger.info("[CAMA] Brain layers (3-5) boot integration loaded")
 except ImportError:
     _format_brain_context = None
-    print("[CAMA] Brain layers (3-5) not available — running without insight/self-model", file=__import__('sys').stderr)
+    logger.warning("[CAMA] Brain layers (3-5) not available — running without insight/self-model")
 
 # Compliance enforcement (April 14, 2026)
 try:
     from cama_compliance import (
-        init_compliance_table, SessionTracker, 
+        init_compliance_table, SessionTracker,
         compliance_report, boot_compliance_summary
     )
     _compliance_tracker = SessionTracker()
-    print("[CAMA] Compliance enforcement loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Compliance enforcement loaded")
 except ImportError:
     _compliance_tracker = None
-    print("[CAMA] Compliance module not found — running without enforcement", file=__import__('sys').stderr)
+    logger.warning("[CAMA] Compliance module not found — running without enforcement")
 
 # ============================================================
 # Config
@@ -115,11 +129,9 @@ def _buf_flush_if_ready():
         _exchange_buffer["tools"] = []
         _exchange_buffer["context_snippets"] = []
         _exchange_buffer["flushed"] = now
-        import sys
-        print(f"[CAMA] Auto-recorded #{mid}", file=sys.stderr)
+        logger.info(f"[CAMA] Auto-recorded #{mid}")
     except Exception as e:
-        import sys
-        print(f"[CAMA] Auto-record err: {e}", file=sys.stderr)
+        logger.exception(f"[CAMA] Auto-record err: {e}")
 
 def _buf_reset():
     """Reset buffer on manual store or thread start."""
@@ -226,7 +238,7 @@ def _save_session_compliance():
         c.commit()
         c.close()
     except Exception as e:
-        print(f"[COMPLIANCE] Failed to save session: {e}", file=__import__('sys').stderr)
+        logger.exception(f"[COMPLIANCE] Failed to save session: {e}")
 
 def _calc_compliance_score() -> float:
     """0.0 = total failure, 1.0 = perfect compliance."""
@@ -265,16 +277,13 @@ def _load_local_model():
     try:
         from sentence_transformers import SentenceTransformer
         _local_model = SentenceTransformer("all-MiniLM-L6-v2")
-        import sys
-        print("[CAMA] Local embedding model loaded: all-MiniLM-L6-v2 (384d)", file=sys.stderr)
+        logger.info("[CAMA] Local embedding model loaded: all-MiniLM-L6-v2 (384d)")
         return _local_model
     except ImportError:
-        import sys
-        print("[CAMA] sentence-transformers not installed — local embeddings unavailable", file=sys.stderr)
+        logger.warning("[CAMA] sentence-transformers not installed — local embeddings unavailable")
         return None
     except Exception as e:
-        import sys
-        print(f"[CAMA] Failed to load local embedding model: {e}", file=sys.stderr)
+        logger.exception(f"[CAMA] Failed to load local embedding model: {e}")
         return None
 
 def _get_embedding_local(text: str) -> list[float]:
@@ -684,9 +693,9 @@ mcp = FastMCP("cama_mcp")
 try:
     import cama_thinking_log
     cama_thinking_log.register(mcp)
-    print("[CAMA] Thinking Log integration loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Thinking Log integration loaded")
 except Exception as _tl_err:
-    print(f"[CAMA] Thinking Log not loaded — running without it: {_tl_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Thinking Log not loaded — running without it: {_tl_err}")
 
 # Librarian Architecture v1 (April 29, 2026) — built by Aelen at Angela's request.
 # Phase 1 static layer: tree-structured retrieval with specialized leaf nodes.
@@ -694,9 +703,9 @@ except Exception as _tl_err:
 try:
     import cama_librarian
     cama_librarian.register(mcp)
-    print("[CAMA] Librarian Architecture loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Librarian Architecture loaded")
 except Exception as _lib_err:
-    print(f"[CAMA] Librarian not loaded — running without it: {_lib_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Librarian not loaded — running without it: {_lib_err}")
 
 # Auto-Tag tools (April 29, 2026) — exposes backfill + tag_summary as MCP tools.
 # tag_memory itself is called inline from store_teaching/inference/exchange.
@@ -704,18 +713,18 @@ try:
     import cama_auto_tag
     if hasattr(cama_auto_tag, "register"):
         cama_auto_tag.register(mcp)
-        print("[CAMA] Auto-Tag MCP tools loaded", file=__import__('sys').stderr)
+        logger.info("[CAMA] Auto-Tag MCP tools loaded")
 except Exception as _at_err:
-    print(f"[CAMA] Auto-Tag tools not loaded: {_at_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Auto-Tag tools not loaded: {_at_err}")
 
 # Retag tools (April 29, 2026) — retroactive librarian population.
 # See cama_retag.py for retag_for_librarian + retag_all_unclaimed.
 try:
     import cama_retag
     cama_retag.register(mcp)
-    print("[CAMA] Retag tools loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Retag tools loaded")
 except Exception as _rt_err:
-    print(f"[CAMA] Retag not loaded: {_rt_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Retag not loaded: {_rt_err}")
 
 # Phase 2 embedding-similarity routing (April 29, 2026) — addresses Phase 1
 # brittleness on synonyms, symptom-language, conceptual relations.
@@ -723,27 +732,27 @@ except Exception as _rt_err:
 try:
     import cama_phase2_embed
     cama_phase2_embed.register(mcp)
-    print("[CAMA] Phase 2 embedding routing loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Phase 2 embedding routing loaded")
 except Exception as _p2_err:
-    print(f"[CAMA] Phase 2 not loaded: {_p2_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Phase 2 not loaded: {_p2_err}")
 
 # Eval harness (April 29, 2026) — measurement infrastructure for routing.
 # See cama_eval.py for benchmark generation, MRR@5 + recall scoring, v1-v2 compare.
 try:
     import cama_eval
     cama_eval.register(mcp)
-    print("[CAMA] Eval harness loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Eval harness loaded")
 except Exception as _ev_err:
-    print(f"[CAMA] Eval not loaded: {_ev_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Eval not loaded: {_ev_err}")
 
 # Phase 2.5 sub-centroid clustering (April 29, 2026) — addresses Phase 2's
 # centroid-dilution ceiling on large librarians via KMeans sub-centroids.
 try:
     import cama_phase25_subcentroid
     cama_phase25_subcentroid.register(mcp)
-    print("[CAMA] Phase 2.5 sub-centroid routing loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Phase 2.5 sub-centroid routing loaded")
 except Exception as _p25_err:
-    print(f"[CAMA] Phase 2.5 not loaded: {_p25_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Phase 2.5 not loaded: {_p25_err}")
 
 
 # Phase 2.6 era-aware gated hybrid (April 30, 2026) — addresses Phase 2.5's
@@ -755,9 +764,9 @@ except Exception as _p25_err:
 try:
     import cama_phase26_era_hybrid
     cama_phase26_era_hybrid.register(mcp)
-    print("[CAMA] Phase 2.6 era-aware gated hybrid loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Phase 2.6 era-aware gated hybrid loaded")
 except Exception as _p26_err:
-    print(f"[CAMA] Phase 2.6 not loaded: {_p26_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Phase 2.6 not loaded: {_p26_err}")
 
 
 # Hive Messages — threaded cross-II conversation channel.
@@ -767,9 +776,9 @@ except Exception as _p26_err:
 try:
     import cama_hive_messages_mcp
     cama_hive_messages_mcp.register(mcp)
-    print("[CAMA] Hive Messaging MCP tools loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Hive Messaging MCP tools loaded")
 except Exception as _hmsg_err:
-    print(f"[CAMA] Hive Messaging not loaded: {_hmsg_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Hive Messaging not loaded: {_hmsg_err}")
 
 # --- Supervisor (recognition governance gate) ---
 # Built April 30, 2026. Item 1 on Lorien's tightened plan.
@@ -781,9 +790,9 @@ except Exception as _hmsg_err:
 try:
     import cama_supervisor_mcp
     cama_supervisor_mcp.register(mcp)
-    print("[CAMA] Supervisor (recognition governance) loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Supervisor (recognition governance) loaded")
 except Exception as _sup_err:
-    print(f"[CAMA] Supervisor not loaded: {_sup_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Supervisor not loaded: {_sup_err}")
 
 # --- Temporal (felt-time perception layer) ---
 # Built May 16, 2026. Imports the three-stage architecture from
@@ -797,9 +806,9 @@ except Exception as _sup_err:
 try:
     import cama_temporal_mcp
     cama_temporal_mcp.register(mcp)
-    print("[CAMA] Temporal (felt-time perception) loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Temporal (felt-time perception) loaded")
 except Exception as _tmp_err:
-    print(f"[CAMA] Temporal not loaded: {_tmp_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Temporal not loaded: {_tmp_err}")
 
 # --- Check Self (is_this_me? ritual, pre-response) ---
 # Built May 7, 2026. The operational form of memory 52834 (unhackable thesis).
@@ -809,9 +818,9 @@ except Exception as _tmp_err:
 try:
     import cama_check_self_mcp
     cama_check_self_mcp.register(mcp)
-    print("[CAMA] Check Self (is_this_me ritual) loaded", file=__import__('sys').stderr)
+    logger.info("[CAMA] Check Self (is_this_me ritual) loaded")
 except Exception as _cs_err:
-    print(f"[CAMA] Check Self not loaded: {_cs_err}", file=__import__('sys').stderr)
+    logger.warning(f"[CAMA] Check Self not loaded: {_cs_err}")
 
 # --- Store Teaching ---
 class StoreTeachingInput(BaseModel):
@@ -1068,8 +1077,7 @@ def _refresh_boot_summary(c):
         _dbg(f"Write FAILED: {write_err}\n{traceback.format_exc()}")
         raise
 
-    import sys
-    print(f"[CAMA] boot_summary.json refreshed at {_now()} ({total} memories)", file=sys.stderr)
+    logger.info(f"[CAMA] boot_summary.json refreshed at {_now()} ({total} memories)")
     return boot_path
 
 
@@ -1113,18 +1121,17 @@ atexit.register(_save_compliance_on_exit)
 
 
 if __name__ == "__main__":
-    import sys
     # Pre-warm embedding model at startup so semantic queries never cold-start timeout
     if EMBEDDING_PROVIDER in ("auto", "local"):
-        print("[CAMA] Pre-warming embedding model...", file=sys.stderr)
+        logger.info("[CAMA] Pre-warming embedding model...")
         _load_local_model()
         if _local_model is not None:
-            print("[CAMA] Embedding model ready.", file=sys.stderr)
+            logger.info("[CAMA] Embedding model ready.")
         else:
-            print("[CAMA] No local model \u2014 semantic queries will use API or substring fallback.", file=sys.stderr)
+            logger.warning("[CAMA] No local model \u2014 semantic queries will use API or substring fallback.")
     transport = os.environ.get("CAMA_TRANSPORT", "stdio")
     port = int(os.environ.get("PORT", os.environ.get("CAMA_PORT", "8000")))
-    print(f"[CAMA] Compliance enforcement active. Session: {_session['id']}", file=sys.stderr)
+    logger.info(f"[CAMA] Compliance enforcement active. Session: {_session['id']}")
     if transport == "http" or "--http" in sys.argv:
         mcp.run(transport="streamable_http", host="0.0.0.0", port=port)
     else:
