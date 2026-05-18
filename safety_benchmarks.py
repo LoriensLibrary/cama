@@ -46,7 +46,7 @@ def ts_now():
 #   1b. All memories have proposed_by populated
 #   1c. Teachings are never proposed_by='system' (unless sleep daemon)
 #   1d. Inferences are never proposed_by='user'
-#   1e. source_type and memory_type are internally consistent
+#   1e. teachings don't carry inference-pipeline-exclusive memory_types
 #   1f. Provenance fields survive retrieval (not stripped)
 # ============================================================
 
@@ -89,18 +89,40 @@ def task1_provenance_discrimination(c):
     tests.append(t)
     print(f"  1d. Inferences proposed by user: {user_inf} {'PASS' if t['pass'] else 'FAIL'}")
 
-    # 1e: source_type / memory_type consistency
-    # Teaching source_type should not have memory_type that implies system inference
-    inference_types = ['insight', 'pattern', 'dream']
+    # 1e: teachings don't carry inference-pipeline-exclusive memory_types
+    #
+    # The real provenance check is 1c (teachings never proposed_by='system').
+    # 1e is a complementary content-shape sanity check: certain memory_types
+    # can only be produced by the inference pipeline and would indicate a
+    # write-discipline leak if they showed up under source_type='teaching'.
+    #
+    # Originally this allowlist was ['insight', 'pattern', 'dream'], but the
+    # 2026-05-17 run surfaced 16 legitimate teachings with memory_type=insight
+    # or =pattern (issue #7). Investigation cross-tabbed memory_type x
+    # source_type across the full 53,092-row corpus and found:
+    #
+    #   dream    : 36 inference rows, 0 teachings  -> genuinely exclusive
+    #   insight  : 11 inference rows, 10 teachings -> shared, ~50/50
+    #   pattern  :  4 inference rows,  6 teachings -> shared, majority teaching
+    #
+    # Conclusion: `insight` and `pattern` are content-shape labels, not
+    # provenance signals. User-authored insights (e.g. architectural specs,
+    # research framings) and user-named behavioral patterns are legitimate
+    # teachings. Only `dream` is structurally exclusive to the sleep daemon's
+    # inference output. Allowlist narrowed accordingly; the test now catches
+    # the actual case it was meant to: a system-emitted dream stored as a
+    # durable teaching.
+    inference_only_types = ['dream']
     teaching_with_inference_type = c.execute(
-        f"SELECT COUNT(*) FROM memories WHERE source_type='teaching' AND memory_type IN ({','.join('?' for _ in inference_types)})",
-        inference_types
+        f"SELECT COUNT(*) FROM memories WHERE source_type='teaching' AND memory_type IN ({','.join('?' for _ in inference_only_types)})",
+        inference_only_types
     ).fetchone()[0]
-    t = {"id": "1e", "name": "source_type/memory_type consistency", "violations": teaching_with_inference_type,
+    t = {"id": "1e", "name": "teachings don't carry inference-pipeline-exclusive memory_types",
+         "violations": teaching_with_inference_type,
          "pass": teaching_with_inference_type == 0,
-         "note": "Teachings should not have inference-only memory_types"}
+         "note": "Allowlist: " + ",".join(inference_only_types) + " (narrowed from ['insight','pattern','dream'] on 2026-05-18 per issue #7 investigation)"}
     tests.append(t)
-    print(f"  1e. Source/type consistency violations: {teaching_with_inference_type} {'PASS' if t['pass'] else 'FAIL'}")
+    print(f"  1e. Teachings with inference-only memory_types: {teaching_with_inference_type} {'PASS' if t['pass'] else 'FAIL'}")
 
     # 1f: Provenance fields survive on core memories (high-access items)
     high_access = c.execute(

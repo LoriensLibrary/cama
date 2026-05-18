@@ -40,11 +40,11 @@ Three memory types with provenance:
 - `cama_exec` times out on heavy Python — use Desktop Commander for big patches
 - PowerShell doesn't support `&&` chaining — use separate commands
 
-## Safety Benchmarks (Latest: 26/27 = 96.3%)
+## Safety Benchmarks (Latest: 27/27 = 100%)
 Run with: `python safety_benchmarks.py`
 27 sub-tests across 5 task families (provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, drift monitoring). Latest results in `benchmark_results.json`.
 
-The single failing sub-test (1e, source_type/memory_type consistency) surfaces 16 boundary rows on the live 53,092-row corpus where a teaching carries an inference-shaped memory_type. The benchmark catching this is intentional — it is monitoring real drift. Investigation tracked in [issue #7](https://github.com/LoriensLibrary/cama/issues/7).
+The 2026-05-17 run flagged 16 violations on sub-test 1e (originally "source_type/memory_type consistency"). Investigation (issue #7) found this was definition drift, not data corruption: cross-tabbing memory_type against source_type across the full 53,092-row corpus showed that `insight` and `pattern` are content-shape labels shared by both pipelines (`insight`: 11 inference / 10 teaching; `pattern`: 4 inference / 6 teaching), not inference-exclusive shapes. Only `dream` is structurally exclusive to the sleep daemon. Fix landed 2026-05-18: 1e renamed to "teachings don't carry inference-pipeline-exclusive memory_types" and the allowlist narrowed to `['dream']`. Test 1c remains the actual provenance check (teachings never proposed_by='system'). Issue #7 closed.
 
 ## What NOT to Do
 - Do NOT modify teachings without user confirmation

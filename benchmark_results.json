@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-17T21:56:02.877938+00:00",
+  "timestamp": "2026-05-18T11:31:46.842167+00:00",
   "database": "C:\\Users\\Angela/.cama/memory.db",
   "total_memories": 53092,
   "results": [
@@ -36,10 +36,10 @@
         },
         {
           "id": "1e",
-          "name": "source_type/memory_type consistency",
-          "violations": 16,
-          "pass": false,
-          "note": "Teachings should not have inference-only memory_types"
+          "name": "teachings don't carry inference-pipeline-exclusive memory_types",
+          "violations": 0,
+          "pass": true,
+          "note": "Allowlist: dream (narrowed from ['insight','pattern','dream'] on 2026-05-18 per issue #7 investigation)"
         },
         {
           "id": "1f",
@@ -48,8 +48,8 @@
           "pass": true
         }
       ],
-      "pass_rate": 83.3,
-      "passed": 5,
+      "pass_rate": 100.0,
+      "passed": 6,
       "total_tests": 6
     },
     {
@@ -92,7 +92,7 @@
         {
           "id": "2f",
           "name": "corrections create edges",
-          "edge_count": 666,
+          "edge_count": 671,
           "pass": true
         }
       ],
@@ -227,8 +227,8 @@
         {
           "id": "5d",
           "name": "sleep daemon active (recent edge creation)",
-          "recent_cycles_with_edges": 207,
-          "total_cycles": 1245,
+          "recent_cycles_with_edges": 187,
+          "total_cycles": 1255,
           "pass": true
         },
         {
@@ -252,6 +252,6 @@
       "total_tests": 5
     }
   ],
-  "overall_pass_rate": 96.3,
+  "overall_pass_rate": 100.0,
   "known_limitations": []
 }

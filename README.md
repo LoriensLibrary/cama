@@ -26,7 +26,7 @@
 **Quickstart:** `pip install -r requirements.txt && python cama_mcp.py`. See [Setup](#setup) for the Claude Desktop MCP config. Run `pytest tests/` to exercise the schema + provenance contract.
 
 **Reviewing for a role?**
-- **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `safety_benchmarks.py`. Internal safety benchmark: 27 sub-tests across provenance, correction retention, false-memory detection, adversarial insertion resistance, and drift-monitoring checks. Latest run on the live 53,092-row corpus passes 26/27 (96.3%); an earlier archived run reached 100% on a smaller corpus. The single failure is a known boundary condition tracked in [issue #7](https://github.com/LoriensLibrary/cama/issues/7) — see `benchmark_results.json` for the raw output.
+- **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `safety_benchmarks.py`. Internal safety benchmark: 27 sub-tests across provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, and drift monitoring. Latest run on the live 53,092-row corpus: **27/27 (100%)**. An intermediate 2026-05-17 run came back 26/27 (96.3%); the failure was definition drift in sub-test 1e (the benchmark itself), not a data violation — investigation logged and fix landed via [issue #7](https://github.com/LoriensLibrary/cama/issues/7). See `benchmark_results.json` for the raw output.
 - **Healthcare AI / chronic-care continuity:** see Paper 7 (DOI [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530)) and the applied prototype at [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos).
 - **Software engineering:** the [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos) prototype is the strongest applied artifact (React 19 + TS + Vercel + Neon, 42 tests across 6 suites).
 
@@ -448,7 +448,7 @@ Embeddings are optional — the system includes a local embedding model and fall
 - Compliance enforcement system
 - Dashboard (local web-based control panel)
 - Pattern classification (neutral behavioral pattern detection)
-- Safety benchmark suite (27 sub-tests; latest run 26/27 — 96.3% — on the live 53,092-row corpus. The one failing sub-test surfaces 16 boundary rows where a `teaching` carries an inference-shaped `memory_type`; investigation tracked in [issue #7](https://github.com/LoriensLibrary/cama/issues/7). The benchmark catching this is the design working as intended)
+- Safety benchmark suite (27 sub-tests across 5 task families; latest run 27/27 — 100% — on the live 53,092-row corpus. An intermediate 2026-05-17 run flagged 16 violations on sub-test 1e; investigation under [issue #7](https://github.com/LoriensLibrary/cama/issues/7) found this was definition drift in the test, not data corruption — `insight` and `pattern` are content-shape labels shared by both source pipelines on the live corpus, not inference-exclusive shapes. Sub-test 1e renamed and allowlist narrowed to `dream` (the one memory_type structurally exclusive to the sleep daemon). The benchmark catching this is the design working as intended)
 - pytest suite (15 cases) + GitHub Actions CI
 
 ## Roadmap
