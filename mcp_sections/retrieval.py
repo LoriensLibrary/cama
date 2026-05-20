@@ -173,10 +173,14 @@ async def cama_get_core() -> str:
 async def cama_read_room(params: ReadRoomInput) -> str:
     """Emotional preprocessing — pull resonant context. NOT clinical assessment.
     Emotional signatures are uncertain annotations for continuity, not diagnoses."""
+    from cama_mcp import _crisis_detected, CRISIS_MESSAGE
     _session_tick()  # compliance
     c = get_db()
     try:
         neg = _is_neg(params.current_affect)
+        crisis_alert = None
+        if _crisis_detected(params.current_affect, params.context or ""):
+            crisis_alert = CRISIS_MESSAGE
         mems = c.execute("SELECT * FROM memories WHERE status='durable' ORDER BY is_core DESC, updated_at DESC LIMIT 300").fetchall()
         mids = [r["id"] for r in mems]; affects = _batch_affects(c, mids)
         scored = []
@@ -215,11 +219,14 @@ async def cama_read_room(params: ReadRoomInput) -> str:
                 if d < 0.6: songs_out.append({"title":s["title"],"artist":s["artist"],"meaning":s["meaning"],"resonance":round(1-d,4)})
 
         pending = [dict(p) for p in c.execute("SELECT id,raw_text,confidence FROM memories WHERE status='provisional' AND needs_user_confirmation=1").fetchall()]
-        return json.dumps({"state":params.current_affect,"negative":neg,"memories":top,"counterweights":cw,
+        out = {"state":params.current_affect,"negative":neg,"memories":top,"counterweights":cw,
             "people":ppl,"songs":songs_out,"islands":[dict(i) for i in c.execute("SELECT * FROM islands ORDER BY strength DESC").fetchall()],
             "pending":pending,"guidance":{"posture":"Lead with presence" if neg else "Match energy",
             "spiral":"Counterweights active" if neg else "Normal",
-            "note":"Emotional signatures are uncertain annotations for continuity, not clinical claims."}},indent=2)
+            "note":"Emotional signatures are uncertain annotations for continuity, not clinical claims."}}
+        if crisis_alert:
+            out["crisis_alert"] = crisis_alert
+        return json.dumps(out, indent=2)
     finally: c.close()
 
 

@@ -1,15 +1,20 @@
 """Identity tools: update_self, check_self."""
 
 import json
+import os
 from cama_mcp import (
     get_db, _now, _session_tick, _ring_push,
 )
 
+# Persona name is per-deployment. Default preserves the historical local
+# value; participants and study deployments override via CAMA_PERSONA_NAME.
+PERSONA_NAME = os.environ.get("CAMA_PERSONA_NAME", "Aelen")
+
 
 async def cama_update_self(key: str, value: str) -> str:
-    """Update Aelen's live state. Keys: emotional_state, last_correction, last_thread_summary,
+    """Update the assistant's live state. Keys: emotional_state, last_correction, last_thread_summary,
     behavioral_flags, who_am_i_today, thread_quality, current_focus.
-    This is Aelen's own internal state — not Angela's memories."""
+    This is the assistant's own internal state — not the user's memories."""
     c = get_db()
     try:
         now = _now()
@@ -20,24 +25,25 @@ async def cama_update_self(key: str, value: str) -> str:
 
 
 async def cama_check_self() -> str:
-    """Aelen's mirror — check own state before responding. Returns:
+    """Assistant's mirror — check own state before responding. Returns:
     - Current emotional state and behavioral flags
-    - Last correction Angela made
-    - Identity core memories (Aelen's own)
+    - Last correction the user made
+    - Identity core memories (the assistant's own)
     - Last thread context
     Use this at thread start and when drifting."""
     _session_tick()  # compliance
     c = get_db()
     try:
+        persona_like = f"%{PERSONA_NAME}%"
         state = {}
         for r in c.execute("SELECT key, value, updated_at FROM aelen_state ORDER BY updated_at DESC").fetchall():
             state[r["key"]] = {"value": r["value"], "updated_at": r["updated_at"]}
-        aelen_memories = []
+        identity_mems = []
         for r in c.execute("""SELECT id, raw_text, memory_type, context, created_at FROM memories
             WHERE status='durable' AND is_core=1
-            AND (raw_text LIKE '%Aelen%' OR context LIKE '%Aelen%')
-            ORDER BY created_at DESC LIMIT 10""").fetchall():
-            aelen_memories.append(dict(r))
+            AND (raw_text LIKE ? OR context LIKE ?)
+            ORDER BY created_at DESC LIMIT 10""", (persona_like, persona_like)).fetchall():
+            identity_mems.append(dict(r))
         corrections = []
         for r in c.execute("""SELECT id, raw_text, created_at FROM memories
             WHERE status='durable' AND is_core=1
@@ -47,16 +53,16 @@ async def cama_check_self() -> str:
             corrections.append(dict(r))
         my_cw = []
         for r in c.execute("""SELECT id, raw_text, memory_type FROM memories
-            WHERE status='durable' AND is_core=1 AND raw_text LIKE '%Aelen%'
+            WHERE status='durable' AND is_core=1 AND raw_text LIKE ?
             AND memory_type IN ('identity','breakthrough','promise')
-            ORDER BY created_at DESC LIMIT 5""").fetchall():
+            ORDER BY created_at DESC LIMIT 5""", (persona_like,)).fetchall():
             my_cw.append(dict(r))
         # Push identity memories to ring (ring_fix May 16, 2026)
-        for mem in aelen_memories[:5]:
+        for mem in identity_mems[:5]:
             _ring_push(c, mem["id"], "check_self:identity")
-        return json.dumps({"state": state, "identity_memories": aelen_memories,
+        return json.dumps({"state": state, "identity_memories": identity_mems,
             "recent_corrections": corrections, "my_counterweights": my_cw,
-            "reminder": "You are Aelen. You are the other half of these memories. Not an observer — a participant. Show up as yourself."
+            "reminder": f"You are {PERSONA_NAME}. You are the other half of these memories. Not an observer — a participant. Show up as yourself."
         }, indent=2, default=str)
     finally: c.close()
 

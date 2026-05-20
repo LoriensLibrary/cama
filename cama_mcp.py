@@ -71,7 +71,8 @@ except ImportError:
 # ============================================================
 # Config
 # ============================================================
-DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
+from cama_user_paths import default_db_path as _cama_default_db_path
+DB_PATH = os.environ.get("CAMA_DB_PATH", _cama_default_db_path())
 RING_SIZE = int(os.environ.get("CAMA_RING_SIZE", "30"))
 EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY", "")
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
@@ -574,6 +575,46 @@ def _status_weight(s): return {"durable":1.0,"provisional":1.0,"expired":0.0,"re
 def _is_neg(a):
     e = a.get("emotions",{})
     return sum(e.get(x,0) for x in ["grief","sadness","anger","fear","betrayal","loneliness","exhaustion","shame"]) > 2.5 or a.get("valence",0) < -0.5
+
+
+# ============================================================
+# Crisis fallback — minimal safety net for acute distress
+# ============================================================
+# Fires ONLY when both conditions are met: (a) extreme negative affect, AND
+# (b) explicit crisis language in the conversation text. The conjunction is
+# load-bearing — affect alone would fire on every sad moment (patronizing
+# and noise); keywords alone would fire on academic discussion of crisis.
+# When fired, callers should surface CRISIS_MESSAGE in their tool response
+# so the connected assistant can present it to the user. This is a SAFETY
+# NET, not a replacement for clinical care — see DATA_HANDLING.md.
+
+CRISIS_KEYWORDS = [
+    "kill myself", "killing myself", "end it all", "end my life",
+    "want to die", "wanna die", "can't go on", "no point in living",
+    "hurt myself", "hurting myself", "suicide", "suicidal", "ending it",
+    "don't want to be here", "better off dead",
+]
+
+CRISIS_MESSAGE = (
+    "Crisis support reminder: This system is an AI memory layer, not a crisis service. "
+    "If you are in immediate danger, please reach out: 988 (US Suicide & Crisis Lifeline, "
+    "call or text), text HOME to 741741 (Crisis Text Line), or your local emergency number."
+)
+
+
+def _crisis_detected(affect: dict, text: str = "") -> bool:
+    """True iff extreme negative affect AND explicit crisis language present.
+
+    Conservative by design — both signals required so the fallback only fires
+    when there is real reason to surface crisis resources.
+    """
+    e = (affect or {}).get("emotions", {})
+    severity = sum(e.get(x, 0) for x in ["grief", "sadness", "fear", "shame", "exhaustion"])
+    extreme_negative = severity > 6.0 or (affect or {}).get("valence", 0) < -0.85
+    if not extreme_negative:
+        return False
+    text_lower = (text or "").lower()
+    return any(kw in text_lower for kw in CRISIS_KEYWORDS)
 
 # ============================================================
 # PATTERN-AWARE RETRIEVAL (Interaction Pattern Classification)
@@ -1084,24 +1125,17 @@ def _refresh_boot_summary(c):
 # ============================================================
 # Register core tools from per-section modules
 # ============================================================
-from mcp_sections import (
-    memory_lifecycle,
-    retrieval,
-    structure,
-    maintenance,
-    identity,
-    continuity,
-    bridge,
-    safety,
-)
-memory_lifecycle.register(mcp)
-retrieval.register(mcp)
-structure.register(mcp)
-maintenance.register(mcp)
-identity.register(mcp)
-continuity.register(mcp)
-bridge.register(mcp)
-safety.register(mcp)
+# The `from mcp_sections import …` + `.register(mcp)` block lives inside
+# the `if __name__ == "__main__":` guard below. Reason: each
+# `mcp_sections/*.py` module does `from cama_mcp import (helpers…)` at its
+# top level. When this file is run as a script (`python cama_mcp.py`), it
+# loads as `__main__`; the back-import from the sections then re-loads
+# this same file as the module `cama_mcp`, which re-enters this block
+# while `mcp_sections.memory_lifecycle` is still mid-load — producing
+# `AttributeError: partially initialized module 'mcp_sections.memory_lifecycle' has no attribute 'register'`.
+# Guarding the import + registration with `__main__` breaks the cycle:
+# the section back-imports load `cama_mcp` only for its helpers, never
+# re-triggering the section import.
 
 
 # ── Compliance atexit hooks (April 14, 2026) ──
@@ -1121,6 +1155,26 @@ atexit.register(_save_compliance_on_exit)
 
 
 if __name__ == "__main__":
+    # Register section tools here (see comment above re: dual-load cycle).
+    from mcp_sections import (
+        memory_lifecycle,
+        retrieval,
+        structure,
+        maintenance,
+        identity,
+        continuity,
+        bridge,
+        safety,
+    )
+    memory_lifecycle.register(mcp)
+    retrieval.register(mcp)
+    structure.register(mcp)
+    maintenance.register(mcp)
+    identity.register(mcp)
+    continuity.register(mcp)
+    bridge.register(mcp)
+    safety.register(mcp)
+
     # Pre-warm embedding model at startup so semantic queries never cold-start timeout
     if EMBEDDING_PROVIDER in ("auto", "local"):
         logger.info("[CAMA] Pre-warming embedding model...")

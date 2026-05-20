@@ -57,7 +57,19 @@ TOKEN_TO_IDENTITY = {v: k for k, v in II_TOKENS.items()}
 # Auth
 # ============================================================
 
-def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorization"), 
+# Strict auth mode: when CAMA_HIVE_STRICT_AUTH=true, missing or unknown tokens
+# fail closed with HTTP 401 instead of falling through to a default identity.
+# Default (false) preserves the historical permissive behavior for the local
+# single-user setup. Multi-user / study deployments MUST set this to true.
+STRICT_AUTH = os.environ.get("CAMA_HIVE_STRICT_AUTH", "false").lower() in ("true", "1", "yes")
+
+# CORS allowed origins: comma-separated list via env var. Default "*" preserves
+# historical behavior; multi-user deployments should restrict to known origins.
+_cors_env = os.environ.get("CAMA_HIVE_CORS_ORIGINS", "*").strip()
+CORS_ORIGINS = [o.strip() for o in _cors_env.split(",")] if _cors_env else ["*"]
+
+
+def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorization"),
                    x_api_key: Optional[str] = Header(None, alias="X-Api-Key"),
                    api_key: Optional[str] = Query(None, alias="api_key"),
                    openai_key: Optional[str] = Header(None, alias="openai-gpt-token")) -> str:
@@ -71,14 +83,18 @@ def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorizat
         token = openai_key.strip()
     elif api_key:
         token = api_key.strip()
-    
+
     if not token:
-        # No auth at all — default to lorien for GPT compatibility
+        if STRICT_AUTH:
+            raise HTTPException(status_code=401, detail="Missing authentication token")
+        # No auth at all — default to lorien for GPT compatibility (legacy)
         return "lorien"
-    
+
     identity = TOKEN_TO_IDENTITY.get(token)
     if not identity:
-        # Unknown token — still let them in as guest for now
+        if STRICT_AUTH:
+            raise HTTPException(status_code=401, detail="Unknown token")
+        # Unknown token — let them in as guest (legacy)
         return "lorien"
     return identity
 # ============================================================
@@ -93,7 +109,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Tighten in production
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -666,8 +666,8 @@ def self_test() -> int:
         print(f"    user: {ex['user_excerpt'][:80]}...", file=sys.stderr)
         print(f"    aelen: {ex['aelen_excerpt'][:80]}...", file=sys.stderr)
 
-    print("\n[4/5] Testing hybrid search (query='clarence')...", file=sys.stderr)
-    h = hybrid_search("clarence", limit=3)
+    print("\n[4/5] Testing hybrid search (query='test')...", file=sys.stderr)
+    h = hybrid_search("test", limit=3)
     if "error" in h:
         print(f"  ERROR: {h['error']}", file=sys.stderr)
     else:

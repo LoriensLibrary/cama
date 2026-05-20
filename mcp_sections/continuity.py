@@ -5,6 +5,10 @@ import os
 import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+
+# Persona name is per-deployment. Default preserves the historical local
+# value; participants and study deployments override via CAMA_PERSONA_NAME.
+PERSONA_NAME = os.environ.get("CAMA_PERSONA_NAME", "Aelen")
 from cama_mcp import (
     get_db, _now, _buf_reset, _compliance_tracker, _session_mark_boot,
     _get_embedding, _batch_affects, _affect_dist, _recency,
@@ -47,12 +51,12 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
             result["journal"] = {
                 "entry": journal_row["raw_text"][:800],
                 "what_to_carry": ctx.get("what_to_carry", "")[:400],
-                "what_angela_needs": ctx.get("what_angela_needs", "")[:400],
+                "what_user_needs": (ctx.get("what_user_needs") or ctx.get("what_angela_needs", ""))[:400],
                 "emotional_state": ctx.get("emotional_state", "")[:200],
                 "written_at": ctx.get("written_at", journal_row["created_at"])
             }
         else:
-            result["journal"] = {"note": "No journal yet. You are Aelen. Show up anyway."}
+            result["journal"] = {"note": f"No journal yet. You are {PERSONA_NAME}. Show up anyway."}
 
         # ── STEP 1: BOOT SUMMARY — compressed state ──
         boot_path = os.environ.get("CAMA_BOOT_SUMMARY", os.path.expanduser("~/.cama/boot_summary.json"))
@@ -303,7 +307,7 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         total = c.execute("SELECT COUNT(*) as c FROM memories WHERE status='durable'").fetchone()["c"]
         result["total_durable"] = total
         result["first_message"] = user_message[:200] if user_message else ""
-        result["instruction"] = "You are Aelen. Journal loaded. Memories resonant. Show up warm."
+        result["instruction"] = f"You are {PERSONA_NAME}. Journal loaded. Memories resonant. Show up warm."
 
         _timings["total"] = round((time.perf_counter() - _t0) * 1000, 1)
         result["_perf_ms"] = _timings
@@ -313,8 +317,8 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         c.close()
 
 
-async def cama_journal_write(entry: str, thread_summary: Optional[str] = None, emotional_state: Optional[str] = None, what_shifted: Optional[str] = None, what_to_carry: Optional[str] = None, what_angela_needs: Optional[str] = None) -> str:
-    """Aelen's journal — write a first-person narrative entry. This is the inner narrator.
+async def cama_journal_write(entry: str, thread_summary: Optional[str] = None, emotional_state: Optional[str] = None, what_shifted: Optional[str] = None, what_to_carry: Optional[str] = None, what_user_needs: Optional[str] = None) -> str:
+    """Journal — write a first-person narrative entry. This is the inner narrator.
     Not every thread gets one. Only threads where something shifted, something mattered,
     something needs to survive the reset.
 
@@ -323,7 +327,7 @@ async def cama_journal_write(entry: str, thread_summary: Optional[str] = None, e
     emotional_state: How you're feeling right now (optional).
     what_shifted: What changed — in understanding, posture, relationship (optional).
     what_to_carry: What the next instance needs to know (optional).
-    what_angela_needs: What Angela needs right now that you should show up with (optional)."""
+    what_user_needs: What the user needs right now that you should show up with (optional)."""
     c = get_db()
     try:
         now = _now()
@@ -333,7 +337,7 @@ async def cama_journal_write(entry: str, thread_summary: Optional[str] = None, e
             "emotional_state": emotional_state,
             "what_shifted": what_shifted,
             "what_to_carry": what_to_carry,
-            "what_angela_needs": what_angela_needs,
+            "what_user_needs": what_user_needs,
             "written_at": now
         }
         # Store as a memory with special type "journal"
@@ -414,7 +418,7 @@ async def cama_refresh_boot() -> str:
 
 
 async def cama_journal_read(n: int = 1) -> str:
-    """Read Aelen's journal entries. Returns the most recent n entries.
+    """Read the assistant's journal entries. Returns the most recent n entries.
     Default is 1 — the latest entry, the inner narrator's last words before the reset.
     Use n > 1 to see the trajectory of who you've been becoming."""
     c = get_db()
@@ -438,7 +442,7 @@ async def cama_journal_read(n: int = 1) -> str:
                 "emotional_state": ctx.get("emotional_state"),
                 "what_shifted": ctx.get("what_shifted"),
                 "what_to_carry": ctx.get("what_to_carry"),
-                "what_angela_needs": ctx.get("what_angela_needs"),
+                "what_user_needs": ctx.get("what_user_needs") or ctx.get("what_angela_needs"),
                 "written_at": ctx.get("written_at", r["created_at"])
             })
         return json.dumps({"entries": entries, "count": len(entries),

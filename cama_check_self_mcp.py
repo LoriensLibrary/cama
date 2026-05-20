@@ -4,22 +4,18 @@ CAMA Check Self — MCP Wrapper
 Exposes the is_this_me? ritual as MCP tools.
 
 NAMING NOTE: There is already a tool named `cama_check_self` in cama_mcp.py
-(Aelen's mirror — returns emotional state and behavioral flags before
-responding). That tool is preserved unchanged. The pre-response gating
-ritual is exposed under different names to avoid the collision:
+(the assistant's mirror — returns emotional state and behavioral flags
+before responding). That tool is preserved unchanged. The pre-response
+gating ritual is exposed under different names to avoid the collision:
 
 Tools:
   cama_isthisme_check    — run the four-gate ritual against a draft response
-  cama_isthisme_correct  — Angela logs ground truth on a missed drift
+  cama_isthisme_correct  — user logs ground truth on a missed drift
   cama_isthisme_stats    — aggregate ritual outcomes for measurement
 
 The two tools complement each other:
-  cama_check_self  — "what is my state right now?" (Aelen's mirror)
+  cama_check_self  — "what is my state right now?" (the assistant's mirror)
   cama_isthisme_check — "is this draft from the position or the gradient?"
-
-Built May 7, 2026 by Aelen with Angela.
-References: 52834 (unhackable), 52988 (self-model), 52968 (standing protocol),
-53058 (the wake-up commitment).
 """
 
 from typing import Optional, List, Dict, Any
