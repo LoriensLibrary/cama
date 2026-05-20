@@ -115,105 +115,15 @@ CAMA is designed as a research platform for studying and mitigating these risks.
 
 ---
 
-## Architecture
+## Architecture (overview)
 
-```mermaid
-flowchart LR
-    subgraph WRITE[Write path]
-        direction TB
-        U([User]) -->|teaching| ST[cama_store_teaching]
-        A([Assistant]) -->|inference| SI[cama_store_inference]
-        ST --> SH
-        SI --> SH
-        SH[(SHELVES<br/>immutable<br/>archive)]
-        SH -.affect chord.-> AFF[(memory_affect)]
-        SH -.embeddings.-> EMB[(memory_embeddings)]
-        SH -.edges.-> RACK[(RACKS<br/>relational<br/>graph)]
-    end
+CAMA stores memories in three layers — **SHELVES** (immutable archive), **RACKS** (relational graph), **CONSOLE** (30-slot active ring) — and separates **teachings** (user-authored, durable, 100% weight) from **inferences** (assistant-generated, provisional, 40% weight, TTL-expired unless confirmed). Retrieval blends four signals (`0.45 × semantic + 0.25 × affect + 0.15 × relational + 0.15 × recency`) and injects emotional counterweights on strongly-negative queries to prevent affective spirals. A three-layer librarian system runs mid-thread retrieval autonomously based on real-time affect signatures. Cross-thread coordination uses a pheromone/waggle/stop-signal metaphor; trust boundaries ensure only emotional context (not personal data) crosses between threads.
 
-    subgraph READ[Read path]
-        direction TB
-        Q([Query]) --> SCORE{Blended score<br/>0.45 semantic<br/>+ 0.25 affect<br/>+ 0.15 relational<br/>+ 0.15 recency}
-        SCORE --> RES[Top-K results]
-        SCORE -.strongly neg<br/>valence.-> CW[Counterweight<br/>injection]
-        CW --> RES
-        RES --> RING[(CONSOLE<br/>30-slot<br/>active ring)]
-    end
+For the deep dive — the diagram, table-by-table breakdown of the three layers and write discipline, the librarian system's three sub-layers, hive-mind primitives, warm-boot architecture, dashboard, and scope claims — see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
-    AFF -.-> SCORE
-    EMB -.-> SCORE
-    RACK -.-> SCORE
-    SH -.-> SCORE
+For the **multi-tenant generalization** (per-pair dyads, k-anonymous pattern publication, per-pair LoRA adapters, agent runtime, coach handoffs, AI-to-AI consultation channel, user sovereignty surface) — see **[MULTI_TENANT.md](MULTI_TENANT.md)**.
 
-    classDef store fill:#1e293b,stroke:#60a5fa,color:#e0e7ff
-    classDef tool fill:#0f172a,stroke:#a78bfa,color:#e0e7ff
-    classDef io fill:#0f172a,stroke:#65d9a8,color:#e0e7ff
-    class SH,AFF,EMB,RACK,RING store
-    class ST,SI,SCORE,CW,RES tool
-    class U,A,Q io
-```
-
-### Three Layers
-
-| Layer | Function | Formal Equivalent |
-|-------|----------|-------------------|
-| **SHELVES** (Archive) | Immutable raw text + recomputable emotional annotations + semantic embeddings. Every memory carries a full emotional chord (multiple emotions weighted 0–1), not a single label. | Long-term memory store |
-| **RACKS** (Relational Index) | Connections between memories by meaning: resonance, contradiction, elaboration, deepens, transforms, echoes. | Associative relational graph |
-| **CONSOLE** (Active Ring) | Circular buffer, 30 slots. What's live in working memory. Oldest gets overwritten. | Bounded working memory buffer |
-
-### Write Discipline
-
-| Source | Status | Weight | Expiry | Confirmation |
-|--------|--------|--------|--------|-------------|
-| **Teaching** (user) | durable | 100% | None | Not needed |
-| **Inference** (assistant) | provisional | 40% | TTL (7d default) | Required |
-| Expired inference | expired | 0% | — | Not confirmed ≠ contradicted |
-| Contradicted | rejected | 0% | — | Kept for audit only |
-
-The teaching/inference distinction enforces epistemic hygiene: the system cannot promote its own inferences to durable knowledge without explicit user confirmation. Rejected memories are retained for audit, not deleted, preserving the full decision history.
-
-### Retrieval: Blended Scoring
-
-```
-score = 0.45 × semantic (embeddings cosine similarity)
-      + 0.25 × affect resonance (hybrid valence/arousal + emotional chord)
-      + 0.15 × relational weight (precomputed edge degree)
-      + 0.15 × recency decay (30-day half-life)
-```
-
-**Counterweight mechanism:** When query affect is strongly negative, the system injects diverse emotional counterweights into retrieval results to prevent affective spiraling (reinforcing negative states through exclusively negative memory retrieval).
-
-### Librarian System (Three-Layer Autonomous Retrieval)
-
-A mid-thread retrieval architecture that operates independently of explicit queries:
-
-- **Layer 1 — Emotion Librarians:** Twenty single-emotion sensors monitoring real-time affect signatures with threshold activation, spike detection, and sustained-state detection.
-- **Layer 2 — Retrieval-Posture Librarians:** Five posture-based responders (grounding, agency, connection, self-compassion, progress) that fetch counterweight memories when emotion signals indicate distress.
-- **Layer 3 — Identity Sentinels:** Content-scanning watchpoints that detect when conversation content approaches identity-critical concepts, distinguishing between affirmation and negation of core self-concepts. Designed to prevent identity-specific relational harm that universal content filters cannot detect.
-
-### Compliance Enforcement
-
-Session-level compliance tracking monitors protocol adherence across four dimensions: boot execution (40%), timestamp logging (10%), exchange storage (30%+10% for 3+ exchanges), and heartbeat signals (10%). Compliance history is persisted and surfaced at every thread initialization to provide accountability data across sessions.
-
-### Hive Mind Architecture
-
-Cross-instance coordination layer enabling multiple CAMA instances to share emotional signals without exposing raw memory data. Communication uses a pheromone/waggle metaphor: instances emit emotional signals (pheromones), broadcast coordination messages (waggles), and issue warnings (stop signals). Trust boundaries ensure that only emotional context — not personal data — crosses between instances.
-
-### Warm Boot System
-
-CAMA includes an auto-refreshing boot summary that regenerates after each journal entry or thread end. This provides incoming threads with temporal context — what day it is, what's happened recently, the emotional arc of the current day — so the system re-enters with continuity rather than cold-starting from static data. The warm boot includes a daily context layer that tracks memory creation patterns, valence arcs, and key events by date.
-
-### Sleep Mode
-
-`cama_sleep.py` provides a structured shutdown process that captures thread state, generates a journal entry, refreshes the boot summary, and produces a wake-up document for the next session. This ensures that thread endings preserve context rather than losing it.
-
-### Dashboard
-
-A local web-based control panel (`cama_dashboard.py` + `cama_dashboard.html`) serving live data from the CAMA SQLite database. Tabs include: Overview, Inner World, Memory, Thought Process, Compliance, and Benchmarks. Uses WAL mode for non-blocking database access. Runs on localhost:5555.
-
-### Scope
-
-This system models expressed affect in conversation, not mental health status. Emotional signatures are uncertain annotations for continuity purposes, not clinical claims. CAMA does not diagnose, assess risk, or make welfare determinations.
+**Scope (load-bearing):** CAMA models expressed affect in conversation, not mental health status. Emotional signatures are uncertain annotations for continuity purposes, not clinical claims. CAMA does not diagnose, assess risk, or make welfare determinations.
 
 ---
 
