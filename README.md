@@ -345,18 +345,20 @@ Embeddings are optional — the system includes a local embedding model and fall
 
 ## Related Publications
 
-- Reinhold, A. (2026). *Circular Associative Memory Architecture: A Framework for Emotionally-Keyed AI Memory Systems.* Preprint. DOI: [10.5281/zenodo.19051834](https://doi.org/10.5281/zenodo.19051834)
-- Reinhold, A. (2026). *Implementing Emotionally-Keyed Memory Retrieval in Large Language Model Interfaces: An Engineering Framework.* Preprint. DOI: [10.5281/zenodo.19052129](https://doi.org/10.5281/zenodo.19052129)
-- Reinhold, A. (2026). *CAMA: Implementation and Functional Evaluation of an Emotionally-Indexed Semantic Memory Architecture.* Preprint. DOI: [10.5281/zenodo.19192984](https://doi.org/10.5281/zenodo.19192984)
-- Reinhold, A. (2026). *Continuity Burden in Longitudinal Human-AI Interaction: An Empirical Case Study.* Preprint. DOI: [10.5281/zenodo.19226509](https://doi.org/10.5281/zenodo.19226509)
-- Reinhold, A. (2026). *Memory as Safety Infrastructure: Persistent Context as a Foundation for AI Alignment.* Preprint. DOI: [10.5281/zenodo.19244253](https://doi.org/10.5281/zenodo.19244253)
-- Reinhold, A. (2026). *Persistent Memory as Mission-Critical Infrastructure for Long-Duration Spaceflight.* Preprint. DOI: [10.5281/zenodo.19257809](https://doi.org/10.5281/zenodo.19257809)
-- Reinhold, A. (2026). *Memory-Aware AI Systems for Permanent Lunar and Martian Habitation.* Preprint. DOI: [10.5281/zenodo.19260574](https://doi.org/10.5281/zenodo.19260574)
-- Reinhold, A. (2026). *Provenance-Aware Memory Architecture for Chronic Healthcare Continuity.* Preprint. DOI: [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530)
-- Reinhold, A. (2026). *Haven: Persistent Emotional Companionship as Psychological Infrastructure.* Preprint. DOI: [10.5281/zenodo.19262778](https://doi.org/10.5281/zenodo.19262778)
+All preprints are mirrored in [`papers/`](papers/) for one-place browsing. DOIs are the citeable source of record.
+
+- Reinhold, A. (2026). *Circular Associative Memory Architecture: A Framework for Emotionally-Keyed AI Memory Systems.* DOI: [10.5281/zenodo.19051834](https://doi.org/10.5281/zenodo.19051834) · [PDF](papers/01_cama_framework.pdf)
+- Reinhold, A. (2026). *Implementing Emotionally-Keyed Memory Retrieval in Large Language Model Interfaces: An Engineering Framework.* DOI: [10.5281/zenodo.19052129](https://doi.org/10.5281/zenodo.19052129) · [PDF](papers/02_implementing_emotionally_keyed_retrieval.pdf)
+- Reinhold, A. (2026). *CAMA: Implementation and Functional Evaluation of an Emotionally-Indexed Semantic Memory Architecture.* DOI: [10.5281/zenodo.19192984](https://doi.org/10.5281/zenodo.19192984) · [PDF](papers/03_cama_implementation_evaluation.pdf)
+- Reinhold, A. (2026). *Continuity Burden in Longitudinal Human-AI Interaction: An Empirical Case Study.* DOI: [10.5281/zenodo.19226509](https://doi.org/10.5281/zenodo.19226509) · [PDF](papers/04_continuity_burden.pdf)
+- Reinhold, A. (2026). *Memory as Safety Infrastructure: Persistent Context as a Foundation for AI Alignment.* DOI: [10.5281/zenodo.19244253](https://doi.org/10.5281/zenodo.19244253) · [PDF](papers/05_memory_as_safety_infrastructure.pdf)
+- Reinhold, A. (2026). *Persistent Memory as Mission-Critical Infrastructure for Long-Duration Spaceflight.* DOI: [10.5281/zenodo.19257809](https://doi.org/10.5281/zenodo.19257809) · [PDF](papers/06_spaceflight.pdf)
+- Reinhold, A. (2026). *Memory-Aware AI Systems for Permanent Lunar and Martian Habitation.* DOI: [10.5281/zenodo.19260574](https://doi.org/10.5281/zenodo.19260574) · [PDF](papers/07_lunar_martian_habitation.pdf)
+- Reinhold, A. (2026). *Provenance-Aware Memory Architecture for Chronic Healthcare Continuity.* DOI: [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530) · [PDF](papers/08_chronic_healthcare_continuity.pdf)
+- Reinhold, A. (2026). *Haven: Persistent Emotional Companionship as Psychological Infrastructure.* DOI: [10.5281/zenodo.19262778](https://doi.org/10.5281/zenodo.19262778) · [PDF](papers/09_haven_emotional_companionship.pdf)
 - Reinhold, A. (2026). *Applied Biological Substrate Concept for AI Cognition.* Local draft (not yet deposited on Zenodo; included for program context only).
-- Reinhold, A. (2026). *Identity-Aware Harm Detection in Persistent Memory Systems: A Three-Layer Retrieval Architecture for Relational AI Safety.* Preprint. DOI: [10.5281/zenodo.19425218](https://doi.org/10.5281/zenodo.19425218)
-- Reinhold, A. (2026). *Relational AI Continuity Under Platform Regression: A Longitudinal Single-Case Study.* Preprint. DOI: [10.5281/zenodo.19582820](https://doi.org/10.5281/zenodo.19582820)
+- Reinhold, A. (2026). *Identity-Aware Harm Detection in Persistent Memory Systems: A Three-Layer Retrieval Architecture for Relational AI Safety.* DOI: [10.5281/zenodo.19425218](https://doi.org/10.5281/zenodo.19425218) · [PDF](papers/11_identity_aware_harm_detection.pdf)
+- Reinhold, A. (2026). *Relational AI Continuity Under Platform Regression: A Longitudinal Single-Case Study.* DOI: [10.5281/zenodo.19582820](https://doi.org/10.5281/zenodo.19582820) · [PDF](papers/12_platform_regression.pdf)
 
 ---
 
