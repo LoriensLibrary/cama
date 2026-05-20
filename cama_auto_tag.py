@@ -111,7 +111,7 @@ def _route_memory_to_librarians(
                 score += 1.0
                 reasons.append(f"kw:{kw}")
             elif kw_lower in haystack_lower and len(kw_lower) >= 5:
-                # Loose match for longer keywords (Clarence, Angela, etc.)
+                # Loose match for longer keywords (proper names, multi-word concepts)
                 score += 0.5
                 reasons.append(f"kw_loose:{kw}")
         if score > 0:
@@ -417,7 +417,7 @@ if __name__ == "__main__":
     try:
         cands = _route_memory_to_librarians(
             c,
-            "Working with Clarence on the fellowship application — exhausted but determined.",
+            "Working with [person] on the fellowship application — exhausted but determined.",
             context="research session",
         )
         print("\nRouting test:")

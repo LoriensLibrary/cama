@@ -24,7 +24,7 @@ OUT OF SCOPE (Phase 2-5 — Adaptive — fresh-Angela days)
 - Splitting overflowing leaves
 - Merging overlapping leaves
 - Activation-based promotion / demotion (hot/warm/cold tiers)
-- Concept-drift handling (the "Clarence today" vs "Clarence in February" problem)
+- Concept-drift handling (the "[person] today" vs "[person] in February" problem)
 - Retirement of cold leaves
 - Auto-cluster purity scoring
 
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS librarians (
     name TEXT NOT NULL UNIQUE,
     category TEXT NOT NULL,           -- person | topic | affect | drift | meta
     description TEXT NOT NULL,
-    parent_id INTEGER,                -- for tree structure (Person -> Clarence)
+    parent_id INTEGER,                -- for tree structure (Person -> [child])
     routing_keywords TEXT,            -- JSON list of trigger words
     routing_affect TEXT,              -- JSON {valence_min, valence_max, arousal_min, arousal_max} or null
     scoring_weights TEXT,             -- JSON {semantic, affect, recency, relational}
@@ -861,7 +861,7 @@ if __name__ == "__main__":
     print(json.dumps(summary, indent=2, default=str)[:3000])
     print("\nTest routing:")
     test_queries = [
-        "I'm worried about Clarence",
+        "I'm worried about [person]",
         "How is the fellowship application coming",
         "What's the DSA assignment due",
         "I'm exhausted",
