@@ -76,6 +76,13 @@ There is no remote backup, no cloud sync, no telemetry. If the local file is del
 - **No automatic sharing between users.** The Hive coordination layer is opt-in per message, with explicit recipient targeting; there is no broadcast surface.
 - **No PII-bearing evaluation files are tracked publicly.** Specific files known to reference real individuals by name in their evaluation fixtures (`cama_eval.py`, `cama_phase2_embed.py`, `cama_phase25_subcentroid.py`, `cama_check_self.py`, `label_drift_v3.py`, `dyad_specs.md`, `warm_validation_sample.csv`) are kept local-only via `.gitignore`. This is documented in [README.md](README.md#stability-and-reproducibility-boundary).
 
+## Data at rest
+
+- **The SQLite database at `~/.cama/memory.db` is not encrypted at rest by default.** This is acceptable for a single-user local deployment where the user controls the host machine. It is NOT acceptable for any deployment where the host machine is not under the user's sole control.
+- **For multi-user / study deployments, full-disk encryption is required** (FileVault on macOS, BitLocker on Windows, LUKS on Linux). The threat model assumes that filesystem-level access equals data access, so OS-level encryption is the boundary that protects memories from a lost or compromised device.
+- **A SQLCipher-backed option is on the roadmap** for deployments that cannot rely on the operator enabling full-disk encryption. Until then, the disk-encryption requirement is documented in the participant consent flow.
+- **Personal calibration data lives outside the repo** in `~/.cama/user_aliases.json` and `~/.cama/identity_sentinels.json` (both gitignored). These files contain user-specific personalization for the affect-perturbation and identity-sentinel layers respectively; the shipped framework runs with empty defaults when neither is present.
+
 ---
 
 ## Current operating context (be specific)
