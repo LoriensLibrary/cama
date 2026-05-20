@@ -27,6 +27,9 @@ people_config.json
 
 conversations-000.json
 
+# Internal strategy doc — substantive Angela/Aelen relational content
+POSITIONING.md
+
 *.bak_*
 temp_extract*.py
 fix_*.py
