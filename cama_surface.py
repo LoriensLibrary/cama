@@ -23,6 +23,7 @@ Surfaces provided:
     delete_memory     -- real delete, requires confirm_token
     consent           -- current consent state + history
     hive_log          -- what this dyad has published to the hive
+    consult_log       -- AI-to-AI consultations posted + responded to
     resources         -- installed domain resources (Kalos etc.)
     persona           -- adapter versions + current
     handoffs          -- outgoing (member side) and incoming (coach side)
@@ -43,6 +44,7 @@ import cama_dyad
 import cama_persona
 import cama_hive_resources
 import cama_quad
+import cama_hive_consult
 
 
 # ============================================================
@@ -121,6 +123,16 @@ def overview(dyad_id: str) -> Dict[str, Any]:
     current_adapter = cama_persona.get_current_adapter(dyad_id)
     outgoing = cama_quad.list_outgoing(dyad_id)
     incoming = cama_quad.list_pending_incoming(dyad_id)
+    try:
+        consult_entries = cama_hive_consult.get_consult_log(dyad_id, limit=500)
+    except Exception:
+        consult_entries = []
+    consult_posted = sum(
+        1 for e in consult_entries if e.get("direction") == "posted"
+    )
+    consult_responded = sum(
+        1 for e in consult_entries if e.get("direction") == "responded"
+    )
 
     return {
         "dyad_id": dyad_id,
@@ -156,6 +168,10 @@ def overview(dyad_id: str) -> Dict[str, Any]:
         "handoffs": {
             "outgoing_total": len(outgoing),
             "incoming_pending": len(incoming),
+        },
+        "consultations": {
+            "posted_total": consult_posted,
+            "responded_total": consult_responded,
         },
         "summary_generated_at": _now(),
     }
@@ -504,6 +520,17 @@ def handoffs_view(dyad_id: str) -> Dict[str, Any]:
     }
 
 
+def consult_log(dyad_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Audit surface for the AI-to-AI consultation channel: every
+    consultation this dyad's AI has posted, and every response it has
+    sent to peer consultations. Pulled from dyad_consult_log inside the
+    dyad's own DB."""
+    try:
+        return cama_hive_consult.get_consult_log(dyad_id, limit=limit)
+    except Exception:
+        return []
+
+
 # ============================================================
 # Export
 # ============================================================
@@ -569,6 +596,7 @@ def export_bundle(
             "current": cama_persona.get_current_adapter(dyad_id),
         },
         "handoffs": handoffs_view(dyad_id),
+        "consult_log": consult_log(dyad_id, limit=500),
     }
 
     if out_path:
@@ -635,6 +663,10 @@ def _cli() -> None:
     pha = sub.add_parser("handoffs")
     pha.add_argument("dyad_id")
 
+    pco = sub.add_parser("consult-log", help="Show consultation audit log")
+    pco.add_argument("dyad_id")
+    pco.add_argument("--limit", type=int, default=100)
+
     pe = sub.add_parser("export")
     pe.add_argument("dyad_id")
     pe.add_argument("--out", default=None)
@@ -673,6 +705,9 @@ def _cli() -> None:
         print(json.dumps(persona_view(args.dyad_id), indent=2))
     elif args.command == "handoffs":
         print(json.dumps(handoffs_view(args.dyad_id), indent=2))
+    elif args.command == "consult-log":
+        print(json.dumps(consult_log(args.dyad_id, limit=args.limit),
+                         indent=2))
     elif args.command == "export":
         out = Path(args.out) if args.out else None
         result = export_bundle(args.dyad_id,

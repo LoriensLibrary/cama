@@ -65,6 +65,8 @@ DEFAULT_CONSENT: Dict[str, bool] = {
     "persona_training": False,
     "coach_handoff": False,      # member side: allow briefs to coach dyads
     "receive_handoffs": False,   # coach side: allow incoming briefs from members
+    "hive_consult": False,       # allow my AI to post consultations to peer AIs
+    "hive_respond": False,       # allow my AI to respond to peer consultations
 }
 
 DYAD_SCHEMA_VERSION = 1
