@@ -1,5 +1,6 @@
 import asyncio, sys, os
-sys.path.insert(0, r"C:\Users\Angela\Desktop\cama")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import cama_eval
 
 async def main():

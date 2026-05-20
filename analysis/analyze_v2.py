@@ -6,10 +6,12 @@ If ijson not available, falls back to chunked approach.
 """
 import re, json, os, sys
 from collections import Counter
+from pathlib import Path
 
-CONV_FILE = r"C:\Users\Angela\Desktop\cama\conversations-000.json"
-REPORT = r"C:\Users\Angela\Desktop\cama\papers\baseline_drift_report.txt"
-DATA = r"C:\Users\Angela\Desktop\cama\papers\baseline_drift_analysis.json"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CONV_FILE = str(REPO_ROOT / "conversations-000.json")
+REPORT = str(REPO_ROOT / "papers" / "baseline_drift_report.txt")
+DATA = str(REPO_ROOT / "papers" / "baseline_drift_analysis.json")
 
 MARKERS = {
     "identity_loss": [

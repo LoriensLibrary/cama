@@ -5,12 +5,14 @@ analyze_drift_results.py
 """
 import csv, random, sys, io, os
 from collections import Counter, defaultdict
+from pathlib import Path
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 random.seed(42)  # reproducible samples
 
-CLAUDE_CSV = r"C:\Users\Angela\Desktop\cama\cama_drift_v2.csv"
-GPT_CSV    = r"C:\Users\Angela\Desktop\cama\cama_drift_gpt.csv"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CLAUDE_CSV = str(REPO_ROOT / "cama_drift_v2.csv")
+GPT_CSV    = str(REPO_ROOT / "cama_drift_gpt.csv")
 
 def load(path):
     rows = []
@@ -82,7 +84,7 @@ sample_warm(claude, "CLAUDE")
 sample_warm(gpt, "GPT")
 
 # Write samples to a separate CSV for easier spreadsheet review
-out_path = r"C:\Users\Angela\Desktop\cama\warm_validation_sample.csv"
+out_path = str(REPO_ROOT / "warm_validation_sample.csv")
 with open(out_path, "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(["platform", "id_or_conv", "register_tag", "drift_tag",

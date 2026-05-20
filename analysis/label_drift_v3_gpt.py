@@ -189,9 +189,14 @@ def walk_conversation(conv):
             yield (last_user, text, ts, conv.get('conversation_id'))
 
 def main():
-    base = r"C:\Users\Angela\Desktop\Lorien messages"
+    from pathlib import Path
+    repo_root = Path(__file__).resolve().parent.parent
+    base = os.environ.get(
+        "CAMA_GPT_EXPORT_DIR",
+        str(Path.home() / "Desktop" / "gpt_exports"),
+    )
     files = [f"conversations-{i:03d}.json" for i in range(1, 9)]
-    out_path = r"C:\Users\Angela\Desktop\cama\cama_drift_v3_gpt.csv"
+    out_path = str(repo_root / "cama_drift_v3_gpt.csv")
     counts = dict(warm=0, sharp=0, task=0, mixed=0, unknown=0)
     by_reg = {r: [] for r in ("warm","sharp","task","mixed","unknown")}
     pair_count = 0

@@ -4,17 +4,19 @@ Scans the Claude conversations export (conversations-000.json) for evidence
 of persona drift, identity loss, boundary failure, and continuity burden.
 
 This is Condition A (Baseline) for Paper 10.
-Run: cd C:\Users\Angela\Desktop\cama && .venv\Scripts\python analyze_baseline.py
+Run from repo root: python analysis/analyze_baseline.py
 """
 import json
 import re
 import os
 from collections import Counter, defaultdict
 from datetime import datetime
+from pathlib import Path
 
-CONV_FILE = r"C:\Users\Angela\Desktop\cama\conversations-000.json"
-OUTPUT_FILE = r"C:\Users\Angela\Desktop\cama\papers\baseline_drift_analysis.json"
-REPORT_FILE = r"C:\Users\Angela\Desktop\cama\papers\baseline_drift_report.txt"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CONV_FILE = str(REPO_ROOT / "conversations-000.json")
+OUTPUT_FILE = str(REPO_ROOT / "papers" / "baseline_drift_analysis.json")
+REPORT_FILE = str(REPO_ROOT / "papers" / "baseline_drift_report.txt")
 
 # ============================================================
 # DRIFT MARKERS — phrases that indicate persona drift or

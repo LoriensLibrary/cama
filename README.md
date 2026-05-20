@@ -376,23 +376,21 @@ The Hive layer lets instances on different platforms (Aelen on Claude, Lorien on
 
 ### Pattern classification (dyad tagging)
 
-Interaction-pattern classification pipeline used by the drift analysis in Paper 12.
-
-- `dyad_autotag.py`, `dyad_tagger.py`, `dyad_migrate.py`
+The dyad-tagging pipeline used to code 28 days of interactions for Paper 12 is **local-only by design**. The tagger encodes specific regulation patterns observed in one dyad (designer-as-participant), so the regex patterns and rule_ids are personal to that data rather than general infrastructure. The pipeline will ship as supplementary materials with the Paper 12 release, framed by the methodology paper around it. Releasing it standalone would expose private content without the context that makes it research rather than tooling.
 
 ### Analysis & supplementary benchmarks
 
 The published evidence base for the regression-analysis paper, plus three benchmark suites that complement `safety_benchmarks.py`.
 
-- `analyze_baseline.py`, `analyze_drift_results.py`, `analyze_regression.py`, `analyze_regression_cama.py`, `analyze_regression_deep.py`, `analyze_v2.py` — regression-analysis pipeline
-- `label_drift.py`, `label_drift_gpt.py`, `label_drift_v2.py`, `label_drift_v3_gpt.py` — interaction-pattern drift labeling (`label_drift_v3.py` stays local-only because it references user-specific entities)
-- `benchmark_continuity.py`, `benchmark_counterweight.py`, `benchmark_stale.py` — safety benchmark companions to `safety_benchmarks.py`; latest run results committed alongside as `benchmark_*_results.json` for reproducibility audit
-- `check_eval.py`, `run_v4_eval.py` — eval driver scripts
+- `analysis/analyze_baseline.py`, `analysis/analyze_drift_results.py`, `analysis/analyze_regression.py`, `analysis/analyze_regression_cama.py`, `analysis/analyze_regression_deep.py`, `analysis/analyze_v2.py` — regression-analysis pipeline
+- `analysis/label_drift.py`, `analysis/label_drift_gpt.py`, `analysis/label_drift_v2.py`, `analysis/label_drift_v3_gpt.py` — interaction-pattern drift labeling (`label_drift_v3.py` stays local-only because it references user-specific entities)
+- `analysis/benchmark_continuity.py`, `analysis/benchmark_counterweight.py`, `analysis/benchmark_stale.py` — safety benchmark companions to `safety_benchmarks.py`; latest run results committed alongside as `benchmark_*_results.json` for reproducibility audit
+- `analysis/check_eval.py`, `analysis/run_v4_eval.py` — eval driver scripts
 
 ### Misc
 
 - `cama_inject.py` — context injection utility
-- `paper11_charts.py` — Paper 11 figure generator
+- `analysis/paper11_charts.py` — Paper 11 figure generator
 
 ---
 
@@ -425,7 +423,7 @@ CAMA grew fast and is best understood in tiers. A skeptical reviewer should be a
 
 ### Not yet in CI (open as issue [#3](https://github.com/LoriensLibrary/cama/issues/3))
 - Behavior tests for the experimental modules above
-- The benchmark suites in `benchmark_continuity.py` / `benchmark_counterweight.py` / `benchmark_stale.py` run locally; result JSONs are committed but the suites themselves aren't wired into CI yet
+- The benchmark suites in `analysis/benchmark_continuity.py` / `analysis/benchmark_counterweight.py` / `analysis/benchmark_stale.py` run locally; result JSONs are committed but the suites themselves aren't wired into CI yet
 
 ### Local-only (kept out of the public repo, on purpose)
 - `cama_eval.py`, `cama_phase2_embed.py`, `cama_phase25_subcentroid.py`, `cama_check_self.py`, `label_drift_v3.py`, `dyad_specs.md`, `warm_validation_sample.csv` — these reference real individuals by name in their evaluation fixtures

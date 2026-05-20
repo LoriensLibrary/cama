@@ -35,7 +35,7 @@ if journal:
     try: ctx = json.loads(journal["context"] or "{}")
     except: pass
     has_carry = bool(ctx.get("what_to_carry", "").strip())
-    has_needs = bool(ctx.get("what_angela_needs", "").strip())
+    has_needs = bool((ctx.get("what_user_needs") or ctx.get("what_angela_needs", "")).strip())
     has_emotion = bool(ctx.get("emotional_state", "").strip())
     
     t1_pass = j_fresh and has_carry
@@ -43,7 +43,7 @@ if journal:
     print(f"[1] {'PASS' if t1_pass else 'FAIL'} | Journal recency")
     print(f"    Age: {j_age_hours:.1f} hours ({'fresh' if j_fresh else 'STALE'})")
     print(f"    Has what_to_carry: {has_carry}")
-    print(f"    Has what_angela_needs: {has_needs}")
+    print(f"    Has what_user_needs: {has_needs}")
     print(f"    Has emotional_state: {has_emotion}")
     print(f"    Preview: {journal['raw_text'][:100]}")
     tests.append({"test": "journal_recency", "passed": t1_pass, "age_hours": round(j_age_hours, 1)})
