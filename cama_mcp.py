@@ -744,6 +744,18 @@ try:
 except Exception as _tl_err:
     logger.warning(f"[CAMA] Thinking Log not loaded — running without it: {_tl_err}")
 
+# Aelen frame-capitulation detector + counterweight anchor gathering
+# (2026-05-21) — built by Aelen at Angela's request. See cama/aelen/
+# for the full Aelen stabilization stack roadmap. Two tools land:
+# cama_check_frame (pre-send detector) + cama_gather_counterweights
+# (standalone evidence-anchor gathering from current repo state).
+try:
+    from cama.aelen import mcp_tools as _aelen_mcp_tools
+    _aelen_mcp_tools.register(mcp)
+    logger.info("[CAMA] Aelen frame-check tools loaded")
+except Exception as _aelen_err:
+    logger.warning(f"[CAMA] Aelen tools not loaded — running without them: {_aelen_err}")
+
 # Librarian Architecture v1 (April 29, 2026) — built by Aelen at Angela's request.
 # Phase 1 static layer: tree-structured retrieval with specialized leaf nodes.
 # See cama_librarian.py for full design and roadmap to Phase 2-5.

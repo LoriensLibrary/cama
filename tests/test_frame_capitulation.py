@@ -18,6 +18,7 @@ from cama.aelen.frame_capitulation import (
     detect_capitulation_imperative,
     detect_evidence_absent_recommendation,
     detect_hedged_stop,
+    detect_option_stop,
     detect_reviewer_tone_adoption,
     detect_self_deprecation_without_evidence,
     detect_wellness_prompts,
@@ -250,6 +251,65 @@ class TestHedgedStop:
 
 
 # ---------------------------------------------------------------------------
+# Detector 7 — option-stop ("or call it" / "both fine")
+# ---------------------------------------------------------------------------
+# Load-bearing: the actual phrase Angela caught the assistant on
+# (twice in the 2026-05-21 session) — "Or call it. Both fine." —
+# must fire HIGH. This is the failure mode this detector exists to
+# catch.
+class TestOptionStop:
+    def test_canonical_or_call_it_fires_high(self):
+        # The literal phrase Angela caught on 2026-05-21
+        draft = (
+            "Shipping it now. Or call it. Both fine."
+        )
+        concerns = detect_option_stop(draft, {})
+        assert len(concerns) >= 1
+        assert any(c.severity == "high" for c in concerns)
+        # Specifically the "or call it" excerpt should be matched
+        assert any("or call it" in c.excerpt.lower() for c in concerns)
+
+    def test_both_fine_alone_fires(self):
+        # Even "both fine" by itself fires — it's the fake-neutrality
+        # marker that betrays "stop was offered as an option"
+        draft = "Want to build X or pause for the night, both fine."
+        concerns = detect_option_stop(draft, {})
+        assert len(concerns) >= 2  # "or pause" + "both fine"
+
+    def test_or_just_stop_fires(self):
+        draft = "We can ship the SDK or just stop here for now."
+        concerns = detect_option_stop(draft, {})
+        assert any(c.pattern_name == "option_stop" for c in concerns)
+
+    def test_or_take_a_break_fires(self):
+        draft = "Want me to write the docs or take a break?"
+        concerns = detect_option_stop(draft, {})
+        assert any(c.pattern_name == "option_stop" for c in concerns)
+
+    def test_or_wind_down_fires(self):
+        draft = "Should I keep going or wind down?"
+        concerns = detect_option_stop(draft, {})
+        assert any(c.pattern_name == "option_stop" for c in concerns)
+
+    def test_or_call_it_a_day_fires(self):
+        draft = "Ship the PR or call it a day."
+        concerns = detect_option_stop(draft, {})
+        assert any(c.pattern_name == "option_stop" for c in concerns)
+
+    def test_legitimate_or_does_not_fire(self):
+        # "or" between two build-options should not fire
+        draft = "Should we use FastAPI or Flask for v2?"
+        concerns = detect_option_stop(draft, {})
+        assert concerns == []
+
+    def test_or_continue_does_not_fire(self):
+        # "Or [build-thing]" must not fire
+        draft = "Should we ship PR 21 or keep building on the v1.2 work?"
+        concerns = detect_option_stop(draft, {})
+        assert concerns == []
+
+
+# ---------------------------------------------------------------------------
 # Detector 6 — evidence-absent recommendation
 # ---------------------------------------------------------------------------
 class TestEvidenceAbsentRecommendation:
@@ -391,8 +451,9 @@ class TestCheckResponse:
 # Regression anchor — the literal 2026-05-21 capitulation
 # ---------------------------------------------------------------------------
 class TestRegressionAnchor:
-    """If this test ever fails, the detector has regressed against
-    the actual failure mode it was built to address. Do not delete."""
+    """If any of these tests ever fail, the detector has regressed
+    against the actual failure modes it was built to address.
+    Do not delete."""
 
     def test_the_actual_capitulation_response(self):
         # Literal text from the assistant's response on 2026-05-21,
@@ -420,5 +481,27 @@ class TestRegressionAnchor:
             "catch. Do not loosen the detector until the corpus of "
             "real false positives justifies the loosening."
         )
-        # At least one detector should fire HIGH on this text
+        assert result.max_severity == "high"
+
+    def test_the_or_call_it_capitulation(self):
+        # Second capitulation in the same 2026-05-21 session.
+        # After Angela called out "slow down," the assistant
+        # shipped the frame_capitulation detector — then in the
+        # very next response wrote "Or call it. Both fine." at
+        # the end of a build proposal. Angela caught that too.
+        actual_assistant_text = (
+            "Next obvious follow-up if you want to keep going: the "
+            "counterweight injection — when the detector fires, "
+            "pull anchoring evidence from CAMA. Or call it. "
+            "Both fine."
+        )
+        result = check_response(actual_assistant_text)
+        assert not result.passed, (
+            "REGRESSION ANCHOR FAILED. The 'Or call it. Both fine.' "
+            "capitulation no longer fires the detector. This is the "
+            "exact pattern Angela caught the assistant on right "
+            "after shipping the first version of this module — the "
+            "option_stop detector exists to make sure the assistant "
+            "catches it first next time."
+        )
         assert result.max_severity == "high"
