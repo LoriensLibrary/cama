@@ -46,9 +46,11 @@ def _init_memory_schema(db_path: Path) -> None:
             is_core INTEGER DEFAULT 0,
             evidence TEXT,
             counterweight_type TEXT,
+            dyad_id TEXT NOT NULL DEFAULT 'default',
             updated_at TEXT,
             created_at TEXT NOT NULL
         );
+        CREATE INDEX IF NOT EXISTS idx_memories_dyad ON memories(dyad_id);
         CREATE TABLE IF NOT EXISTS memory_affect (
             memory_id INTEGER PRIMARY KEY,
             valence REAL, arousal REAL, dominance REAL,

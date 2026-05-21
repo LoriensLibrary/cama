@@ -106,6 +106,9 @@ all = [
 # Console script for the v1 HTTP API server. Available after
 # `pip install -e ".[api]"`.
 cama-api-server = "cama.api.server:main"
+# Operator CLI for the v1 HTTP API — key issuance, audit log review,
+# dyad enumeration. File-based auth (no HTTP path); see API.md section 3.
+cama-ops = "cama.ops.cli:main"
 
 [project.urls]
 Homepage = "https://lorienslibrary.netlify.app"
