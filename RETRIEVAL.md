@@ -177,11 +177,26 @@ Source: [`cama/eval/benchmark_retrieval_latency.py`](cama/eval/benchmark_retriev
 
 What this means in practice: a query landing on this scale of corpus comes back in roughly the time it takes Claude Desktop to render one inline UI update. The system is not paying a latency tax for the per-librarian fan-out — the routing keeps the candidate set small enough that the SQL stage doesn't dominate.
 
-**What this latency does NOT cover:**
+**Semantic-routing latency (Phase 2.6 alone)**, measured 2026-05-21 on the same 53k corpus:
 
-- Semantic routing (Phase 2.x). When `cama_lib_route_v4` is used end-to-end, the sentence-transformer must embed the query first (~50-150 ms warm, ~1-5 s cold), then do the centroid/sub-centroid math. The Phase-1 numbers above are a lower bound, not an upper bound. A semantic-routing latency benchmark is open work.
-- The full MCP round-trip. Numbers above are the in-process retrieve() call. Adding MCP protocol framing, JSON serialization, and Claude Desktop's receive path adds tens of milliseconds.
-- Cold start. The first query after MCP server launch warms the SQLite page cache and (if embeddings are used) loads the sentence-transformer model. Steady-state numbers are the load-bearing claim.
+| Metric | Value (n=100) |
+|---|---|
+| p50 | **156.01 ms** |
+| p90 | 174.78 ms |
+| p95 | 177.67 ms |
+| p99 | **388.51 ms** (one outlier; p95 is the steady-state envelope) |
+| mean | 158.11 ms |
+| stdev | 27.73 ms |
+| warm-up (one-time, model load) | **7,562.6 ms** |
+
+Source: [`cama/eval/benchmark_routing_semantic_latency.py`](cama/eval/benchmark_routing_semantic_latency.py); result: [`benchmarks/benchmark_routing_semantic_latency.json`](benchmarks/benchmark_routing_semantic_latency.json).
+
+The 7.5-second warm-up is the sentence-transformer (all-MiniLM-L6-v2) loading into memory on first call; subsequent embeddings are warm and run in the warm-numbers shown. **Semantic routing is roughly 3.6× the cost of Phase-1 keyword routing+fan-out per steady-state query**, plus a one-time model-load cost paid at MCP server boot. That's the honest tradeoff for semantic-aware retrieval: pay model-load latency once at startup, then pay ~150 ms per semantic query versus ~45 ms per keyword query. The right choice depends on the query mix — keyword routing handles short literal-match queries cheaply; semantic routing handles paraphrased, low-overlap queries that keyword routing misses entirely.
+
+**What neither benchmark covers:**
+- The full MCP round-trip. Numbers above are in-process calls. Adding MCP protocol framing, JSON serialization, and Claude Desktop's receive path adds tens of milliseconds.
+- The post-routing stages for semantic queries (per-librarian fan-out + blended scoring). Those add cost on top of the 156 ms p50 semantic-routing number. The Phase-1 benchmark *does* cover its full pipeline; the Phase-2.6 benchmark covers routing alone because the post-routing stages re-use the same fan-out + blend code measured by the Phase-1 benchmark.
+- Steady-state vs cold start. First query after MCP server launch pays the 7.5-second model-load. Steady-state numbers (after warm-up) are the load-bearing claim for typical session use.
 
 ---
 
@@ -190,7 +205,7 @@ What this means in practice: a query landing on this scale of corpus comes back 
 What this document explains is implemented and measured. What it deliberately does not claim:
 
 - **Multi-user retrieval.** All numbers and behavior described are single-participant (designer-as-participant). The multi-tenant generalization lives in `cama/agents/cama_dyad.py` with its own test suite (see [MULTI_TENANT.md](MULTI_TENANT.md)), but the multi-user retrieval path has not yet been stress-tested for isolation correctness — a known gap acknowledged in the external code review.
-- **Semantic routing latency at scale.** Above. Open as a next benchmark.
+- **Phase-2.6 routing + downstream pipeline together.** The semantic-routing benchmark above measures the routing stage only. A full end-to-end semantic-query benchmark (route + fan-out + blend) would let a reviewer compare apples-to-apples with the Phase-1 retrieve() number — open work.
 - **End-to-end accuracy at production scale.** The Phase 2.6 R@5 win came from an N=1 benchmark; generalizing the ranking-quality claim across users would require a corpus we don't yet have.
 - **Adversarial retrieval.** The counterweight mechanism is designed against affect spirals; it has not been red-teamed for prompt-injection or for retrieval-poisoning attacks where a counterweight pool itself has been corrupted. Threat modeling is partial in [SECURITY.md](SECURITY.md) and EVIDENCE.md scope rows.
 

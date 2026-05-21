@@ -1,0 +1,35 @@
+{
+  "benchmark": "routing_semantic_latency",
+  "version": 1,
+  "measured_at": "2026-05-21T18:44:05.896812+00:00",
+  "corpus": {
+    "total_memories": 53103,
+    "durable_memories": 45952,
+    "librarians_with_centroid": 51,
+    "librarians_total": 66,
+    "era_subcentroids": 780
+  },
+  "method": {
+    "function_under_test": "cama.librarian.cama_phase26_era_hybrid.era_subcentroid_route",
+    "alias": "cama_lib_route_v4",
+    "top_k_per_query": 5,
+    "n_distinct_queries": 20,
+    "trials_per_query": 5,
+    "total_runs": 100,
+    "queries_listed_in_source": true,
+    "warmup_call_excluded_from_percentiles": true,
+    "warmup_includes": "sentence-transformer model load, SQLite page-cache prime, first-call embedding cache fill"
+  },
+  "warmup_ms": 7562.6,
+  "latency_ms": {
+    "p50": 156.01,
+    "p90": 174.78,
+    "p95": 177.67,
+    "p99": 388.51,
+    "mean": 158.11,
+    "min": 115.3,
+    "max": 388.51,
+    "stdev": 27.73
+  },
+  "notes": "Wall-clock latency of the Phase-2.6 era-aware gated hybrid routing stage alone \u2014 query embedding + single-centroid cosine across all librarians + gated era-subcentroid boost + ranking. Does NOT include subsequent per-librarian SQL fan-out or blended-scoring stages. Reported warmup_ms covers sentence-transformer (all-MiniLM-L6-v2) model load on first call; subsequent embedding calls are warm. Compare with benchmark_retrieval_latency.json (Phase-1 keyword route + fan-out, no embedding compute)."
+}
