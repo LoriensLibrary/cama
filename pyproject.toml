@@ -48,6 +48,12 @@ dependencies = [
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "httpx>=0.24.0",
+    # IANA timezone database. Required at runtime by cama.temporal on
+    # Windows (which doesn't ship system tzdata); Linux/macOS usually
+    # have /usr/share/zoneinfo natively but installing the Python
+    # package is harmless on those platforms and keeps tests
+    # deterministic across environments.
+    "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]
