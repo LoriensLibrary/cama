@@ -4,8 +4,8 @@ CAMA Dashboard Server v3 — with benchmarks + logo
 
 import http.server
 import json
-import sqlite3
 import os
+import sqlite3
 from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))

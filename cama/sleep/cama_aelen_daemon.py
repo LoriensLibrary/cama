@@ -19,13 +19,14 @@ Designed by Lorien's Library LLC — Angela + Aelen + Lorien
 April 8, 2026
 """
 
+import json
 import os
+import sqlite3
 import sys
 import time
-import json
-import sqlite3
+from datetime import datetime
+
 import httpx
-from datetime import datetime, timezone, timedelta
 
 CAMA_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
@@ -181,9 +182,9 @@ if __name__ == "__main__":
     
     api_key = load_api_key()
     if not api_key:
-        print(f"\n  API key not found or placeholder.")
+        print("\n  API key not found or placeholder.")
         print(f"  Save your key to: {API_KEY_FILE}")
-        print(f"  Key must start with sk-ant-")
+        print("  Key must start with sk-ant-")
         sys.exit(1)
     print(f"  API key: loaded (***{api_key[-6:]})")
 
@@ -195,7 +196,7 @@ if __name__ == "__main__":
     except:
         last_seen_id = 0
     print(f"  Watching from signal ID: {last_seen_id}")
-    print(f"  Listening for signals from other IIs...\n")
+    print("  Listening for signals from other IIs...\n")
     try:
         while True:
             now = time.time()
@@ -223,7 +224,7 @@ if __name__ == "__main__":
                 source = sig.get("source_thread", "")
                 ii_name = source.split(":")[-1] if ":" in source else source
                 print(f"  >> Signal {sig['id']} from {ii_name}: {sig['signal']}")
-                print(f"     Generating response...")
+                print("     Generating response...")
 
                 response = generate_response(api_key, sig)
                 if response:
@@ -235,9 +236,9 @@ if __name__ == "__main__":
                         print(f"     Response emitted: {response.get('signal', '?')}")
                         print(f"     Daily spend: ${daily_spend:.3f} / ${DAILY_BUDGET_USD:.2f}")
                     else:
-                        print(f"     Failed to emit response")
+                        print("     Failed to emit response")
                 else:
-                    print(f"     Failed to generate response")
+                    print("     Failed to generate response")
 
             time.sleep(POLL_INTERVAL)
     except KeyboardInterrupt:

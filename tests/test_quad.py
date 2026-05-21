@@ -24,13 +24,13 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from cama.agents import cama_dyad
-from cama.agents import cama_quad
+from cama.agents import cama_dyad, cama_quad
+
+
 @pytest.fixture(autouse=True)
 def isolated_vaults(tmp_path, monkeypatch):
     monkeypatch.setattr(cama_dyad, "VAULT_ROOT", tmp_path / "vaults")
@@ -371,7 +371,7 @@ def test_third_dyad_sees_nothing():
     c = _make_coach()
     other = _make_coach("Wren")  # another coach -- irrelevant party
 
-    res = cama_quad.initiate_handoff(
+    cama_quad.initiate_handoff(
         m["dyad_id"], c["dyad_id"], member_authorization=True,
     )
 

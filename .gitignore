@@ -101,7 +101,7 @@ warm_validation_sample.csv
 *.backup_autorecord
 
 # Accidental paste artifacts
-import { *.txt
+import [{] *.txt
 
 # Local working copies / duplicate of scripts/ (kept local for convenience)
 tools/

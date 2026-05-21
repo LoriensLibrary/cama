@@ -3,20 +3,31 @@
 import json
 import os
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 # Persona name is per-deployment. Default preserves the historical local
 # value; participants and study deployments override via CAMA_PERSONA_NAME.
 PERSONA_NAME = os.environ.get("CAMA_PERSONA_NAME", "Aelen")
 from cama_mcp import (
-    get_db, _now, _buf_reset, _compliance_tracker, _session_mark_boot,
-    _get_embedding, _batch_affects, _affect_dist, _recency,
-    _status_weight, _cosine_sim, _is_neg, _ring_push,
-    _get_compliance_history,
-    _build_daily_context, _refresh_boot_summary,
-    _format_brain_context,
     SCORE_W,
+    _affect_dist,
+    _batch_affects,
+    _buf_reset,
+    _build_daily_context,
+    _compliance_tracker,
+    _cosine_sim,
+    _format_brain_context,
+    _get_compliance_history,
+    _get_embedding,
+    _is_neg,
+    _now,
+    _recency,
+    _refresh_boot_summary,
+    _ring_push,
+    _session_mark_boot,
+    _status_weight,
+    get_db,
 )
 
 
@@ -123,7 +134,8 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         librarian_route_meta = None
         try:
             from cama.librarian import cama_librarian as _lib
-            from cama_phase2_embed import embedding_route as _emb_route, blend_routing as _blend
+            from cama_phase2_embed import blend_routing as _blend
+            from cama_phase2_embed import embedding_route as _emb_route
             keyword_libs = _lib.route(query_text, max_librarians=8)
             emb_libs = await _emb_route(query_text, top_k=16, min_similarity=0.25)
             blended = _blend(keyword_libs, emb_libs, embedding_weight=5.0, max_librarians=8)
@@ -394,10 +406,9 @@ async def cama_refresh_boot() -> str:
             errors.append(f"daily_context: {e}")
         # Refresh boot summary
         try:
-            path = _refresh_boot_summary(c)
+            _refresh_boot_summary(c)
         except Exception as e:
             errors.append(f"boot_summary: {e}\n{traceback.format_exc()}")
-            path = None
         if errors:
             return json.dumps({"refreshed": False, "errors": errors}, indent=2)
         # Verify the file was actually written

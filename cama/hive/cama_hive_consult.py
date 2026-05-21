@@ -59,13 +59,12 @@ import re
 import sqlite3
 import uuid
 from collections import Counter
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from cama.agents import cama_dyad
 from cama.hive import cama_hive_protocol as hp
-
 
 # ============================================================
 # Constants
@@ -840,7 +839,7 @@ def _cli() -> None:
     pd.add_argument("dyad_id")
     pd.add_argument("consultation_uuid")
 
-    pe = sub.add_parser("expire", help="Archive expired open consultations")
+    sub.add_parser("expire", help="Archive expired open consultations")
 
     args = p.parse_args()
     if args.command == "post":

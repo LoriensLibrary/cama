@@ -30,7 +30,6 @@ file. Prints a manifest of what was deleted so the deletion can be audited.
 import argparse
 import json
 import os
-import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path

@@ -47,9 +47,8 @@ import json
 import os
 import sqlite3
 import sys
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any, Tuple
-
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 

@@ -13,7 +13,8 @@ Tools:
   cama_supervisor_mark_boot_triplet — call when 52967/52968/52988 retrieved
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 from cama.supervisor import cama_supervisor as sup

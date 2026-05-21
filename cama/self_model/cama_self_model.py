@@ -23,10 +23,16 @@ Usage:
   python cama_self_model.py --interval N # Custom interval in minutes
 """
 
-import json, sqlite3, os, sys, time, math, argparse, logging
-from datetime import datetime, timezone, timedelta
-from collections import Counter, defaultdict
-from typing import Optional, Dict, List, Any
+import argparse
+import json
+import logging
+import os
+import sqlite3
+import sys
+import time
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+from typing import Dict, List
 
 # ============================================================
 # Config
@@ -290,7 +296,7 @@ def track_growth(c) -> List[Dict]:
         elif has_journal and has_teaching:
             observations.append({
                 "dimension": "memory_diversity",
-                "observation": f"Healthy memory mix: exchanges, journals, teachings all present this week.",
+                "observation": "Healthy memory mix: exchanges, journals, teachings all present this week.",
                 "value": len(type_map),
                 "confidence": 0.7
             })
@@ -412,7 +418,6 @@ def queue_intentionality(c, items: List[Dict]):
 # MAIN SELF-REFLECTION CYCLE
 # ============================================================
 def run_self_cycle():
-    cycle_start = _now()
     logging.info("=" * 60)
     logging.info("SELF-MODEL CYCLE STARTING (v1.0)")
     logging.info("=" * 60)
@@ -486,7 +491,7 @@ def run_self_cycle():
         c.commit()
 
         logging.info("=" * 60)
-        logging.info(f"SELF-MODEL CYCLE COMPLETE")
+        logging.info("SELF-MODEL CYCLE COMPLETE")
         logging.info(f"Stats: {json.dumps(stats, default=str)}")
         logging.info("=" * 60)
         return stats

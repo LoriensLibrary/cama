@@ -6,7 +6,7 @@ wins for regression coverage.
 """
 
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def test_now_returns_iso_utc(fresh_db):

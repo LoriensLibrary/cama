@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Quick DB schema dump"""
-import sqlite3, os
+import os
+import sqlite3
+
 c = sqlite3.connect(os.path.expanduser('~/.cama/memory.db'))
 
 print("=== TABLES ===")

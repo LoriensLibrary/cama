@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Full system evaluation — March 28, 2026"""
-import sqlite3, json, os, subprocess
+import os
+import sqlite3
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -81,7 +83,6 @@ else:
 
 # 8. Sleep daemon scheduled task
 print("\n[8] SCHEDULED TASK")
-import subprocess
 result = subprocess.run(['schtasks', '/query', '/tn', 'CAMA_Sleep_Daemon', '/fo', 'LIST'],
                        capture_output=True, text=True, timeout=10)
 if 'CAMA_Sleep_Daemon' in result.stdout:
@@ -125,7 +126,7 @@ print("\n[13] GIT STATUS")
 result = subprocess.run(['git', '-C', str(_REPO_ROOT), 'status', '--short'],
                        capture_output=True, text=True, timeout=10)
 if result.stdout.strip():
-    print(f"  Uncommitted changes:")
+    print("  Uncommitted changes:")
     for line in result.stdout.strip().split('\n')[:10]:
         print(f"    {line}")
 else:

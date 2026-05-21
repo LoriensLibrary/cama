@@ -137,9 +137,9 @@ def _pattern_reflection_prompt(results: list, affect_valence: float) -> str:
     
     if has_golden:
         lines.append(
-            f"  ✦ Retrieved memories contain suppressed strengths. "
-            f"BOOST these — they are the real self trying to come back "
-            f"through the noise of other people's projections."
+            "  ✦ Retrieved memories contain suppressed strengths. "
+            "BOOST these — they are the real self trying to come back "
+            "through the noise of other people's projections."
         )
     
     lines.append(

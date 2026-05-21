@@ -23,12 +23,18 @@ Scope: Affective retrieval for continuity — NOT clinical assessment
 Requires: Python 3.10+
 """
 
-import json, sqlite3, os, math, subprocess, time, logging, sys
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any
+import json
+import logging
+import math
+import os
+import sqlite3
+import sys
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
 import httpx
 from mcp.server.fastmcp import FastMCP
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 # ============================================================
 # Logging
@@ -50,7 +56,9 @@ try:
     _cama_dir = os.path.dirname(os.path.abspath(__file__))
     if _cama_dir not in sys.path:
         sys.path.insert(0, _cama_dir)
-    from cama.memory.cama_boot_intent import format_boot_context as _format_brain_context
+    from cama.memory.cama_boot_intent import (
+        format_boot_context as _format_brain_context,
+    )
     logger.info("[CAMA] Brain layers (3-5) boot integration loaded")
 except ImportError:
     _format_brain_context = None
@@ -58,10 +66,7 @@ except ImportError:
 
 # Compliance enforcement (April 14, 2026)
 try:
-    from cama.supervisor.cama_compliance import (
-        init_compliance_table, SessionTracker,
-        compliance_report, boot_compliance_summary
-    )
+    from cama.supervisor.cama_compliance import SessionTracker
     _compliance_tracker = SessionTracker()
     logger.info("[CAMA] Compliance enforcement loaded")
 except ImportError:
@@ -72,6 +77,7 @@ except ImportError:
 # Config
 # ============================================================
 from cama.core.cama_user_paths import default_db_path as _cama_default_db_path
+
 DB_PATH = os.environ.get("CAMA_DB_PATH", _cama_default_db_path())
 RING_SIZE = int(os.environ.get("CAMA_RING_SIZE", "30"))
 EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY", "")
@@ -1007,7 +1013,9 @@ def _build_daily_context(c, date_str=None):
 
 def _refresh_boot_summary(c):
     """Regenerate boot_summary.json from current state. Called after journal writes."""
-    import json, os, traceback
+    import json
+    import os
+    import traceback
     boot_path = os.path.expanduser("~/.cama/boot_summary.json")
     debug_path = os.path.expanduser("~/.cama/refresh_debug.log")
     def _dbg(msg):
@@ -1141,6 +1149,7 @@ def _refresh_boot_summary(c):
 # ── Compliance atexit hooks (April 14, 2026) ──
 import atexit
 
+
 def _save_compliance_on_exit():
     """Save compliance data on shutdown."""
     try:
@@ -1157,14 +1166,14 @@ atexit.register(_save_compliance_on_exit)
 if __name__ == "__main__":
     # Register section tools here (see comment above re: dual-load cycle).
     from mcp_sections import (
+        bridge,
+        continuity,
+        identity,
+        maintenance,
         memory_lifecycle,
         retrieval,
-        structure,
-        maintenance,
-        identity,
-        continuity,
-        bridge,
         safety,
+        structure,
     )
     memory_lifecycle.register(mcp)
     retrieval.register(mcp)

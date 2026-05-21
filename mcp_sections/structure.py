@@ -2,10 +2,15 @@
 get_people, delete_person, upsert_song, stats."""
 
 import json
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 from cama_mcp import (
-    get_db, _now, _fmt, _update_rel_degree,
-    LinkInput, RING_SIZE,
+    RING_SIZE,
+    LinkInput,
+    _fmt,
+    _now,
+    _update_rel_degree,
+    get_db,
 )
 
 
@@ -89,8 +94,8 @@ async def cama_upsert_song(title: str, artist: Optional[str]=None, affect_hint: 
 
 async def cama_stats() -> str:
     """System overview."""
-    from cama_mcp import EMBEDDING_PROVIDER, EMBEDDING_API_KEY
     import cama_mcp as _cm
+    from cama_mcp import EMBEDDING_API_KEY, EMBEDDING_PROVIDER
     c = get_db()
     try:
         s = {}

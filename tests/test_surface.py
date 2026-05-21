@@ -22,12 +22,12 @@ from pathlib import Path
 
 import pytest
 
-from cama.agents import cama_dyad
-from cama.agents import cama_persona
+from cama.agents import cama_dyad, cama_quad
+from cama.core import cama_surface
 from cama.hive import cama_hive_protocol as hp
 from cama.hive import cama_hive_resources as hr
-from cama.agents import cama_quad
-from cama.core import cama_surface
+
+
 @pytest.fixture(autouse=True)
 def isolated_everything(tmp_path, monkeypatch):
     monkeypatch.setattr(cama_dyad, "VAULT_ROOT", tmp_path / "vaults")

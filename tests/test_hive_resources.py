@@ -14,17 +14,14 @@ Properties under test:
 from __future__ import annotations
 
 import json
-import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
-from cama.agents import cama_dyad
+from cama.agents import cama_agent, cama_dyad
+from cama.agents.cama_agent_backends import EchoBackend
 from cama.hive import cama_hive_protocol as hp
 from cama.hive import cama_hive_resources as hr
-from cama.agents import cama_agent
-from cama.agents.cama_agent_backends import EchoBackend
 
 
 @pytest.fixture(autouse=True)

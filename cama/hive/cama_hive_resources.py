@@ -72,7 +72,6 @@ from typing import Any, Dict, List, Optional, Tuple
 from cama.agents import cama_dyad
 from cama.hive import cama_hive_protocol as hp
 
-
 # ============================================================
 # Constants
 # ============================================================
@@ -488,7 +487,7 @@ def _cli() -> None:
     pp.add_argument("--description", default="")
     pp.add_argument("--license", default="unspecified")
 
-    pl = sub.add_parser("list", help="List published resources")
+    sub.add_parser("list", help="List published resources")
 
     pv = sub.add_parser("versions", help="List versions of a resource")
     pv.add_argument("name")

@@ -41,12 +41,11 @@ import json
 import re
 import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from cama.agents import cama_dyad
-from cama.agents import cama_persona
+from cama.agents import cama_dyad, cama_persona
 from cama.hive import cama_hive_resources
+
 # ============================================================
 # Simple keyword-based affect estimator (no ML deps)
 # ============================================================
@@ -566,6 +565,7 @@ def _split_exchange_text(text: str) -> Dict[str, str]:
 
 def _cli() -> None:
     import argparse
+
     from cama.agents.cama_agent_backends import make_backend
 
     p = argparse.ArgumentParser(description="CAMA dyad agent CLI")

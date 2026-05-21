@@ -12,14 +12,13 @@ Usage:
   python cama_import.py conversations.json [--db path/to/memory.db] [--dry-run]
 """
 
-import json
-import sqlite3
-import os
-import re
-import sys
 import argparse
+import json
+import os
+import sqlite3
+import sys
 from datetime import datetime, timezone
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Dict, List
 
 # ============================================================
 # Config
@@ -364,13 +363,13 @@ def write_to_cama(memories: List[Dict], db_path: str, dry_run: bool = False):
     conn.close()
     
     print(f"\n{'='*50}")
-    print(f"CAMA Import Complete")
+    print("CAMA Import Complete")
     print(f"{'='*50}")
     print(f"Memories stored this run: {stored}")
     print(f"Songs detected: {songs_stored}")
     print(f"People detected: {len(people_stored)}")
-    print(f"")
-    print(f"Database totals:")
+    print("")
+    print("Database totals:")
     print(f"  Total memories:  {total}")
     print(f"  Core memories:   {core}")
     print(f"  Teachings:       {teachings}")

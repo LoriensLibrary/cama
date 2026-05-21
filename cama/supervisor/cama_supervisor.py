@@ -55,11 +55,9 @@ import json
 import os
 import re
 import sqlite3
-import sys
 import uuid as _uuid
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any, Tuple
-
+from typing import Any, Dict, List, Optional, Tuple
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 

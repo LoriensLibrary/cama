@@ -20,10 +20,16 @@ Usage:
   python cama_insight.py --interval N # Custom interval in minutes
 """
 
-import json, sqlite3, os, sys, time, math, argparse, logging
-from datetime import datetime, timezone, timedelta
+import argparse
+import json
+import logging
+import os
+import sqlite3
+import sys
+import time
 from collections import Counter, defaultdict
-from typing import Optional, Dict, List, Any
+from datetime import datetime, timedelta, timezone
+from typing import Dict, List, Optional
 
 # ============================================================
 # Config
@@ -338,7 +344,6 @@ def store_insight(c, pattern: Dict) -> Optional[int]:
 # MAIN INSIGHT CYCLE
 # ============================================================
 def run_insight_cycle():
-    cycle_start = _now()
     logging.info("=" * 60)
     logging.info("INSIGHT CYCLE STARTING (v1.0)")
     logging.info("=" * 60)

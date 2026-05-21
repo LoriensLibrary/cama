@@ -2,13 +2,28 @@
 
 import json
 import time
+
 from cama_mcp import (
-    get_db, _now, _session_tick, _buf_track, _buf_flush_if_ready,
-    _get_embedding, _batch_affects, _affect_dist, _recency,
-    _status_weight, _cosine_sim, _is_neg, _fmt, _get_affect,
-    _ring_push, _apply_patterns, _pattern_trigger,
-    SCORE_W, RING_SIZE,
-    QueryInput, ReadRoomInput,
+    RING_SIZE,
+    SCORE_W,
+    QueryInput,
+    ReadRoomInput,
+    _affect_dist,
+    _apply_patterns,
+    _batch_affects,
+    _buf_flush_if_ready,
+    _buf_track,
+    _cosine_sim,
+    _fmt,
+    _get_affect,
+    _get_embedding,
+    _is_neg,
+    _pattern_trigger,
+    _recency,
+    _ring_push,
+    _session_tick,
+    _status_weight,
+    get_db,
 )
 
 
@@ -173,7 +188,7 @@ async def cama_get_core() -> str:
 async def cama_read_room(params: ReadRoomInput) -> str:
     """Emotional preprocessing — pull resonant context. NOT clinical assessment.
     Emotional signatures are uncertain annotations for continuity, not diagnoses."""
-    from cama_mcp import _crisis_detected, CRISIS_MESSAGE
+    from cama_mcp import CRISIS_MESSAGE, _crisis_detected
     _session_tick()  # compliance
     c = get_db()
     try:

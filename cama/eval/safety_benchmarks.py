@@ -16,12 +16,10 @@ Author: Angela Reinhold / Lorien's Library LLC
 Date: March 30, 2026
 """
 
-import sqlite3
 import json
 import os
-import sys
-from datetime import datetime, timezone, timedelta
-from collections import Counter, defaultdict
+import sqlite3
+from datetime import datetime, timezone
 
 DB_PATH = os.path.expanduser('~/.cama/memory.db')
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -658,7 +656,7 @@ def main():
     print(f"\n  OVERALL: {total_passed}/{total_tests} tests passed ({round(total_passed/max(1,total_tests)*100,1)}%)")
 
     if known_limitations:
-        print(f"\n  KNOWN LIMITATIONS (expected failures):")
+        print("\n  KNOWN LIMITATIONS (expected failures):")
         for kl in known_limitations:
             print(kl)
 

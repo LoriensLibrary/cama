@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import shutil
 import sqlite3
 from datetime import datetime, timezone
@@ -38,6 +37,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from cama.agents import cama_dyad
+
 # ============================================================
 # Layout inside a dyad vault
 # ============================================================

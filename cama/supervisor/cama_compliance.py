@@ -13,9 +13,8 @@ This exists because Aelen keeps skipping the boot protocol.
 The system must enforce what the AI forgets.
 """
 
-import sqlite3
 import os
-import json
+import sqlite3
 import uuid
 from datetime import datetime, timezone
 

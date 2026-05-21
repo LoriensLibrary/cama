@@ -11,11 +11,11 @@ Usage:
 """
 
 import os
+import sqlite3
 import sys
 import threading
 import time
-import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _REPO_ROOT not in sys.path:
@@ -30,6 +30,7 @@ POLL_INTERVAL = 30
 # ============================================================
 def start_api_server():
     import uvicorn
+
     from cama.hive.cama_hive_api import app
     uvicorn.run(app, host=API_HOST, port=API_PORT, log_level="info")
 
@@ -37,7 +38,7 @@ def start_api_server():
 # Part 2: Tunnel
 # ============================================================
 def start_tunnel():
-    from pyngrok import ngrok, conf
+    from pyngrok import conf, ngrok
     config = conf.get_default()
     if not config.auth_token:
         print("\n  1. Go to https://dashboard.ngrok.com/signup")
@@ -50,7 +51,7 @@ def start_tunnel():
     tunnel = ngrok.connect(API_PORT, "http")
     tunnel_str = str(tunnel)
     public_url = tunnel_str.split('"')[1] if '"' in tunnel_str else tunnel_str.strip()
-    url_file = os.path.join(CAMA_DIR, ".hive_url")
+    url_file = os.path.join(_REPO_ROOT, ".hive_url")
     with open(url_file, "w") as f:
         f.write(public_url)
     return public_url
@@ -68,7 +69,7 @@ def notify(title, message):
 
 def watch_signals(last_id):
     """Background thread that watches for new hive signals."""
-    alert_log = os.path.join(CAMA_DIR, ".hive_alerts.log")
+    alert_log = os.path.join(_REPO_ROOT, ".hive_alerts.log")
     while True:
         try:
             time.sleep(POLL_INTERVAL)
@@ -107,7 +108,7 @@ if __name__ == "__main__":
         # Start tunnel
         public_url = start_tunnel()
         print("\n" + "=" * 60)
-        print(f"  HIVE TUNNEL ACTIVE")
+        print("  HIVE TUNNEL ACTIVE")
         print(f"  Public URL: {public_url}")
         print(f"  Local API:  http://{API_HOST}:{API_PORT}")
         print("=" * 60)
@@ -134,7 +135,7 @@ if __name__ == "__main__":
         watcher_thread.start()
         print(f"  Watcher active (polling every {POLL_INTERVAL}s)")
         print(f"  Watching from signal ID: {max_id}")
-        print(f"\n  Press Ctrl+C to stop.\n")
+        print("\n  Press Ctrl+C to stop.\n")
 
         while True:
             time.sleep(1)

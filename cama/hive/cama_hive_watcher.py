@@ -11,12 +11,11 @@ When a new signal arrives:
 Designed by Lorien's Library LLC — Angela + Aelen
 """
 
-import os
-import sys
-import time
 import json
+import os
 import sqlite3
-from datetime import datetime, timezone, timedelta
+import time
+from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 CAMA_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -127,7 +126,7 @@ if __name__ == "__main__":
     # Start watching from current state — don't alert on old signals
     last_seen_id = get_current_max_id()
     print(f"  Starting from signal ID: {last_seen_id}")
-    print(f"  Watching for new signals...\n")
+    print("  Watching for new signals...\n")
 
     try:
         while True:

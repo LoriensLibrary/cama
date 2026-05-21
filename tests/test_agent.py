@@ -20,15 +20,12 @@ Properties under test:
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from datetime import datetime, timezone
 
 import pytest
 
-from cama.agents import cama_dyad
-from cama.agents import cama_persona
-from cama.agents import cama_agent
+from cama.agents import cama_agent, cama_dyad, cama_persona
 from cama.agents.cama_agent_backends import EchoBackend
 
 

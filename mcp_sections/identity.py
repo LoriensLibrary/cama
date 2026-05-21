@@ -2,8 +2,12 @@
 
 import json
 import os
+
 from cama_mcp import (
-    get_db, _now, _session_tick, _ring_push,
+    _now,
+    _ring_push,
+    _session_tick,
+    get_db,
 )
 
 # Persona name is per-deployment. Default preserves the historical local

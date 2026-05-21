@@ -1,9 +1,15 @@
 """Maintenance tools: backfill_embeddings, recompute_rel_degrees."""
 
 import json
+
 from cama_mcp import (
-    get_db, _now, _get_embedding, _load_local_model,
-    EMBEDDING_API_KEY, EMBEDDING_PROVIDER, EMBEDDING_MODEL,
+    EMBEDDING_API_KEY,
+    EMBEDDING_MODEL,
+    EMBEDDING_PROVIDER,
+    _get_embedding,
+    _load_local_model,
+    _now,
+    get_db,
 )
 
 

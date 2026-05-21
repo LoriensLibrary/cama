@@ -19,8 +19,9 @@ from pathlib import Path
 
 import pytest
 
-from cama.agents import cama_dyad
-from cama.agents import cama_persona
+from cama.agents import cama_dyad, cama_persona
+
+
 @pytest.fixture(autouse=True)
 def isolated_vault(tmp_path, monkeypatch):
     monkeypatch.setattr(cama_dyad, "VAULT_ROOT", tmp_path / "vaults")
@@ -189,7 +190,7 @@ def test_rollback_returns_to_previous():
     r = cama_dyad.init_dyad(person_name="X", ai_name="Y")
     _opt_in(r["dyad_id"])
     _seed_exchange(r["dyad_id"], "[USER] q\n[ASSISTANT] a1")
-    v1 = cama_persona.prepare_adapter(r["dyad_id"], base_model="test/dummy")
+    cama_persona.prepare_adapter(r["dyad_id"], base_model="test/dummy")
     _seed_exchange(r["dyad_id"], "[USER] q\n[ASSISTANT] a2")
     v2 = cama_persona.prepare_adapter(r["dyad_id"], base_model="test/dummy")
     cama_persona.set_current_adapter(r["dyad_id"], v2["version"])

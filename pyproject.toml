@@ -73,6 +73,7 @@ tunnel = [
 # Development and test dependencies.
 dev = [
     "pytest>=7.0",
+    "ruff>=0.6",
 ]
 
 # Convenience meta-extra: install everything.
@@ -119,3 +120,35 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = ["-v"]
+
+# ---------------------------------------------------------------------------
+# Linting
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+# Skip directories that aren't shipped or aren't ours to police.
+extend-exclude = [
+    "_dev",
+    "scripts",
+    "papers",
+    "paper11_figures",
+    "analysis",
+    "benchmarks",
+    "specs",
+    "tools",
+]
+
+[tool.ruff.lint]
+# Conservative starter set: pyflakes (real-bug detection — unused
+# imports, undefined names, redefinitions) plus isort (import sorting).
+# Style rules (E/W) are deliberately not enabled here because the
+# codebase has pre-existing line-length and one-statement-per-line
+# debt that isn't worth pulling into the lint baseline. Add them
+# incrementally as cleanups land.
+select = ["F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# __init__.py files frequently re-export names; that pattern reads as
+# "unused import" to ruff. Allow it.
+"__init__.py" = ["F401"]

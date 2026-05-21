@@ -49,7 +49,6 @@ VALIDATE FIRST:
 
 import argparse
 import json
-import math
 import os
 import re
 import sqlite3
@@ -323,7 +322,6 @@ def find_exemplar(register: str, exclude_ids: Optional[List[int]] = None,
         for r in rows:
             raw = r["raw_text"] or ""
             ctx = r["context"] or ""
-            blob = raw + " " + ctx
 
             # Estimate the register of THIS memory's user side
             user_text = _extract_user_side(raw, ctx)
@@ -705,7 +703,7 @@ def self_test() -> int:
 def run_mcp_server() -> None:
     try:
         from mcp.server.fastmcp import FastMCP
-        from pydantic import BaseModel, Field, ConfigDict
+        from pydantic import BaseModel, ConfigDict, Field
     except ImportError:
         print("ERROR: mcp library not available. Run: pip install mcp", file=sys.stderr)
         sys.exit(1)

@@ -9,8 +9,8 @@ that don't have a populated database.
 
 Run with: python tests/test_antispiral.py
 """
-import sqlite3
 import os
+import sqlite3
 
 
 def main() -> None:

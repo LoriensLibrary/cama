@@ -21,14 +21,14 @@ The contract:
 Angela's machine: Windows, DB at ~/.cama/memory.db
 """
 
-import sqlite3
 import json
+import logging
 import os
+import sqlite3
 import sys
 import time
-import logging
-from datetime import datetime, timezone, timedelta
 from collections import Counter
+from datetime import datetime, timedelta, timezone
 
 # ============================================================
 # PATHS
@@ -558,7 +558,7 @@ def run_daemon(interval_minutes=30):
     
     while True:
         try:
-            result = run_cycle()
+            run_cycle()
             logging.info(f"Next cycle in {interval_minutes} minutes...")
         except KeyboardInterrupt:
             logging.info("Daemon stopped by user")

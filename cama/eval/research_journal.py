@@ -23,13 +23,12 @@ Usage:
 Lorien's Library LLC
 """
 
-import json
-import sqlite3
-import os
-import sys
 import argparse
+import json
+import os
+import sqlite3
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from typing import Any, Dict
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 JOURNAL_DIR = os.path.expanduser("~/.cama/research")

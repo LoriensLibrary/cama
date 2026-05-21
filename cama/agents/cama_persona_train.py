@@ -39,9 +39,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from cama.agents import cama_persona
+
 _DEP_HINT = (
     "Training requires: torch, transformers, peft, datasets, accelerate. "
     "Install with:  pip install torch transformers peft datasets accelerate"
@@ -95,13 +96,15 @@ def run_training(
     """
     try:
         import torch  # noqa: F401
-        from transformers import (
-            AutoModelForCausalLM, AutoTokenizer,
-            TrainingArguments, Trainer,
-            DataCollatorForLanguageModeling,
-        )
-        from peft import LoraConfig, get_peft_model, TaskType
         from datasets import Dataset
+        from peft import LoraConfig, TaskType, get_peft_model
+        from transformers import (
+            AutoModelForCausalLM,
+            AutoTokenizer,
+            DataCollatorForLanguageModeling,
+            Trainer,
+            TrainingArguments,
+        )
     except ImportError as e:
         raise ImportError(f"{_DEP_HINT} (missing: {e.name})") from e
 

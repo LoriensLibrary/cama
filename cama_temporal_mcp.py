@@ -14,7 +14,8 @@ Tools:
   cama_temporal_state           — raw singleton row (debug / inspection)
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict
+
 from pydantic import BaseModel, Field
 
 from cama.temporal import cama_temporal as tmp

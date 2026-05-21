@@ -19,14 +19,14 @@ April 7, 2026 — The day the branches unified.
 
 import os
 import sys
-import json
 import time
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, HTTPException, Depends, Header, Query
+from typing import Any, Dict, Optional
+
+import uvicorn
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-import uvicorn
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _REPO_ROOT not in sys.path:
@@ -117,7 +117,7 @@ app.add_middleware(
 # Ngrok free tier fix — add the skip-browser-warning header to all responses
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+
 
 class NgrokHeaderMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):

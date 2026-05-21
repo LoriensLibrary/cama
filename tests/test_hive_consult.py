@@ -23,14 +23,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
 
 import pytest
 
 from cama.agents import cama_dyad
-from cama.hive import cama_hive_protocol as hp
 from cama.hive import cama_hive_consult as hc
+from cama.hive import cama_hive_protocol as hp
 
 
 @pytest.fixture(autouse=True)
@@ -621,7 +619,7 @@ def test_dyad_a_post_does_not_appear_in_dyad_b_log():
     a = cama_dyad.init_dyad(person_name="Alice", ai_name="Anya")
     b = cama_dyad.init_dyad(person_name="Bob", ai_name="Brio")
     _opt_in_post(a["dyad_id"])
-    posted = hc.post_consultation(
+    hc.post_consultation(
         a["dyad_id"], valence_bucket="negative",
         arousal_bucket="steady", topic_category="loss",
         question="peer experience for sustained grief",

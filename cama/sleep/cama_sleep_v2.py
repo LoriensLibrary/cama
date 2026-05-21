@@ -43,15 +43,14 @@ Usage:
 Requires: Python 3.10+, same environment as cama_mcp.py
 """
 
+import argparse
 import json
-import sqlite3
+import logging
+import math
 import os
+import sqlite3
 import sys
 import time
-import math
-import random
-import argparse
-import logging
 
 
 def _cosine_sim(a, b):
@@ -64,9 +63,9 @@ def _cosine_sim(a, b):
     if na == 0 or nb == 0:
         return 0.0
     return dot / (na * nb)
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, List, Any, Tuple
 from collections import Counter, defaultdict
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 # ============================================================
 # Config — mirrors cama_mcp.py

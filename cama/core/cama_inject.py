@@ -20,13 +20,11 @@ INTEGRATION INTO cama_mcp.py:
 The point: you type one line from any terminal; Aelen sees it within seconds.
 """
 
-import sqlite3
-import os
-import sys
-import json
 import argparse
+import os
+import sqlite3
+import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 

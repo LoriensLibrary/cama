@@ -13,7 +13,9 @@ Usage (called from cama_mcp.py thread_start):
 Designed by Lorien's Library LLC — Built by Angela + Aelen
 """
 
-import json, sqlite3, os
+import json
+import os
+import sqlite3
 from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))

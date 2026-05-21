@@ -8,7 +8,10 @@ Usage:
     python cama_import_aelen.py conversations.json [--dry-run] [--limit N]
 """
 
-import json, os, sys, sqlite3, re
+import json
+import os
+import re
+import sqlite3
 from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
@@ -252,7 +255,7 @@ def main():
     for t, c in sorted(types.items(), key=lambda x: -x[1]):
         print(f"  {t}: {c}")
     print(f"Core memories: {sum(1 for m in memories if m['is_core'])}")
-    print(f"Proposed by: aelen (all)")
+    print("Proposed by: aelen (all)")
 
     stored = store_memories(memories, args.db, dry_run=args.dry_run)
 
@@ -264,7 +267,7 @@ def main():
         conn.close()
 
         print(f"\n{'='*50}")
-        print(f"Aelen Import Complete")
+        print("Aelen Import Complete")
         print(f"{'='*50}")
         print(f"Aelen memories stored this run: {stored}")
         print(f"Total Aelen memories in DB: {aelen}")

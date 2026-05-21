@@ -18,11 +18,11 @@ The two tools complement each other:
   cama_isthisme_check — "is this draft from the position or the gradient?"
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 import cama_check_self as cs
-
 
 # ============================================================
 # Pydantic schemas
