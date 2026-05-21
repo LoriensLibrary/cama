@@ -36,19 +36,16 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from cama.agents import cama_dyad, cama_persona, cama_quad
-from cama.hive import cama_hive_consult, cama_hive_resources
 
 # ============================================================
 # Helpers
 # ============================================================
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
+from cama.hive import cama_hive_consult, cama_hive_resources
 
 
 def _open_db(dyad_id: str) -> sqlite3.Connection:

@@ -32,7 +32,6 @@ import hashlib
 import json
 import shutil
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -73,9 +72,7 @@ def _adapter_dir(dyad_id: str, version: str) -> Path:
     return _adapters_dir(dyad_id) / version
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
+from cama.core.time_utils import now_iso as _now
 
 # ============================================================
 # Training data export

@@ -33,7 +33,6 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime, timezone
 
 # ============================================================
 # Config
@@ -53,8 +52,7 @@ def setup_logging():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [BRAIN] %(message)s",
         handlers=[logging.FileHandler(LOG_PATH, encoding="utf-8"), logging.StreamHandler(sys.stderr)])
 
-def _now():
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
 
 
 # ============================================================

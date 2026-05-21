@@ -85,8 +85,7 @@ def _incoming_dir(coach_dyad_id: str, handoff_id: str) -> Path:
     return _incoming_root(coach_dyad_id) / handoff_id
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
 
 
 def _new_handoff_id() -> str:

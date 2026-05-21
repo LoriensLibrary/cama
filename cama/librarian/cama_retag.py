@@ -41,14 +41,12 @@ import json
 import os
 import sqlite3
 import sys
-from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
 
 
 def _open_db() -> sqlite3.Connection:
