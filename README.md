@@ -31,10 +31,10 @@ docker compose up
 ```
 Then open **http://localhost:5555**. The container seeds a synthetic demo database (~46 fictional memories spanning skill-acquisition, relational, and correction examples), starts the dashboard, and never touches your personal `~/.cama/memory.db`. See [Quickstart](#quickstart) below for the full walkthrough and the local-install path for running the MCP server itself against Claude Desktop.
 
-**Local install (for developers running the MCP server):** `pip install -r requirements.txt && python cama_mcp.py`. See [Setup](#setup) for the Claude Desktop MCP config. Run `pytest tests/` to exercise the schema + provenance contract.
+**Local install (for developers running the MCP server):** `pip install -e . && python cama_mcp.py`. See [Setup](#setup) for the Claude Desktop MCP config. Run `pytest` to exercise the schema + provenance contract (187 tests).
 
 **Reviewing for a role?**
-- **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `safety_benchmarks.py`. Internal safety benchmark: 27 sub-tests across provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, and drift monitoring. Latest run on the live 53,092-row corpus: **27/27 (100%)**. An intermediate 2026-05-17 run came back 26/27 (96.3%); the failure was definition drift in sub-test 1e (the benchmark itself), not a data violation — investigation logged and fix landed via [issue #7](https://github.com/LoriensLibrary/cama/issues/7). See `benchmark_results.json` for the raw output.
+- **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `cama/eval/safety_benchmarks.py`. Internal safety benchmark: 27 sub-tests across provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, and drift monitoring. Latest run on the live 53,092-row corpus: **27/27 (100%)**. An intermediate 2026-05-17 run came back 26/27 (96.3%); the failure was definition drift in sub-test 1e (the benchmark itself), not a data violation — investigation logged and fix landed via [issue #7](https://github.com/LoriensLibrary/cama/issues/7). See `benchmark_results.json` for the raw output.
 - **Healthcare AI / chronic-care continuity:** see Paper 7 (DOI [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530)) and the applied prototype at [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos).
 - **Software engineering:** the [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos) prototype is the strongest applied artifact (React 19 + TS + Vercel + Neon, 42 tests across 6 suites).
 
@@ -75,11 +75,12 @@ docker compose up
 ### Local install (for developers running the MCP server against Claude Desktop)
 
 ```bash
-pip install -r requirements.txt
+pip install -e .          # core install
+pip install -e ".[all]"   # core + embeddings + hive API + ngrok tunnel + dev tooling
 python cama_mcp.py
 ```
 
-See [Setup](#setup) for the Claude Desktop `claude_desktop_config.json` snippet. Run `pytest tests/` to exercise the schema + provenance contract. Run `python safety_benchmarks.py` to execute the 27-sub-test safety benchmark against your local CAMA database.
+See [Setup](#setup) for the Claude Desktop `claude_desktop_config.json` snippet. Run `pytest` to exercise the schema + provenance contract (187 tests). Run `python -m cama.eval.safety_benchmarks` to execute the 27-sub-test safety benchmark against your local CAMA database.
 
 ---
 
@@ -262,14 +263,12 @@ CAMA grew fast and is best understood in tiers. A skeptical reviewer should be a
 
 ### Public reproducibility surface
 - All source code published here
-- 15-test pytest suite + green CI badge (the contract)
+- 187-test pytest suite + green CI badge (the contract)
 - 5 benchmark scripts + 2 committed result JSONs (the methodology)
 - Aggregate statistics dataset on [HuggingFace](https://huggingface.co/datasets/LoriensLibrary/cama-continuity-burden) — derived from the private corpus
 - 11 DOI-registered preprints linked from this README
 
 ### Planned (issues are open if you want to track)
-- `pyproject.toml` for `pip install -e .` ([#1](https://github.com/LoriensLibrary/cama/issues/1))
-- `Dockerfile` + seeded synthetic demo DB for end-to-end fork-and-run ([#2](https://github.com/LoriensLibrary/cama/issues/2))
 - CI coverage for the experimental subsystems ([#3](https://github.com/LoriensLibrary/cama/issues/3))
 
 ---
@@ -279,9 +278,11 @@ CAMA grew fast and is best understood in tiers. A skeptical reviewer should be a
 Requires Python 3.10+
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 python cama_mcp.py
 ```
+
+(For the heavier surfaces — local sentence-transformer embeddings, the Hive REST gateway, the ngrok tunnel — use the extras: `pip install -e ".[embeddings,hive,tunnel]"` or the meta-extra `pip install -e ".[all]"`.)
 
 ### MCP Config
 
@@ -328,7 +329,7 @@ Embeddings are optional — the system includes a local embedding model and fall
 - Dashboard (local web-based control panel)
 - Pattern classification (neutral behavioral pattern detection)
 - Safety benchmark suite (27 sub-tests across 5 task families; latest run 27/27 — 100% — on the live 53,092-row corpus. An intermediate 2026-05-17 run flagged 16 violations on sub-test 1e; investigation under [issue #7](https://github.com/LoriensLibrary/cama/issues/7) found this was definition drift in the test, not data corruption — `insight` and `pattern` are content-shape labels shared by both source pipelines on the live corpus, not inference-exclusive shapes. Sub-test 1e renamed and allowlist narrowed to `dream` (the one memory_type structurally exclusive to the sleep daemon). The benchmark catching this is the design working as intended)
-- pytest suite (15 cases) + GitHub Actions CI
+- pytest suite (187 cases) + ruff lint, both wired into GitHub Actions CI
 
 ## Roadmap
 
