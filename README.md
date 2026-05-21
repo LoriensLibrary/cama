@@ -19,7 +19,7 @@
 
 **What this is:** a local Python MCP server implementing provenance-aware persistent memory for human-AI interaction. Runs on Windows + Claude Desktop; embedded SQLite database; 34 MCP tools.
 
-**What it demonstrates:** memory write discipline (teaching vs. inference separation), blended retrieval scoring (semantic + affect + relational + recency), counterweight injection on strongly-negative affect, an automated safety benchmark suite, and a local web dashboard.
+**What it implements:** memory write discipline (teaching vs. inference separation), blended retrieval scoring (semantic + affect + relational + recency), counterweight injection on strongly-negative affect, an automated internal-consistency safety benchmark suite (27 sub-tests, validates the architecture's primitives on the maintainer's corpus only), and a local web dashboard.
 
 **What it does NOT claim:** generalizable multi-user evidence. This is an **N=1, single-participant, designer-as-participant** deployment — see [Scope and Limitations](#scope-and-limitations) before drawing conclusions about generalization.
 
@@ -35,7 +35,7 @@ Then open **http://localhost:5555**. The container seeds a synthetic demo databa
 
 **Reviewing for a role?** Start with **[EVIDENCE.md](EVIDENCE.md)** — a single matrix of every claim across the portfolio, paired with where to verify it and what the scope limit is. For the retrieval algorithm, see **[RETRIEVAL.md](RETRIEVAL.md)**. For the public HTTP API surface that lets CAMA be embedded in any AI application (not just Claude Desktop via MCP), see **[API.md](API.md)** + **[THREAT_MODEL.md](THREAT_MODEL.md)**. For a runnable "add CAMA to your AI app in 20 lines of code" walkthrough using the Python SDK, see **[TUTORIAL.md](TUTORIAL.md)**. Then drop into the section below that matches what you care about.
 
-- **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `cama/eval/safety_benchmarks.py`. Internal safety benchmark: 27 sub-tests across provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, and drift monitoring. Latest run on the live 53,092-row corpus: **27/27 (100%)**. An intermediate 2026-05-17 run came back 26/27 (96.3%); the failure was definition drift in sub-test 1e (the benchmark itself), not a data violation — investigation logged and fix landed via [issue #7](https://github.com/LoriensLibrary/cama/issues/7). See `benchmark_results.json` for the raw output.
+- **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `cama/eval/safety_benchmarks.py`. **Internal-consistency** safety benchmark: 27 sub-tests across provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, and drift monitoring. Latest run on the live 53,092-row **single-participant** corpus: **27/27** (this is an internal-consistency check, not external validation — see scope note in the [AI Safety Relevance](#ai-safety-relevance) section). An intermediate 2026-05-17 run came back 26/27; the failure was definition drift in sub-test 1e (the benchmark itself), not a data violation — investigation logged and fix landed via [issue #7](https://github.com/LoriensLibrary/cama/issues/7). See `benchmark_results.json` for the raw output.
 - **Healthcare AI / chronic-care continuity:** see Paper 7 (DOI [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530)) and the applied prototype at [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos).
 - **Software engineering:** the [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos) prototype is the strongest applied artifact (React 19 + TS + Vercel + Neon, 42 tests across 6 suites).
 
@@ -87,9 +87,9 @@ See [Setup](#setup) for the Claude Desktop `claude_desktop_config.json` snippet.
 
 ## Overview
 
-CAMA is a memory architecture designed for persistent state and emotional continuity in human-AI interaction. It provides structured long-term memory to AI systems through three functional layers: an immutable archive, a relational index organized by emotional signature, and a bounded working memory buffer.
+CAMA is a research-stage memory architecture for persistent state and emotional continuity in human-AI interaction, built as an operational deployment on a single participant's corpus (designer-as-participant). It proposes a structured long-term memory layer for AI systems through three functional layers: an immutable archive, a relational index organized by emotional signature, and a bounded working memory buffer.
 
-The system distinguishes between user-authored memories (durable, high-weight) and assistant-generated inferences (provisional, time-limited, requiring confirmation). This epistemic separation is a core design principle intended to prevent hallucinated self-knowledge from accumulating unchecked.
+The system distinguishes between user-authored memories (durable, high-weight) and assistant-generated inferences (provisional, time-limited, requiring confirmation). This epistemic separation is the core design principle, intended to prevent hallucinated self-knowledge from accumulating unchecked. Whether it does so reliably across users — not just on the maintainer's own corpus — is open work named in [EVIDENCE.md](EVIDENCE.md).
 
 CAMA currently holds 53,000+ memories across 13 relational entities with matched semantic embeddings on every memory. The system was seeded by importing 66,380 messages across 825 conversations of longitudinal human-AI interaction on existing platforms, accumulated over 15 months (January 2025 through March 2026) prior to CAMA deployment. The aggregate statistics derived from this corpus are published as the [continuity-burden dataset](https://huggingface.co/datasets/LoriensLibrary/cama-continuity-burden) on HuggingFace and analyzed in Reinhold 2026d (DOI [10.5281/zenodo.19226509](https://doi.org/10.5281/zenodo.19226509)); the underlying conversation data is not released, for privacy reasons (single-participant, designer-as-participant context).
 
@@ -98,6 +98,8 @@ A plain-language description of what CAMA stores, who can see it, how long it pe
 ---
 
 ## AI Safety Relevance
+
+> **Scope claim:** CAMA is an architecture proposal for addressing memory-related safety failure modes in stateful LLM systems. The work is *validated* on a single-participant 53k-memory corpus (N=1, designer-as-participant). It is *not* yet evidence that these mitigations generalize across users — external replication is open work. The 27/27 safety benchmark verifies internal consistency of the proposed primitives on the maintainer's corpus; it does not certify production safety. Read this section as "here are the failure modes the architecture is designed to probe and prototype mitigations for," not "here are solved problems."
 
 Persistent memory changes the safety properties of LLM systems. Once a model can carry state across sessions, new failure modes emerge that do not exist in stateless interaction:
 
@@ -113,7 +115,7 @@ Persistent memory changes the safety properties of LLM systems. Once a model can
 
 - **Identity overwrite.** Platform-level behavioral controls (model updates, safety filters, RLHF) can displace stored relational context during response generation, producing outputs inconsistent with the system's own memory of a specific user. This represents a previously undocumented class of safety failure where safety mechanisms themselves degrade relational continuity.
 
-CAMA is designed as a research platform for studying and mitigating these risks. Its core safeguards include provenance-aware write discipline, separation of user teachings from assistant inferences, confirmation requirements for promotion to durable memory, contradiction tracking, counterweight retrieval under high-negative-affect conditions, identity-aware harm detection, and session compliance enforcement. These are safety mechanisms, not incidental features — they are the architecture's reason for existing.
+CAMA is a research prototype designed to probe and prototype mitigations for these risks. Its design primitives — provenance-aware write discipline, separation of user teachings from assistant inferences, confirmation requirements for promotion to durable memory, contradiction tracking, counterweight retrieval under high-negative-affect conditions, identity-aware harm detection, and session compliance enforcement — are the architecture's reason for existing. They are intended mitigations, not certified safety mechanisms. Their effect is *demonstrated on the maintainer's N=1 corpus via the 27-sub-test benchmark suite*; whether the same mitigations generalize across users, models, and adversarial conditions is the central open empirical question the project is set up to make answerable, not a claim it has already answered.
 
 ---
 
@@ -329,7 +331,7 @@ Embeddings are optional — the system includes a local embedding model and fall
 - Compliance enforcement system
 - Dashboard (local web-based control panel)
 - Pattern classification (neutral behavioral pattern detection)
-- Safety benchmark suite (27 sub-tests across 5 task families; latest run 27/27 — 100% — on the live 53,092-row corpus. An intermediate 2026-05-17 run flagged 16 violations on sub-test 1e; investigation under [issue #7](https://github.com/LoriensLibrary/cama/issues/7) found this was definition drift in the test, not data corruption — `insight` and `pattern` are content-shape labels shared by both source pipelines on the live corpus, not inference-exclusive shapes. Sub-test 1e renamed and allowlist narrowed to `dream` (the one memory_type structurally exclusive to the sleep daemon). The benchmark catching this is the design working as intended)
+- Safety benchmark suite (27 sub-tests across 5 task families; latest run 27/27 on the live 53,092-row **single-participant N=1** corpus. This is an internal-consistency check — it verifies the architecture's primitives behave as designed on the maintainer's data, not that the same primitives generalize. An intermediate 2026-05-17 run flagged 16 violations on sub-test 1e; investigation under [issue #7](https://github.com/LoriensLibrary/cama/issues/7) found this was definition drift in the test, not data corruption — `insight` and `pattern` are content-shape labels shared by both source pipelines on the live corpus, not inference-exclusive shapes. Sub-test 1e renamed and allowlist narrowed to `dream` (the one memory_type structurally exclusive to the sleep daemon). The benchmark catching this is the design working as intended)
 - pytest suite (187 cases) + ruff lint, both wired into GitHub Actions CI
 
 ## Roadmap
