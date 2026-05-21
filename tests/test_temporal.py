@@ -22,8 +22,6 @@ working.
 
 from __future__ import annotations
 
-import json
-import math
 import sqlite3
 import statistics
 from datetime import datetime, timezone
@@ -186,11 +184,10 @@ class TestWeekendCreep:
     def test_zero_when_not_weekend(self):
         assert t._weekend_creep_load(is_weekend=False, dow_hist=[0] * 7) == 0.0
 
-    def test_zero_for_history_balanced_or_weekend_heavy(self):
-        # User works 2/7 days on weekends = baseline. No load.
-        hist = [10, 10, 10, 10, 10, 4, 6]  # weekend = 10/70 (14.3% - below baseline)
-        # actually 10/70 < 2/7 = 28.6% baseline -> SOME load. fix the test:
-        hist_balanced = [5, 5, 5, 5, 5, 5, 5]  # equal across days = weekend share 2/7
+    def test_zero_for_balanced_history(self):
+        # Equal distribution across all seven days = weekend share is
+        # exactly 2/7, the baseline. No load.
+        hist_balanced = [5, 5, 5, 5, 5, 5, 5]
         assert t._weekend_creep_load(is_weekend=True, dow_hist=hist_balanced) == 0.0
 
     def test_high_when_weekends_rare(self):
