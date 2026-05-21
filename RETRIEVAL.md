@@ -200,11 +200,32 @@ The 7.5-second warm-up is the sentence-transformer (all-MiniLM-L6-v2) loading in
 
 ---
 
+## HTTP API surface — `POST /v1/search`
+
+The same Phase-1 pipeline is wired into the public HTTP API at `POST /v1/search` (PR #17). Calls land in [`cama/api/server.py:search()`](cama/api/server.py), which:
+
+1. Scores the query against `librarians.routing_keywords` (same algorithm as `cama_librarian.route()` — keyword substring match, multiplied by per-librarian `activation_score`) and picks the top 5 librarians.
+2. Issues one dyad-scoped JOIN against `librarian_membership` (`WHERE lm.librarian_id IN (...) AND m.dyad_id = ? AND m.status IN (...)`), surfacing only memories that belong to one of those librarians **and** to the calling key's dyad.
+3. Falls back to keyword `LIKE` against `raw_text` when the routing index has nothing to say (fresh dyad, dyad whose librarians haven't been populated yet) — `routing.phase` in the response reflects which path actually ran (`"1"` vs `"1_keyword_fallback"`).
+4. Runs counterweight injection on top (same predicate as the MCP `cama_search` tool — `valence ≤ −0.5` OR negative-chord sum > 1.5).
+
+The routing inline copies the librarian module's keyword algorithm into [`_librarian_routed_search`](cama/api/server.py) instead of calling `cama_librarian.route()` directly. That's deliberate: the librarian module captures `CAMA_DB_PATH` at import time, but the API server reopens connections per request (and per test fixture). Doing the routing against the API's own connection guarantees the routing index and the membership join always read from the same DB the caller's other SQL reads from.
+
+What `/v1/search` does **not** yet wire in:
+
+- **Blended scoring** (the 0.45/0.25/0.15/0.15 semantic+affect+relational+recency formula). The API currently surfaces `membership_strength` as the score and zeros the other channels in `score_breakdown.semantic/affect/recency`. Wiring `cama.core.cama_v2`'s blender behind the API needs the sentence-transformer cache made portable across the API and MCP processes — open work, tracked as v1.2.
+- **Phase-2.6 era-aware semantic routing.** That path lives in [`cama/librarian/cama_phase26_era_hybrid.py:era_subcentroid_route()`](cama/librarian/cama_phase26_era_hybrid.py) but depends on `cama_mcp._get_embedding()` (warm sentence-transformer in the MCP process). Surfacing it through the API needs the embedding stack extracted into `cama.core` first — same v1.2 work.
+
+The contract test that pins this surface is [`tests/test_api.py::TestLibrarianRouting`](tests/test_api.py): four tests prove the librarian path activates on a populated index, falls back cleanly on an empty index, respects dyad scope under the JOIN, and runs alongside counterweight injection without interference.
+
+---
+
 ## Scope and open work
 
 What this document explains is implemented and measured. What it deliberately does not claim:
 
 - **Multi-user retrieval.** All numbers and behavior described are single-participant (designer-as-participant). The multi-tenant generalization lives in `cama/agents/cama_dyad.py` with its own test suite (see [MULTI_TENANT.md](MULTI_TENANT.md)), but the multi-user retrieval path has not yet been stress-tested for isolation correctness — a known gap acknowledged in the external code review.
+- **Blended scoring through the HTTP API.** Wired-in Phase-1 librarian routing in PR #17 surfaces `membership_strength` as the API's score signal; the full 0.45/0.25/0.15/0.15 blended formula stays on the MCP surface for now. Tracked as v1.2.
 - **Phase-2.6 routing + downstream pipeline together.** The semantic-routing benchmark above measures the routing stage only. A full end-to-end semantic-query benchmark (route + fan-out + blend) would let a reviewer compare apples-to-apples with the Phase-1 retrieve() number — open work.
 - **End-to-end accuracy at production scale.** The Phase 2.6 R@5 win came from an N=1 benchmark; generalizing the ranking-quality claim across users would require a corpus we don't yet have.
 - **Adversarial retrieval.** The counterweight mechanism is designed against affect spirals; it has not been red-teamed for prompt-injection or for retrieval-poisoning attacks where a counterweight pool itself has been corrupted. Threat modeling is partial in [SECURITY.md](SECURITY.md) and EVIDENCE.md scope rows.

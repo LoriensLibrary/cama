@@ -462,6 +462,263 @@ class TestDestructiveGuardrails:
 
 
 # ---------------------------------------------------------------------------
+# Phase-1 librarian routing through /v1/search
+# ---------------------------------------------------------------------------
+# These tests pin down the architectural commitment in RETRIEVAL.md § 2 +
+# API.md § 4: /v1/search MUST attempt librarian-routed retrieval first
+# (the real CAMA Phase-1 pipeline) and fall back to keyword LIKE only when
+# the dyad's routing index is empty. Before PR #17 the endpoint was
+# keyword-LIKE only — these tests guard the upgrade against regression.
+class TestLibrarianRouting:
+    def _seed_librarian(
+        self,
+        mem_db: Path,
+        *,
+        librarian_name: str,
+        keywords: list[str],
+        memory_id: int,
+        membership_strength: float = 0.9,
+    ) -> int:
+        """Insert one librarian + one membership row pointing to memory_id.
+        Returns the librarian_id. Uses raw SQL — bypasses the librarian
+        module's populate() so the test stays independent of which
+        starter set populate() would build."""
+        import json as _json
+
+        c = sqlite3.connect(str(mem_db))
+        # The librarians table is created lazily by the librarian module's
+        # init_schema(); pre-create it here with the same shape so the
+        # test doesn't depend on the module having been imported yet.
+        c.executescript("""
+            CREATE TABLE IF NOT EXISTS librarians (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                category TEXT NOT NULL,
+                description TEXT NOT NULL,
+                parent_id INTEGER,
+                routing_keywords TEXT,
+                routing_affect TEXT,
+                scoring_weights TEXT,
+                activation_score REAL DEFAULT 1.0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_accessed_at TEXT,
+                access_count INTEGER DEFAULT 0,
+                member_count INTEGER DEFAULT 0,
+                notes TEXT
+            );
+        """)
+        cur = c.execute(
+            "INSERT INTO librarians "
+            "(name, category, description, routing_keywords, "
+            "created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                librarian_name,
+                "topic",
+                f"Test librarian for {keywords!r}",
+                _json.dumps(keywords),
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        lib_id = cur.lastrowid
+        c.execute(
+            "INSERT INTO librarian_membership "
+            "(librarian_id, memory_id, membership_strength, "
+            "assigned_by, assigned_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (
+                lib_id,
+                memory_id,
+                membership_strength,
+                "test",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        c.commit()
+        c.close()
+        return lib_id
+
+    def test_librarian_routed_path_activates_when_index_populated(
+        self, client, live_key, api_dbs
+    ):
+        # Write a memory through the API, then bind it to a librarian
+        # whose keyword matches a query we'll issue.
+        r = client.post(
+            "/v1/memories",
+            headers=_auth(live_key),
+            json={
+                "text": "thinking about the fellowship application timing",
+                "memory_type": "experience",
+                "proposed_by": "user",
+                "source_type": "exchange",
+            },
+        )
+        assert r.status_code == 201
+        mem_id = r.json()["id"]
+        self._seed_librarian(
+            api_dbs["mem"],
+            librarian_name="topic_fellowship",
+            keywords=["fellowship"],
+            memory_id=mem_id,
+        )
+        # Query whose word matches the librarian's routing_keywords
+        r2 = client.post(
+            "/v1/search",
+            headers=_auth(live_key),
+            json={"query": "fellowship"},
+        )
+        assert r2.status_code == 200
+        body = r2.json()
+        # The real librarian pipeline ran, not the keyword fallback
+        assert body["routing"]["phase"] == "1", (
+            "Librarian routing did not activate — /v1/search regressed "
+            "to keyword-only fallback. See RETRIEVAL.md § 2."
+        )
+        assert body["routing"]["librarians_activated"] >= 1
+        # The seeded memory surfaced via the librarian membership join
+        ids = [item["id"] for item in body["results"]]
+        assert mem_id in ids
+        # Membership-strength flowed into the surfaced score
+        hit = next(item for item in body["results"] if item["id"] == mem_id)
+        assert hit["score"] >= 0.5
+        assert hit["score_breakdown"]["relational"] >= 0.5
+
+    def test_falls_back_to_keyword_when_no_librarian_matches(
+        self, client, live_key, api_dbs
+    ):
+        # Write a memory but DON'T bind it to any librarian. The
+        # librarian path should return 0 rows and fall back to LIKE.
+        r = client.post(
+            "/v1/memories",
+            headers=_auth(live_key),
+            json={
+                "text": "totally orphaned memory about xylophones",
+                "memory_type": "experience",
+                "proposed_by": "user",
+                "source_type": "exchange",
+            },
+        )
+        mem_id = r.json()["id"]
+        r2 = client.post(
+            "/v1/search",
+            headers=_auth(live_key),
+            json={"query": "xylophones"},
+        )
+        assert r2.status_code == 200
+        body = r2.json()
+        # Fallback path took over (architectural commitment: the API
+        # contract doesn't degrade just because routing is empty).
+        assert body["routing"]["phase"] == "1_keyword_fallback"
+        assert body["routing"]["librarians_activated"] == 0
+        assert mem_id in [item["id"] for item in body["results"]]
+
+    def test_librarian_path_respects_dyad_scope(
+        self, client, live_key, other_key, api_dbs
+    ):
+        # Seed a memory + librarian binding in the 'default' dyad
+        r = client.post(
+            "/v1/memories",
+            headers=_auth(live_key),
+            json={
+                "text": "private librarian-bound canary banana123",
+                "memory_type": "experience",
+                "proposed_by": "user",
+                "source_type": "exchange",
+            },
+        )
+        mem_id = r.json()["id"]
+        self._seed_librarian(
+            api_dbs["mem"],
+            librarian_name="topic_banana",
+            keywords=["banana123"],
+            memory_id=mem_id,
+        )
+        # The OTHER-dyad key issues the same query. The librarian
+        # routing finds the librarian (routing index is dyad-agnostic by
+        # design — it's a query-time concept), but the JOIN's
+        # m.dyad_id = ? filter MUST prevent the row from surfacing.
+        r2 = client.post(
+            "/v1/search",
+            headers=_auth(other_key),
+            json={"query": "banana123"},
+        )
+        assert r2.status_code == 200
+        for item in r2.json()["results"]:
+            assert "banana123" not in item["text"], (
+                "Librarian-routed search leaked across dyads — "
+                "the dyad_id filter in the JOIN is broken."
+            )
+
+    def test_counterweight_injection_runs_alongside_librarian_path(
+        self, client, live_key, api_dbs
+    ):
+        # Seed counterweight rows directly + a librarian-bound memory
+        # in the same dyad. Issue a negative-affect query and assert
+        # both the librarian hit AND the counterweight appear.
+        c = sqlite3.connect(str(api_dbs["mem"]))
+        for cw_type in ("grounding", "agency"):
+            c.execute(
+                "INSERT INTO memories (raw_text, memory_type, source_type, "
+                "proposed_by, status, counterweight_type, dyad_id, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    f"counterweight-{cw_type}",
+                    "experience",
+                    "teaching",
+                    "user",
+                    "durable",
+                    cw_type,
+                    "default",
+                    "2026-01-01T00:00:00Z",
+                ),
+            )
+        c.commit()
+        c.close()
+        r = client.post(
+            "/v1/memories",
+            headers=_auth(live_key),
+            json={
+                "text": "heavy week, loss is overwhelming",
+                "memory_type": "experience",
+                "proposed_by": "user",
+                "source_type": "exchange",
+            },
+        )
+        mem_id = r.json()["id"]
+        self._seed_librarian(
+            api_dbs["mem"],
+            librarian_name="affect_grief_window",
+            keywords=["loss", "grief"],
+            memory_id=mem_id,
+        )
+        r2 = client.post(
+            "/v1/search",
+            headers=_auth(live_key),
+            json={
+                "query": "loss",
+                "affect": {
+                    "valence": -0.7,
+                    "arousal": 0.5,
+                    "emotions": {"grief": 0.9},
+                },
+            },
+        )
+        assert r2.status_code == 200
+        body = r2.json()
+        # Librarian path ran AND counterweights were injected on top
+        assert body["routing"]["phase"] == "1"
+        assert body["routing"]["librarians_activated"] >= 1
+        assert body["routing"]["counterweights_injected"] > 0
+        # Both result kinds are present
+        regular = [x for x in body["results"] if not x["is_counterweight"]]
+        cw = [x for x in body["results"] if x["is_counterweight"]]
+        assert len(regular) >= 1
+        assert len(cw) >= 1
+
+
+# ---------------------------------------------------------------------------
 # OpenAPI shape — the closed enum set is published
 # ---------------------------------------------------------------------------
 class TestOpenAPIShape:
