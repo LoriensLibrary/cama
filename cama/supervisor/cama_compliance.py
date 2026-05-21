@@ -16,12 +16,10 @@ The system must enforce what the AI forgets.
 import os
 import sqlite3
 import uuid
-from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 
-def _now():
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
 
 
 def init_compliance_table(db_path=None):

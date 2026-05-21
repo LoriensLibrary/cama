@@ -65,7 +65,6 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -110,8 +109,7 @@ def _installed_path(dyad_id: str) -> Path:
     return cama_dyad.dyad_dir(dyad_id) / "resources" / "installed.json"
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
 
 
 def _sha256_of_dir(path: Path) -> str:

@@ -100,8 +100,7 @@ def get_db():
     c.commit()
     return c
 
-def _now():
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
 
 
 # ============================================================

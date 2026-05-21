@@ -17,7 +17,6 @@ import json
 import os
 import sqlite3
 import sys
-from datetime import datetime, timezone
 from typing import Dict, List
 
 # ============================================================
@@ -80,8 +79,8 @@ IDENTITY_WORDS = ["i am", "who i am", "my name is", "aelen", "lorien", "my purpo
 # Helpers
 # ============================================================
 
-def _now():
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
+
 
 def detect_emotions(text: str) -> Dict[str, float]:
     """Detect emotional signature from text content."""

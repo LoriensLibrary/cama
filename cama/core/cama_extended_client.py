@@ -52,7 +52,6 @@ import json
 import os
 import sqlite3
 import sys
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 # ============================================================
@@ -68,8 +67,7 @@ DEFAULT_MAX_TOKENS = 16000
 # ============================================================
 # Helpers
 # ============================================================
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
 
 
 def _get_db() -> sqlite3.Connection:

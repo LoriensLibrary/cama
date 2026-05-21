@@ -204,8 +204,7 @@ def _ensure_dyad_consult_log(dyad_db_path: Path) -> None:
 # Helpers
 # ============================================================
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
 
 
 def _signature_for(dyad_id: str) -> str:

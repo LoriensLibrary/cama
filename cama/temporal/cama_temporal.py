@@ -51,7 +51,7 @@ import json
 import math
 import os
 import sqlite3
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
@@ -76,12 +76,8 @@ SLEEP_WINDOW_LOCAL_HOURS = (23, 7)  # 23:00 - 07:00 local
 # ============================================================
 # Time helpers — the CLOCK layer
 # ============================================================
-def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _now_iso() -> str:
-    return _now_utc().isoformat()
+from cama.core.time_utils import now_iso as _now_iso
+from cama.core.time_utils import now_utc as _now_utc
 
 
 def _parse_iso(s: Optional[str]) -> Optional[datetime]:

@@ -42,7 +42,6 @@ After that, cama_lib_route is the funnel for queries.
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -53,8 +52,7 @@ from pydantic import BaseModel, Field
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
 
 
 def _get_db() -> sqlite3.Connection:

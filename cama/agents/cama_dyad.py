@@ -32,7 +32,6 @@ import secrets
 import shutil
 import sqlite3
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -79,8 +78,7 @@ SEED_CONTEXT_BOND = "dyad_init:bond"
 # Internal helpers
 # ============================================================
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
 
 
 def _new_dyad_id() -> str:

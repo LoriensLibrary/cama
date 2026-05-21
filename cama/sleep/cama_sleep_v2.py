@@ -137,8 +137,8 @@ def get_db():
     c.commit()
     return c
 
-def _now():
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
+
 
 def _parse_t(t):
     """Parse ISO timestamp, handling Z-suffix that Python 3.10 can't parse."""

@@ -33,8 +33,8 @@ from typing import Any, Dict
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 JOURNAL_DIR = os.path.expanduser("~/.cama/research")
 
-def _now():
-    return datetime.now(timezone.utc).isoformat()
+from cama.core.time_utils import now_iso as _now
+
 
 def _ensure_tables(c):
     """Create research journal table if it doesn't exist."""
