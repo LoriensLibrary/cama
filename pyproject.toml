@@ -71,6 +71,18 @@ hive = [
     "uvicorn>=0.23.0",
 ]
 
+# Public HTTP API surface — the v1 product API documented in API.md.
+# Wraps the CAMA memory primitives behind RESTful endpoints with
+# bearer-token auth (Argon2id-hashed at rest), provenance enforcement,
+# dyad isolation, and counterweight-injection-on-by-default. See
+# THREAT_MODEL.md for the attack-mitigation matrix this extra is
+# designed against.
+api = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "argon2-cffi>=23.0.0",
+]
+
 # Ngrok tunneling for the Hive (cama/tunnel/cama_tunnel.py).
 tunnel = [
     "pyngrok>=7.0",
@@ -80,12 +92,20 @@ tunnel = [
 dev = [
     "pytest>=7.0",
     "ruff>=0.6",
+    "httpx>=0.24.0",  # used by FastAPI's TestClient
+    "fastapi>=0.100.0",  # pulled in for tests/test_api.py
+    "argon2-cffi>=23.0.0",  # same
 ]
 
 # Convenience meta-extra: install everything.
 all = [
-    "cama[embeddings,hive,tunnel,dev]",
+    "cama[embeddings,hive,tunnel,api,dev]",
 ]
+
+[project.scripts]
+# Console script for the v1 HTTP API server. Available after
+# `pip install -e ".[api]"`.
+cama-api-server = "cama.api.server:main"
 
 [project.urls]
 Homepage = "https://lorienslibrary.netlify.app"
