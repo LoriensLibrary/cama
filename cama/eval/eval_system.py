@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Full system evaluation — March 28, 2026"""
-import sqlite3, json, os
+import sqlite3, json, os, subprocess
 from datetime import datetime, timezone
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 c = sqlite3.connect(os.path.expanduser('~/.cama/memory.db'))
 c.row_factory = sqlite3.Row
@@ -41,14 +44,14 @@ print(f"  With affect: {has_aff} / {total} ({round(has_aff/max(1,total)*100,1)}%
 
 # 5. _parse_t check
 print("\n[5] _parse_t FIX")
-with open(r'C:\Users\User\Desktop\cama\cama_mcp.py', 'r', encoding='utf-8') as f:
+with open(_REPO_ROOT / 'cama_mcp.py', 'r', encoding='utf-8') as f:
     mcp_content = f.read()
 if 'Z-suffix' in mcp_content or "t.endswith('Z')" in mcp_content:
     print("  cama_mcp.py: PATCHED (Z-suffix handling)")
 else:
     print("  cama_mcp.py: NOT PATCHED ⚠")
 
-with open(r'C:\Users\User\Desktop\cama\cama_sleep.py', 'r', encoding='utf-8') as f:
+with open(_REPO_ROOT / 'cama' / 'sleep' / 'cama_sleep.py', 'r', encoding='utf-8') as f:
     sleep_content = f.read()
 if 'Z-suffix' in sleep_content or "t.endswith('Z')" in sleep_content:
     print("  cama_sleep.py: PATCHED")
@@ -119,7 +122,7 @@ print(f"  Count: {today_count}")
 
 # 13. Git status
 print("\n[13] GIT STATUS")
-result = subprocess.run(['git', '-C', r'C:\Users\User\Desktop\cama', 'status', '--short'],
+result = subprocess.run(['git', '-C', str(_REPO_ROOT), 'status', '--short'],
                        capture_output=True, text=True, timeout=10)
 if result.stdout.strip():
     print(f"  Uncommitted changes:")
