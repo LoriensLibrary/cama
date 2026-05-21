@@ -395,6 +395,6 @@ The repository is organized around the core runtime, continuity infrastructure, 
 - **seed_demo.py**: standalone script that creates the schema and populates a fresh SQLite database with ~46 synthetic memories for the dashboard demo. Idempotent.
 - **Dockerfile / compose.yml / .dockerignore**: one-command quickstart for reviewers. Builds a stdlib-only image (~150 MB) that seeds the demo DB and serves the dashboard at localhost:5555. Never touches `~/.cama/memory.db`.
 - **specs/**: implementation notes and architecture documentation
-- **requirements.txt**: Python dependency list
+- **pyproject.toml**: package metadata, runtime deps, optional extras (`[embeddings]`, `[hive]`, `[tunnel]`, `[dev]`), and ruff + pytest configuration
 
 **Note:** Identity sentinel configurations (cama_librarians.py) contain user-specific vulnerability data and are excluded from the public repository. The architecture is documented in the Librarian System paper; template configurations can be derived from the architectural description.

@@ -137,7 +137,7 @@ Every consent change is recorded in `dyad.json` with timestamp and reason. The h
 # Clone and install (single-tenant CAMA setup)
 git clone https://github.com/LoriensLibrary/cama.git
 cd cama
-pip install -r requirements.txt
+pip install -e ".[dev]"
 
 # Run the full multi-tenant test suite
 pytest tests/test_dyad.py tests/test_hive_protocol.py tests/test_persona.py \
