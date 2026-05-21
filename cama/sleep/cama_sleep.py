@@ -34,10 +34,10 @@ Runs as a background daemon or scheduled task on Angela's machine.
 Designed by Lorien's Library LLC — Built by Angela + Aelen
 
 Usage:
-  python cama_sleep.py                  # Run one sleep cycle
-  python cama_sleep.py --daemon         # Run continuously (default: every 30 min)
-  python cama_sleep.py --interval 60    # Custom interval in minutes
-  python cama_sleep.py --once           # Single cycle then exit (same as no flags)
+  python -m cama.sleep.cama_sleep                  # Run one sleep cycle
+  python -m cama.sleep.cama_sleep --daemon         # Run continuously (default: every 30 min)
+  python -m cama.sleep.cama_sleep --interval 60    # Custom interval in minutes
+  python -m cama.sleep.cama_sleep --once           # Single cycle then exit (same as no flags)
 
 Requires: Python 3.10+, same environment as cama_mcp.py
 """

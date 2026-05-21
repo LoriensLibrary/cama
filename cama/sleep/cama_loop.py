@@ -15,8 +15,8 @@ The contract:
   - boot_summary.json is written to ~/.cama/boot_summary.json
   - thread_start reads that file FIRST, falls back to live queries
   - This script is the ONLY thing that writes boot_summary.json
-  - Run as daemon: python cama_loop.py --daemon
-  - Run single cycle: python cama_loop.py
+  - Run as daemon: python -m cama.sleep.cama_loop --daemon
+  - Run single cycle: python -m cama.sleep.cama_loop
 
 Angela's machine: Windows, DB at ~/.cama/memory.db
 """

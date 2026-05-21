@@ -15,9 +15,9 @@ visibility into other participants' data (isolation by construction, see
 MULTI_USER_THREAT_MODEL.md and DATA_HANDLING.md).
 
 Usage:
-    python participant_init.py P03
-    python participant_init.py --base-dir /custom P03
-    python participant_init.py P03 --force     # overwrite existing dir
+    python -m cama.setup.participant_init P03
+    python -m cama.setup.participant_init --base-dir /custom P03
+    python -m cama.setup.participant_init P03 --force     # overwrite existing dir
 """
 
 import argparse

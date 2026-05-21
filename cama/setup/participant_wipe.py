@@ -19,9 +19,9 @@ What this script does NOT remove (separate decision, by design):
     (no identifying linkage = no deletion obligation)
 
 Usage:
-    python participant_wipe.py <participant_id>
-    python participant_wipe.py --base-dir /custom/path P03
-    python participant_wipe.py --dry-run P03      # show what WOULD be deleted
+    python -m cama.setup.participant_wipe <participant_id>
+    python -m cama.setup.participant_wipe --base-dir /custom/path P03
+    python -m cama.setup.participant_wipe --dry-run P03      # show what WOULD be deleted
 
 Exits non-zero if no participant dir is found or if deletion fails on any
 file. Prints a manifest of what was deleted so the deletion can be audited.

@@ -7,7 +7,7 @@ One script that does everything:
 
 Usage:
   cd C:\\Users\\Angela\\Desktop\\cama
-  .venv\\Scripts\\python cama_tunnel.py
+  .venv\\Scripts\\python -m cama.tunnel.cama_tunnel
 """
 
 import os
