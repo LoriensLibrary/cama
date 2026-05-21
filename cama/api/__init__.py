@@ -17,9 +17,29 @@ Module map:
                        constant-time verification regardless of whether
                        a candidate key was found, dyad-scoping
                        middleware.
-    cama.api.server    FastAPI application; v1 endpoints; lifespan hook
-                       that opens the keys DB and warm-loads the
-                       embedding model.
+    cama.api.deps      Shared helpers + the ``require_auth`` dependency
+                       every router takes. Single source of truth for
+                       the memory-DB connection, the dyad-column
+                       migration, the row-to-response mapper, and the
+                       ``is_negative_affect`` safety predicate.
+    cama.api.server    Lean application factory: lifespan hook,
+                       audit middleware, three exception handlers that
+                       route every error through the 7807 envelope, and
+                       ``include_router`` for each routers/* module.
+                       Endpoint handlers themselves live in routers/*.
+    cama.api.routers   One module per endpoint family — health,
+                       memories, search, threads, dyads, webhooks,
+                       consent. Each module exposes a ``router``
+                       attribute the factory mounts.
+    cama.api.webhooks  Subscription CRUD + signed delivery + audit
+                       log. The router file under routers/ owns the
+                       HTTP surface; this module owns the delivery
+                       mechanism the rest of the API calls into via
+                       ``notify()``.
+    cama.api.consent   HMAC-SHA256 one-shot consent tokens with
+                       5-minute TTL, bound to (dyad_id, memory_id,
+                       action) triples, replay-protected via a
+                       ``consent_consumed`` nonce table.
 
 The v1 design commitments in ``API.md`` § 2 are enforced here:
 provenance NOT NULL, inferences cannot self-promote, dyad isolation,
