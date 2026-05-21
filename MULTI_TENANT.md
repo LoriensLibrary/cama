@@ -34,13 +34,13 @@ Each module is small, lazily imports its heavy dependencies, and has its own tes
 
 | File | Layer | Responsibility | Tests |
 |---|---|---|---|
-| [cama_dyad.py](cama_dyad.py) | Identity | Per-pair vault: filesystem isolation, consent state, real delete | 16 |
-| [cama_hive_protocol.py](cama_hive_protocol.py) | Patterns up | Stripped affect signatures, k-anonymous aggregation | 34 |
-| [cama_persona.py](cama_persona.py) + [cama_persona_train.py](cama_persona_train.py) | Per-pair LoRA | Adapter scaffolding + identity-preservation training | 15 |
-| [cama_agent.py](cama_agent.py) + [cama_agent_backends.py](cama_agent_backends.py) | Runtime | Composes foundation + identity + relational + retrieval | 12 |
-| [cama_hive_resources.py](cama_hive_resources.py) | Domain down | Versioned, fingerprinted resource publication + install | 17 |
-| [cama_quad.py](cama_quad.py) | Coach handoff | Mutual-consent pre-session briefs, pattern-level | 19 |
-| [cama_surface.py](cama_surface.py) | User sovereignty | Read/audit/delete/export across all layers | 18 |
+| [cama_dyad.py](cama/agents/cama_dyad.py) | Identity | Per-pair vault: filesystem isolation, consent state, real delete | 16 |
+| [cama_hive_protocol.py](cama/hive/cama_hive_protocol.py) | Patterns up | Stripped affect signatures, k-anonymous aggregation | 34 |
+| [cama_persona.py](cama/agents/cama_persona.py) + [cama_persona_train.py](cama/agents/cama_persona_train.py) | Per-pair LoRA | Adapter scaffolding + identity-preservation training | 15 |
+| [cama_agent.py](cama/agents/cama_agent.py) + [cama_agent_backends.py](cama/agents/cama_agent_backends.py) | Runtime | Composes foundation + identity + relational + retrieval | 12 |
+| [cama_hive_resources.py](cama/hive/cama_hive_resources.py) | Domain down | Versioned, fingerprinted resource publication + install | 17 |
+| [cama_quad.py](cama/agents/cama_quad.py) | Coach handoff | Mutual-consent pre-session briefs, pattern-level | 19 |
+| [cama_surface.py](cama/core/cama_surface.py) | User sovereignty | Read/audit/delete/export across all layers | 18 |
 
 **Total: 131 tests, all green. Run with `pytest tests/`.**
 
