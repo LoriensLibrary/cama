@@ -49,7 +49,7 @@ Each module is small, lazily imports its heavy dependencies, and has its own tes
 A *dyad* is one person paired with one named AI, with a sovereign SQLite database at `~/.cama-vaults/<dyad_id>/memory.db`. Isolation is enforced at the filesystem boundary: no global view, no central index, no cross-dyad query path. Each dyad has its own consent state, hive signing salt, identity teachings.
 
 ```python
-import cama_dyad
+from cama.agents import cama_dyad
 r = cama_dyad.init_dyad(person_name="Jordan", ai_name="Aurora")
 cama_dyad.update_consent(r["dyad_id"], {"hive_consume": True}, reason="opt in")
 cama_dyad.delete_dyad(r["dyad_id"], confirm_token=r["dyad_id"])  # real, permanent

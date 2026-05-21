@@ -122,7 +122,7 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         librarian_mids = []
         librarian_route_meta = None
         try:
-            import cama_librarian as _lib
+            from cama.librarian import cama_librarian as _lib
             from cama_phase2_embed import embedding_route as _emb_route, blend_routing as _blend
             keyword_libs = _lib.route(query_text, max_librarians=8)
             emb_libs = await _emb_route(query_text, top_k=16, min_similarity=0.25)

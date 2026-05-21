@@ -37,9 +37,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import cama_dyad
-
-
+from cama.agents import cama_dyad
 # ============================================================
 # Layout inside a dyad vault
 # ============================================================

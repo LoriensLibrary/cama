@@ -30,7 +30,7 @@ INSTALL
 -------
 Add to cama_mcp.py near the other CAMA module loads:
     try:
-        import cama_retag
+        from cama.librarian import cama_retag
         cama_retag.register(mcp)
         print("[CAMA] Retag tools loaded", file=__import__('sys').stderr)
     except Exception as _rt_err:

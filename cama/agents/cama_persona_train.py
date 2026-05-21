@@ -41,9 +41,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import cama_persona
-
-
+from cama.agents import cama_persona
 _DEP_HINT = (
     "Training requires: torch, transformers, peft, datasets, accelerate. "
     "Install with:  pip install torch transformers peft datasets accelerate"

@@ -17,7 +17,7 @@ Tools:
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 
-import cama_temporal as tmp
+from cama.temporal import cama_temporal as tmp
 
 
 # ============================================================

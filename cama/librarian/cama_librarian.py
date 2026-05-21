@@ -32,7 +32,7 @@ INSTALL
 -------
 Drop alongside cama_mcp.py. Add to cama_mcp.py near the FastMCP init:
 
-    import cama_librarian
+    from cama.librarian import cama_librarian
     cama_librarian.register(mcp)
 
 Run cama_lib_populate ONCE from a thread to build the initial leaf set.

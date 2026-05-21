@@ -358,7 +358,7 @@ def _journal_diff_impl(journal_id: int) -> str:
 def register(mcp):
     """Register the reasoning journal tools with the FastMCP instance.
     Call this from cama_mcp.py after `mcp = FastMCP(...)`:
-        import cama_reasoning_journal
+        from cama.self_model import cama_reasoning_journal
         cama_reasoning_journal.register(mcp)
     """
     init_schema()

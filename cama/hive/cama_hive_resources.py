@@ -69,8 +69,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import cama_dyad
-import cama_hive_protocol as hp
+from cama.agents import cama_dyad
+from cama.hive import cama_hive_protocol as hp
 
 
 # ============================================================

@@ -49,9 +49,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import cama_dyad
-
-
+from cama.agents import cama_dyad
 # ============================================================
 # Config
 # ============================================================

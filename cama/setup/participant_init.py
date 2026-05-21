@@ -53,7 +53,7 @@ def init_participant(participant_id: str, base_dir: Path, force: bool = False) -
     os.environ["CAMA_DB_PATH"] = str(db_path)
 
     # Defer the import so the env vars take effect first.
-    repo_root = Path(__file__).resolve().parent
+    repo_root = Path(__file__).resolve().parent.parent.parent
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
 

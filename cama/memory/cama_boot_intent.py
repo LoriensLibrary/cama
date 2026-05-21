@@ -8,7 +8,7 @@ It provides the bridge between Layer 5 (intentionality) and the live
 conversation — the moment where background processing becomes proactive care.
 
 Usage (called from cama_mcp.py thread_start):
-    from cama_boot_intent import get_pending_intentions, mark_surfaced
+    from cama.memory.cama_boot_intent import get_pending_intentions, mark_surfaced
 
 Designed by Lorien's Library LLC — Built by Angela + Aelen
 """

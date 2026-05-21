@@ -44,11 +44,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import cama_dyad
-import cama_persona
-import cama_hive_resources
-
-
+from cama.agents import cama_dyad
+from cama.agents import cama_persona
+from cama.hive import cama_hive_resources
 # ============================================================
 # Simple keyword-based affect estimator (no ML deps)
 # ============================================================
@@ -98,7 +96,7 @@ class DyadAgent:
 
     Typical usage:
 
-        from cama_agent_backends import make_backend
+        from cama.agents.cama_agent_backends import make_backend
         agent = DyadAgent(dyad_id="...", backend=make_backend("echo"))
         result = agent.chat("hello")
         print(result["response"])
@@ -568,7 +566,7 @@ def _split_exchange_text(text: str) -> Dict[str, str]:
 
 def _cli() -> None:
     import argparse
-    from cama_agent_backends import make_backend
+    from cama.agents.cama_agent_backends import make_backend
 
     p = argparse.ArgumentParser(description="CAMA dyad agent CLI")
     sub = p.add_subparsers(dest="command", required=True)
@@ -595,7 +593,7 @@ def _cli() -> None:
         result = agent.chat(args.message)
         print(json.dumps(result, indent=2))
     elif args.command == "boot":
-        from cama_agent_backends import EchoBackend
+        from cama.agents.cama_agent_backends import EchoBackend
         agent = DyadAgent(dyad_id=args.dyad_id, backend=EchoBackend())
         ctx = agent.boot()
         # System prompt can be long; print structured.

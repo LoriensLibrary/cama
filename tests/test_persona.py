@@ -19,10 +19,8 @@ from pathlib import Path
 
 import pytest
 
-import cama_dyad
-import cama_persona
-
-
+from cama.agents import cama_dyad
+from cama.agents import cama_persona
 @pytest.fixture(autouse=True)
 def isolated_vault(tmp_path, monkeypatch):
     monkeypatch.setattr(cama_dyad, "VAULT_ROOT", tmp_path / "vaults")

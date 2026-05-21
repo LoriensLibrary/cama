@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-import cama_dyad
-import cama_hive_protocol as hp
+from cama.agents import cama_dyad
+from cama.hive import cama_hive_protocol as hp
 
 
 @pytest.fixture(autouse=True)

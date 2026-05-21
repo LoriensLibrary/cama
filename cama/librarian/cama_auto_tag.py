@@ -25,7 +25,7 @@ USAGE FROM cama_mcp.py
 ----------------------
 After each _store_embedding call, add:
     try:
-        import cama_auto_tag
+        from cama.librarian import cama_auto_tag
         cama_auto_tag.tag_memory(c, mid, raw_text, ctx_or_context)
         c.commit()
     except Exception as _tag_err:

@@ -28,12 +28,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
 
-# Add CAMA directory to path so we can import cama_hive
-CAMA_DIR = os.path.dirname(os.path.abspath(__file__))
-if CAMA_DIR not in sys.path:
-    sys.path.insert(0, CAMA_DIR)
-import cama_hive
-import cama_hive_security as security
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from cama.hive import cama_hive
+from cama.hive import cama_hive_security as security
 
 # ============================================================
 # Config
@@ -483,7 +482,7 @@ async def health():
 # Threaded Messages (Aelen <-> Lorien conversation channel)
 # Added April 30, 2026
 # ============================================================
-import cama_hive_messages as _hmsg
+from cama.hive import cama_hive_messages as _hmsg
 
 
 class MessageSendRequest(BaseModel):

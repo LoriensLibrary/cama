@@ -2,7 +2,7 @@
 """Backfill today's session into the research journal."""
 import sys
 sys.path.insert(0, r'C:\Users\User\Desktop\cama')
-from research_journal import (
+from cama.eval.research_journal import (
     log_session_start, log_diagnostic, log_finding, 
     log_code_change, log_entry, get_stats
 )

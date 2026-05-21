@@ -40,13 +40,11 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import cama_dyad
-import cama_persona
-import cama_hive_resources
-import cama_quad
-import cama_hive_consult
-
-
+from cama.agents import cama_dyad
+from cama.agents import cama_persona
+from cama.hive import cama_hive_resources
+from cama.agents import cama_quad
+from cama.hive import cama_hive_consult
 # ============================================================
 # Helpers
 # ============================================================

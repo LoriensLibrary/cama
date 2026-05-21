@@ -27,7 +27,7 @@ USAGE
 Drop this file alongside cama_mcp.py and cama_reasoning_journal.py.
 Add to cama_mcp.py near the top:
 
-    import cama_thinking_log
+    from cama.self_model import cama_thinking_log
     # ... after `mcp = FastMCP(...)`:
     cama_thinking_log.register(mcp)
 

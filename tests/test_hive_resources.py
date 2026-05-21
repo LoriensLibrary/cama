@@ -20,11 +20,11 @@ from pathlib import Path
 
 import pytest
 
-import cama_dyad
-import cama_hive_protocol as hp
-import cama_hive_resources as hr
-import cama_agent
-from cama_agent_backends import EchoBackend
+from cama.agents import cama_dyad
+from cama.hive import cama_hive_protocol as hp
+from cama.hive import cama_hive_resources as hr
+from cama.agents import cama_agent
+from cama.agents.cama_agent_backends import EchoBackend
 
 
 @pytest.fixture(autouse=True)

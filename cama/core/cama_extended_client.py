@@ -33,7 +33,7 @@ Standalone CLI:
     python cama_extended_client.py --interactive
 
 Programmatic:
-    from cama_extended_client import call_with_thinking, store_run
+    from cama.core.cama_extended_client import call_with_thinking, store_run
     result = call_with_thinking("your question", thinking_budget=8000)
     store_run(result, thread_id="research-session-1")
 

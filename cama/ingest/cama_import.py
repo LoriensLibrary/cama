@@ -272,8 +272,9 @@ def write_to_cama(memories: List[Dict], db_path: str, dry_run: bool = False):
     
     # Ensure tables exist (import the init from cama_mcp if available, else create minimal)
     try:
-        # Try to use the CAMA init
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if _repo_root not in sys.path:
+            sys.path.insert(0, _repo_root)
         from cama_mcp import _init
         _init(conn)
     except ImportError:

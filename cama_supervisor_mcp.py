@@ -16,7 +16,7 @@ Tools:
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
-import cama_supervisor as sup
+from cama.supervisor import cama_supervisor as sup
 
 
 # ============================================================

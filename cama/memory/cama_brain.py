@@ -56,13 +56,26 @@ def _now():
 # Import layers — graceful fallback if a layer isn't ready
 # ============================================================
 def import_layer(module_name, display_name):
-    """Import a CAMA layer module, return None if unavailable."""
+    """Import a CAMA layer module, return None if unavailable.
+
+    Accepts either bare names (legacy: e.g. "cama_sleep") or fully dotted
+    paths. Bare names are resolved against the known package layout.
+    """
+    import importlib
+
+    _BARE_NAME_MAP = {
+        "cama_sleep": "cama.sleep.cama_sleep",
+        "cama_sleep_v2": "cama.sleep.cama_sleep_v2",
+        "cama_loop": "cama.sleep.cama_loop",
+        "cama_aelen_daemon": "cama.sleep.cama_aelen_daemon",
+        "cama_insight": "cama.memory.cama_insight",
+        "cama_self_model": "cama.self_model.cama_self_model",
+        "cama_thinking_log": "cama.self_model.cama_thinking_log",
+        "cama_reasoning_journal": "cama.self_model.cama_reasoning_journal",
+    }
+    resolved = _BARE_NAME_MAP.get(module_name, module_name)
     try:
-        # Add cama directory to path
-        cama_dir = os.path.dirname(os.path.abspath(__file__))
-        if cama_dir not in sys.path:
-            sys.path.insert(0, cama_dir)
-        mod = __import__(module_name)
+        mod = importlib.import_module(resolved)
         logging.info(f"  Layer loaded: {display_name}")
         return mod
     except ImportError as e:

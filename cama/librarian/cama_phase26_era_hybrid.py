@@ -650,7 +650,7 @@ def register(mcp):
             min_similarity: cosine threshold
         """
         try:
-            import cama_librarian
+            from cama.librarian import cama_librarian
             keyword_libs = cama_librarian.route(
                 query_text, max_librarians=max_librarians
             )

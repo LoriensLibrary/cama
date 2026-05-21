@@ -17,9 +17,9 @@ import time
 import sqlite3
 from datetime import datetime, timezone
 
-CAMA_DIR = os.path.dirname(os.path.abspath(__file__))
-if CAMA_DIR not in sys.path:
-    sys.path.insert(0, CAMA_DIR)
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 API_PORT = int(os.environ.get("CAMA_API_PORT", "8420"))
 API_HOST = "127.0.0.1"
@@ -30,7 +30,7 @@ POLL_INTERVAL = 30
 # ============================================================
 def start_api_server():
     import uvicorn
-    from cama_hive_api import app
+    from cama.hive.cama_hive_api import app
     uvicorn.run(app, host=API_HOST, port=API_PORT, log_level="info")
 
 # ============================================================

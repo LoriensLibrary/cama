@@ -5,7 +5,7 @@ Persistent log of all diagnostics, findings, and code changes.
 
 Usage:
   From Python:
-    from research_journal import log_entry, log_finding, log_code_change, log_diagnostic
+    from cama.eval.research_journal import log_entry, log_finding, log_code_change, log_diagnostic
     log_entry("title", "description")
     log_finding("what we learned", evidence="data that proves it")
     log_code_change("file.py", "what changed", "why")
