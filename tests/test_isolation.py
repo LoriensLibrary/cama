@@ -23,7 +23,7 @@ def test_default_paths_when_no_participant(monkeypatch):
     """Without CAMA_PARTICIPANT_ID, paths resolve to the legacy single-user location."""
     monkeypatch.delenv("CAMA_PARTICIPANT_ID", raising=False)
     import importlib
-    import cama_user_paths
+    from cama.core import cama_user_paths
     importlib.reload(cama_user_paths)
     expected = Path.home() / ".cama"
     assert cama_user_paths.cama_user_dir() == expected
@@ -37,7 +37,7 @@ def test_participant_paths_when_id_set(monkeypatch):
     """With CAMA_PARTICIPANT_ID set, all paths route to the participant dir."""
     monkeypatch.setenv("CAMA_PARTICIPANT_ID", "TESTPID")
     import importlib
-    import cama_user_paths
+    from cama.core import cama_user_paths
     importlib.reload(cama_user_paths)
     expected = Path.home() / ".cama" / "participant_TESTPID"
     assert cama_user_paths.cama_user_dir() == expected
@@ -54,7 +54,7 @@ def test_participant_mode_no_fallback_to_global(monkeypatch, tmp_path):
     monkeypatch.setenv("CAMA_PARTICIPANT_ID", "ISOLPID")
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     import importlib
-    import cama_user_paths
+    from cama.core import cama_user_paths
     importlib.reload(cama_user_paths)
 
     # Plant a file at the GLOBAL location that should NOT be visible.

@@ -35,7 +35,7 @@ async def cama_store_teaching(params: StoreTeachingInput) -> str:
         # Auto-tag: route this teaching to matching librarians (April 29, 2026)
         _tag_result = None
         try:
-            import cama_auto_tag
+            from cama.librarian import cama_auto_tag
             _tag_result = cama_auto_tag.tag_memory(c, mid, params.raw_text, params.context)
             c.commit()
         except Exception as _tag_err:
@@ -65,7 +65,7 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
         # Auto-tag: route this inference to matching librarians (April 29, 2026)
         _tag_result = None
         try:
-            import cama_auto_tag
+            from cama.librarian import cama_auto_tag
             _tag_result = cama_auto_tag.tag_memory(c, mid, params.raw_text, params.context)
             c.commit()
         except Exception as _tag_err:
@@ -115,7 +115,7 @@ async def cama_store_exchange(params: StoreExchangeInput) -> str:
         # Auto-tag: route this exchange to matching librarians (April 29, 2026)
         _tag_result = None
         try:
-            import cama_auto_tag
+            from cama.librarian import cama_auto_tag
             _tag_result = cama_auto_tag.tag_memory(c, mid, raw_text, ctx)
             c.commit()
         except Exception as _tag_err:

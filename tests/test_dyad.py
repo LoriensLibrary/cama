@@ -18,9 +18,7 @@ from pathlib import Path
 
 import pytest
 
-import cama_dyad
-
-
+from cama.agents import cama_dyad
 @pytest.fixture(autouse=True)
 def isolated_vault(tmp_path, monkeypatch):
     """Point cama_dyad at a fresh vault root for every test."""

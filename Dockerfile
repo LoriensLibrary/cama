@@ -19,13 +19,11 @@ WORKDIR /app
 # (sentence-transformers, mcp, fastapi, etc.) are only needed when running
 # the actual MCP server outside this image.
 
-COPY cama_dashboard.py cama_dashboard.html seed_demo.py /app/
-COPY benchmark_results.json /app/
-COPY benchmark_boot_relevance_results.json /app/
-COPY benchmark_continuity_results.json /app/
-COPY benchmark_counterweight_results.json /app/
-COPY benchmark_retrieval_results.json /app/
-COPY benchmark_stale_results.json /app/
+COPY cama/dashboard/cama_dashboard.py cama/dashboard/cama_dashboard.html /app/
+COPY cama/setup/seed_demo.py /app/
+COPY benchmarks/benchmark_results.json /app/
+COPY benchmarks/benchmark_counterweight_results.json /app/
+COPY benchmarks/benchmark_stale_results.json /app/
 
 ENV CAMA_DB_PATH=/data/demo.db \
     CAMA_DASHBOARD_HOST=0.0.0.0 \

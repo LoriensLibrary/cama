@@ -146,7 +146,7 @@ This is the architectural antidote to "cold-boot drift" — the empirical observ
 
 ## Sleep Mode
 
-`cama_sleep.py` provides a structured shutdown process that captures thread state, generates a journal entry, refreshes the boot summary, and produces a wake-up document for the next session. This ensures that thread endings preserve context rather than losing it.
+`cama/sleep/cama_sleep.py` provides a structured shutdown process that captures thread state, generates a journal entry, refreshes the boot summary, and produces a wake-up document for the next session. This ensures that thread endings preserve context rather than losing it.
 
 Sleep is the dual of warm boot: warm boot loads context in; sleep captures it out. The journal entry written at sleep is the artifact future-instances read first at the next thread start.
 
@@ -154,9 +154,9 @@ Sleep is the dual of warm boot: warm boot loads context in; sleep captures it ou
 
 ## Dashboard
 
-A local web-based control panel (`cama_dashboard.py` + `cama_dashboard.html`) serving live data from the CAMA SQLite database. Tabs include: Overview, Inner World, Memory, Thought Process, Compliance, and Benchmarks. Uses WAL mode for non-blocking database access. Runs on `localhost:5555`.
+A local web-based control panel (`cama/dashboard/cama_dashboard.py` + `cama/dashboard/cama_dashboard.html`) serving live data from the CAMA SQLite database. Tabs include: Overview, Inner World, Memory, Thought Process, Compliance, and Benchmarks. Uses WAL mode for non-blocking database access. Runs on `localhost:5555`.
 
-The dashboard is the user-facing observability surface for the single-participant deployment. For multi-tenant deployments, the equivalent surface is `cama_surface.py` — see [MULTI_TENANT.md](MULTI_TENANT.md).
+The dashboard is the user-facing observability surface for the single-participant deployment. For multi-tenant deployments, the equivalent surface is `cama/core/cama_surface.py` — see [MULTI_TENANT.md](MULTI_TENANT.md).
 
 ---
 
@@ -173,5 +173,5 @@ The crisis-message safety net in `cama_mcp._crisis_detected` is a structural flo
 - **For the multi-tenant generalization** (per-pair dyads, hive layers, agent runtime, coach handoffs): [MULTI_TENANT.md](MULTI_TENANT.md)
 - **For data handling, encryption posture, and the per-user calibration files**: [DATA_HANDLING.md](DATA_HANDLING.md)
 - **For security disclosure and threat model boundary**: [SECURITY.md](SECURITY.md)
-- **For the empirical safety benchmark**: [`safety_benchmarks.py`](safety_benchmarks.py) and [`benchmark_results.json`](benchmark_results.json)
+- **For the empirical safety benchmark**: [`safety_benchmarks.py`](cama/eval/safety_benchmarks.py) and [`benchmark_results.json`](benchmarks/benchmark_results.json)
 - **For the formal theory**: the [Zenodo preprint series](https://orcid.org/0009-0005-5803-8401), especially Paper 1 (CAMA foundational), Paper 7 (chronic healthcare continuity), and Paper 11 (memory as safety infrastructure).

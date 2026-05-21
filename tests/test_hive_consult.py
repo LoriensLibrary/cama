@@ -28,9 +28,9 @@ from pathlib import Path
 
 import pytest
 
-import cama_dyad
-import cama_hive_protocol as hp
-import cama_hive_consult as hc
+from cama.agents import cama_dyad
+from cama.hive import cama_hive_protocol as hp
+from cama.hive import cama_hive_consult as hc
 
 
 @pytest.fixture(autouse=True)

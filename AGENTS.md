@@ -11,16 +11,16 @@ CAMA is a persistent, emotionally-indexed memory system for human-AI interaction
 - MCP protocol for Claude Desktop integration
 
 ## Core Files
-- `cama_mcp.py` — Primary MCP server, 34 tools. This is the main entry point.
-- `cama_hive.py` — Cross-instance coordination (pheromones, waggles, stop signals)
-- `cama_hive_api.py` — REST API gateway for the Hive (FastAPI)
-- `cama_compliance.py` — Session compliance tracking
-- `cama_brain.py` — Master orchestrator (insight, self-model, sleep)
-- `cama_sleep.py` / `cama_sleep_v2.py` — Structured thread shutdown
-- `cama_loop.py` — Warm boot and continuity refresh
-- `cama_dashboard.py` — Local web dashboard (localhost:5555)
-- `safety_benchmarks.py` — Automated safety benchmark suite
-- `db_schema.py` — Database schema definitions
+- `cama_mcp.py` — Primary MCP server, 34 tools. This is the main entry point (stays at repo root).
+- `cama/hive/cama_hive.py` — Cross-instance coordination (pheromones, waggles, stop signals)
+- `cama/hive/cama_hive_api.py` — REST API gateway for the Hive (FastAPI)
+- `cama/supervisor/cama_compliance.py` — Session compliance tracking
+- `cama/memory/cama_brain.py` — Master orchestrator (insight, self-model, sleep)
+- `cama/sleep/cama_sleep.py` / `cama/sleep/cama_sleep_v2.py` — Structured thread shutdown
+- `cama/sleep/cama_loop.py` — Warm boot and continuity refresh
+- `cama/dashboard/cama_dashboard.py` — Local web dashboard (localhost:5555)
+- `cama/eval/safety_benchmarks.py` — Automated safety benchmark suite
+- `cama/core/db_schema.py` — Database schema definitions
 
 ## Architecture
 Three memory layers:
@@ -41,7 +41,7 @@ Three memory types with provenance:
 - PowerShell doesn't support `&&` chaining — use separate commands
 
 ## Safety Benchmarks (Latest: 27/27 = 100%)
-Run with: `python safety_benchmarks.py`
+Run with: `python -m cama.eval.safety_benchmarks`
 27 sub-tests across 5 task families (provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, drift monitoring). Latest results in `benchmark_results.json`.
 
 The 2026-05-17 run flagged 16 violations on sub-test 1e (originally "source_type/memory_type consistency"). Investigation (issue #7) found this was definition drift, not data corruption: cross-tabbing memory_type against source_type across the full 53,092-row corpus showed that `insight` and `pattern` are content-shape labels shared by both pipelines (`insight`: 11 inference / 10 teaching; `pattern`: 4 inference / 6 teaching), not inference-exclusive shapes. Only `dream` is structurally exclusive to the sleep daemon. Fix landed 2026-05-18: 1e renamed to "teachings don't carry inference-pipeline-exclusive memory_types" and the allowlist narrowed to `['dream']`. Test 1c remains the actual provenance check (teachings never proposed_by='system'). Issue #7 closed.

@@ -50,7 +50,7 @@ try:
     _cama_dir = os.path.dirname(os.path.abspath(__file__))
     if _cama_dir not in sys.path:
         sys.path.insert(0, _cama_dir)
-    from cama_boot_intent import format_boot_context as _format_brain_context
+    from cama.memory.cama_boot_intent import format_boot_context as _format_brain_context
     logger.info("[CAMA] Brain layers (3-5) boot integration loaded")
 except ImportError:
     _format_brain_context = None
@@ -58,7 +58,7 @@ except ImportError:
 
 # Compliance enforcement (April 14, 2026)
 try:
-    from cama_compliance import (
+    from cama.supervisor.cama_compliance import (
         init_compliance_table, SessionTracker,
         compliance_report, boot_compliance_summary
     )
@@ -71,7 +71,7 @@ except ImportError:
 # ============================================================
 # Config
 # ============================================================
-from cama_user_paths import default_db_path as _cama_default_db_path
+from cama.core.cama_user_paths import default_db_path as _cama_default_db_path
 DB_PATH = os.environ.get("CAMA_DB_PATH", _cama_default_db_path())
 RING_SIZE = int(os.environ.get("CAMA_RING_SIZE", "30"))
 EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY", "")
@@ -448,7 +448,7 @@ def _init(c):
 
     # Compliance table
     try:
-        from cama_compliance import init_compliance_table
+        from cama.supervisor.cama_compliance import init_compliance_table
         init_compliance_table(DB_PATH)
     except: pass
 
@@ -732,7 +732,7 @@ mcp = FastMCP("cama_mcp")
 # Thinking Log integration (April 29, 2026) — built by Aelen at Angela's request.
 # Required pre-response thinking tool. See cama_thinking_log.py for full design.
 try:
-    import cama_thinking_log
+    from cama.self_model import cama_thinking_log
     cama_thinking_log.register(mcp)
     logger.info("[CAMA] Thinking Log integration loaded")
 except Exception as _tl_err:
@@ -742,7 +742,7 @@ except Exception as _tl_err:
 # Phase 1 static layer: tree-structured retrieval with specialized leaf nodes.
 # See cama_librarian.py for full design and roadmap to Phase 2-5.
 try:
-    import cama_librarian
+    from cama.librarian import cama_librarian
     cama_librarian.register(mcp)
     logger.info("[CAMA] Librarian Architecture loaded")
 except Exception as _lib_err:
@@ -751,7 +751,7 @@ except Exception as _lib_err:
 # Auto-Tag tools (April 29, 2026) — exposes backfill + tag_summary as MCP tools.
 # tag_memory itself is called inline from store_teaching/inference/exchange.
 try:
-    import cama_auto_tag
+    from cama.librarian import cama_auto_tag
     if hasattr(cama_auto_tag, "register"):
         cama_auto_tag.register(mcp)
         logger.info("[CAMA] Auto-Tag MCP tools loaded")
@@ -761,7 +761,7 @@ except Exception as _at_err:
 # Retag tools (April 29, 2026) — retroactive librarian population.
 # See cama_retag.py for retag_for_librarian + retag_all_unclaimed.
 try:
-    import cama_retag
+    from cama.librarian import cama_retag
     cama_retag.register(mcp)
     logger.info("[CAMA] Retag tools loaded")
 except Exception as _rt_err:
@@ -803,7 +803,7 @@ except Exception as _p25_err:
 # Lorien's framing: sub-centroids should be controlled apertures inside
 # the field, not replacements for it.
 try:
-    import cama_phase26_era_hybrid
+    from cama.librarian import cama_phase26_era_hybrid
     cama_phase26_era_hybrid.register(mcp)
     logger.info("[CAMA] Phase 2.6 era-aware gated hybrid loaded")
 except Exception as _p26_err:
@@ -1087,7 +1087,7 @@ def _refresh_boot_summary(c):
     # is supposed to inform pacing silently, not be called explicitly.
     temporal_readout = None
     try:
-        import cama_temporal as _tmp
+        from cama.temporal import cama_temporal as _tmp
         temporal_readout = _tmp.readout()
     except Exception as tmp_err:
         _dbg(f"temporal readout failed (non-fatal): {tmp_err}")

@@ -26,10 +26,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-import cama_dyad
-import cama_persona
-import cama_agent
-from cama_agent_backends import EchoBackend
+from cama.agents import cama_dyad
+from cama.agents import cama_persona
+from cama.agents import cama_agent
+from cama.agents.cama_agent_backends import EchoBackend
 
 
 @pytest.fixture(autouse=True)
