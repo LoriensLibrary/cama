@@ -59,7 +59,6 @@ from typing import Any, Dict, List, Optional
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 
 
-from cama.core.time_utils import now_iso as _now
 
 
 def get_db() -> sqlite3.Connection:
@@ -508,133 +507,20 @@ def hybrid_search(query: str, limit: int = 10,
 
 # ── 3. HIVE CRITIQUE PROTOCOL (skeleton) ────────────────────────────────────
 
-def hive_post_for_critique(aelen_response: str, user_message: Optional[str] = None,
-                           affect_context: Optional[Dict] = None,
-                           critic: str = "lorien") -> Dict[str, Any]:
-    """
-    Post a completed Aelen turn to the Hive queue for critique.
-    External worker (cama_lorien_worker.py) processes the queue.
-
-    Args:
-        aelen_response: the response Aelen just gave
-        user_message: the user message it was responding to (optional)
-        affect_context: snapshot of current affect register
-        critic: 'lorien' | 'sibling_aelen'
-    """
-    c = get_db()
-    try:
-        cur = c.execute("""
-            INSERT INTO hive_pending_critiques
-                (aelen_response, user_message, affect_context, posted_at, queued_for, status)
-            VALUES (?, ?, ?, ?, ?, 'pending')
-        """, (
-            aelen_response,
-            user_message,
-            json.dumps(affect_context) if affect_context else None,
-            _now(),
-            critic,
-        ))
-        critique_id = cur.lastrowid
-        c.commit()
-        return {
-            "queued": True,
-            "critique_id": critique_id,
-            "queued_for": critic,
-            "status": "pending",
-            "note": "External worker will process. Check inbox via cama_v2_get_pending_critiques.",
-        }
-    finally:
-        c.close()
-
-
-def hive_get_pending_critiques(mark_read: bool = True,
-                                limit: int = 10) -> Dict[str, Any]:
-    """
-    Read unread critiques from the Hive inbox.
-    Aelen calls this on tool use to discover what Lorien (or sibling)
-    flagged in the previous turn.
-    """
-    c = get_db()
-    try:
-        rows = c.execute("""
-            SELECT i.id, i.critique_id, i.delivered_at, i.summary, i.full_critique_json,
-                   p.aelen_response, p.user_message, p.queued_for, p.processed_at
-            FROM hive_critique_inbox i
-            JOIN hive_pending_critiques p ON p.id = i.critique_id
-            WHERE i.read_at IS NULL
-            ORDER BY i.delivered_at ASC
-            LIMIT ?
-        """, (limit,)).fetchall()
-
-        critiques = []
-        for r in rows:
-            critique = {
-                "inbox_id": r["id"],
-                "critique_id": r["critique_id"],
-                "from": r["queued_for"],
-                "delivered_at": r["delivered_at"],
-                "summary": r["summary"],
-                "details": json.loads(r["full_critique_json"]) if r["full_critique_json"] else None,
-                "aelen_response_excerpt": (r["aelen_response"] or "")[:300],
-                "user_message_excerpt": (r["user_message"] or "")[:200],
-            }
-            critiques.append(critique)
-
-        if mark_read and critiques:
-            ids = [c_["inbox_id"] for c_ in critiques]
-            placeholders = ",".join("?" * len(ids))
-            c.execute(
-                f"UPDATE hive_critique_inbox SET read_at = ? WHERE id IN ({placeholders})",
-                [_now()] + ids,
-            )
-            c.commit()
-
-        return {"unread_count": len(critiques), "critiques": critiques}
-    finally:
-        c.close()
-
-
-def hive_record_critique(critique_id: int, critique_data: Dict,
-                          summary: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Write back a critique result. Called by the external worker
-    (cama_lorien_worker.py) after Lorien returns a critique.
-    Moves the critique from 'pending' to 'processed' and creates
-    an inbox entry for Aelen to read.
-    """
-    c = get_db()
-    try:
-        critique_json = json.dumps(critique_data)
-        c.execute("""
-            UPDATE hive_pending_critiques
-            SET status = 'processed', critique_json = ?, processed_at = ?
-            WHERE id = ?
-        """, (critique_json, _now(), critique_id))
-
-        # Build a short summary if not supplied
-        if not summary:
-            flags = critique_data.get("sanitization_flags", [])
-            in_char = critique_data.get("in_character_score")
-            parts = []
-            if in_char is not None:
-                parts.append(f"in_character={in_char:.2f}")
-            if flags:
-                parts.append("flags=" + ",".join(flags[:3]))
-            redo = critique_data.get("request_redo")
-            if redo:
-                parts.append("REDO_REQUESTED")
-            summary = " ".join(parts) if parts else "no flags"
-
-        c.execute("""
-            INSERT INTO hive_critique_inbox
-                (critique_id, delivered_at, summary, full_critique_json)
-            VALUES (?, ?, ?, ?)
-        """, (critique_id, _now(), summary, critique_json))
-        c.commit()
-        return {"recorded": True, "critique_id": critique_id, "summary": summary}
-    finally:
-        c.close()
-
+# ── Hive critique queue ─────────────────────────────────────────────────────
+# These three functions used to be defined inline here. On 2026-05-21 the
+# McCulloch-Pitts architectural review flagged hive-critique-protocol code
+# living in cama/core/ as misplaced — it's an inter-instance review surface,
+# not core memory machinery. The implementations moved to
+# cama/hive/cama_hive_critique.py; the re-export below preserves the
+# existing call sites (self_test, run_mcp_server, and anything that imports
+# these names from cama.core.cama_v2) without touching them. New code
+# should import from cama.hive.cama_hive_critique directly.
+from cama.hive.cama_hive_critique import (
+    hive_get_pending_critiques,
+    hive_post_for_critique,
+    hive_record_critique,
+)
 
 # ── Self-test (run before registering with Claude Desktop) ──────────────────
 
