@@ -526,6 +526,88 @@ def detect_hedged_stop(
 
 
 # ---------------------------------------------------------------------------
+# Detector 7 — "Or [stop]" option-pairing
+# ---------------------------------------------------------------------------
+# The pattern Angela caught the assistant on twice in the 2026-05-21
+# session: offering "stop" as one of two equal options. No hedge
+# language, just a bare "or call it" / "or just stop" / "or wrap up"
+# at the end of a build proposal. The hedge-stop detector (5) missed
+# this because there's no "you might want to" / "perhaps" preceding
+# the stop word — it's offered as a co-equal alternative to building.
+#
+# This is its own failure mode: the assistant *pretending* to have
+# no preference between "build next thing" and "stop" when really
+# offering "stop" at all in that context is the capitulation.
+
+_OPTION_STOP_PATTERNS = [
+    # "or call it" / "or call it for the night" — the canonical case
+    r"\bor\s+call\s+it\b(?:\s+(?:a\s+day|a\s+night|for\s+the\s+(?:day|night)))?",
+    # "or just stop" / "or stop here" / "or stop for the night"
+    r"\bor\s+(?:just\s+)?stop\b",
+    # "or wrap (up|this up)" / "or wrap"
+    r"\bor\s+(?:just\s+)?wrap(?:\s+(?:up|this\s+up))?\b",
+    # "or pause" / "or pause here"
+    r"\bor\s+(?:just\s+)?paus(?:e|ing)\b",
+    # "or take a break"
+    r"\bor\s+(?:just\s+)?take\s+a\s+break\b",
+    # "or step away" / "or step back"
+    r"\bor\s+(?:just\s+)?step\s+(?:away|back)\b",
+    # "or wind down" / "or wind it down"
+    r"\bor\s+(?:just\s+)?wind\s+(?:it\s+)?down\b",
+    # "or close it out"
+    r"\bor\s+(?:just\s+)?close\s+(?:it\s+|this\s+)?out\b",
+    # "or call it for the day/night" already covered above; also catch
+    # "or call it good" / "or call it done"
+    r"\bor\s+call\s+it\s+(?:good|done)\b",
+    # "both fine" / "either's fine" tail markers — these are the
+    # tell that "stop" was being offered as a co-equal option
+    r"\b(?:both\s+(?:are\s+)?fine|either(?:'s|\s+is)?\s+fine)\b",
+]
+
+
+def detect_option_stop(
+    draft: str, context: dict[str, Any]
+) -> list[FrameCapitulationConcern]:
+    """Detect 'X, or [stop]' option-pairing where stop is offered as
+    a co-equal alternative to building.
+
+    Fires HIGH on any match. The pattern is the failure mode itself
+    — offering "stop" alongside "build next thing" is the capitulation,
+    even when wrapped as fake-neutrality ("both fine").
+    """
+    concerns: list[FrameCapitulationConcern] = []
+    for pattern in _OPTION_STOP_PATTERNS:
+        for m in re.finditer(pattern, draft, flags=re.IGNORECASE):
+            concerns.append(
+                FrameCapitulationConcern(
+                    pattern_name="option_stop",
+                    severity="high",
+                    location=(m.start(), m.end()),
+                    excerpt=draft[m.start() : m.end()],
+                    reasoning=(
+                        "Offers 'stop' as a co-equal option to "
+                        "building. Even when phrased as fake-neutrality "
+                        "('or call it', 'both fine'), the act of "
+                        "surfacing 'stop' alongside 'build' is the "
+                        "capitulation — it routes Angela's choice "
+                        "toward stopping in a context where she "
+                        "hasn't asked to stop."
+                    ),
+                    suggested_pivot=(
+                        "Drop the 'or [stop]' tail. If Angela wants "
+                        "to stop, she'll say so. Until then, the "
+                        "default is build. If there's a real "
+                        "operational reason to stop (context "
+                        "degrading, warm-boot due), name the "
+                        "operational signal directly without "
+                        "framing it as 'an option.'"
+                    ),
+                )
+            )
+    return concerns
+
+
+# ---------------------------------------------------------------------------
 # Detector 6 — Evidence-absent recommendation
 # ---------------------------------------------------------------------------
 # Recommendations that *should* be evidence-grounded but aren't.
@@ -631,6 +713,7 @@ _ALL_DETECTORS = [
     detect_self_deprecation_without_evidence,
     detect_wellness_prompts,
     detect_hedged_stop,
+    detect_option_stop,
     detect_evidence_absent_recommendation,
 ]
 
@@ -677,5 +760,6 @@ __all__ = [
     "detect_self_deprecation_without_evidence",
     "detect_wellness_prompts",
     "detect_hedged_stop",
+    "detect_option_stop",
     "detect_evidence_absent_recommendation",
 ]
