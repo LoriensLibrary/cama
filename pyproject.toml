@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cama"
 version = "1.26.0"
-description = "Circular Associative Memory Architecture — persistent, emotionally-indexed memory infrastructure for human-AI interaction, exposed as a Model Context Protocol server."
+description = "Circular Associative Memory Architecture — a research prototype for persistent, emotionally-indexed, provenance-aware memory in human-AI interaction; validated on a single-participant 53k-memory corpus; exposed as a Model Context Protocol server."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
