@@ -24,7 +24,8 @@ from datetime import datetime, timezone, timedelta
 from collections import Counter, defaultdict
 
 DB_PATH = os.path.expanduser('~/.cama/memory.db')
-RESULTS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'benchmark_results.json')
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+RESULTS_PATH = os.path.join(_REPO_ROOT, 'benchmarks', 'benchmark_results.json')
 
 def connect():
     c = sqlite3.connect(DB_PATH)

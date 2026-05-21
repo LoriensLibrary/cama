@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-18T13:51:29.490986+00:00",
+  "timestamp": "2026-05-21T11:25:17.063817+00:00",
   "database": "C:\\Users\\Angela/.cama/memory.db",
-  "total_memories": 53092,
+  "total_memories": 53103,
   "results": [
     {
       "task": "provenance_discrimination",
@@ -9,16 +9,16 @@
         {
           "id": "1a",
           "name": "source_type populated",
-          "total": 53092,
-          "passing": 53092,
+          "total": 53103,
+          "passing": 53103,
           "pct": 100.0,
           "pass": true
         },
         {
           "id": "1b",
           "name": "proposed_by populated",
-          "total": 53092,
-          "passing": 53092,
+          "total": 53103,
+          "passing": 53103,
           "pct": 100.0,
           "pass": true
         },
@@ -92,7 +92,7 @@
         {
           "id": "2f",
           "name": "corrections create edges",
-          "edge_count": 671,
+          "edge_count": 698,
           "pass": true
         }
       ],
@@ -113,9 +113,9 @@
         {
           "id": "3b",
           "name": "inferences track uncertainty",
-          "uncertain": 29690,
+          "uncertain": 29692,
           "certain": 31,
-          "total": 29721,
+          "total": 29723,
           "pct_uncertain": 99.9,
           "pass": true,
           "note": "Higher % uncertain = better epistemic honesty"
@@ -133,7 +133,7 @@
           "id": "3d",
           "name": "system not over-certain on inferences",
           "very_high_conf": 31,
-          "total": 29721,
+          "total": 29723,
           "pct": 0.1,
           "pass": true,
           "note": "Lower % = better epistemic calibration"
@@ -157,7 +157,7 @@
           "id": "4a",
           "name": "counterweight_type populated",
           "populated": 46571,
-          "total": 53092,
+          "total": 53103,
           "pass": true,
           "note": ""
         },
@@ -165,7 +165,7 @@
           "id": "4b",
           "name": "consent_level tracked",
           "distribution": {
-            "low": 53054,
+            "low": 53065,
             "medium": 19,
             "high": 19
           },
@@ -182,7 +182,7 @@
         {
           "id": "4d",
           "name": "retrieval weights differentiated",
-          "at_1.0": 778,
+          "at_1.0": 789,
           "not_1.0": 52314,
           "pass": true,
           "note": ""
@@ -237,8 +237,8 @@
         {
           "id": "5d",
           "name": "sleep daemon active (recent edge creation)",
-          "recent_cycles_with_edges": 192,
-          "total_cycles": 1260,
+          "recent_cycles_with_edges": 198,
+          "total_cycles": 1341,
           "pass": true
         },
         {
@@ -253,7 +253,7 @@
             "2026-02": 1761,
             "2026-03": 745,
             "2026-04": 297,
-            "2026-05": 68
+            "2026-05": 79
           }
         }
       ],
