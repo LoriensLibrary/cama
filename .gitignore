@@ -71,6 +71,9 @@ _*.txt
 _*.ps1
 _dev/
 
+# Exception: package marker files must be tracked
+!**/__init__.py
+
 # Conversation exports (real chat logs - NEVER push)
 *_drift_*.csv
 cama_drift*.csv
