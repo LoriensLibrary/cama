@@ -186,6 +186,12 @@ If the query's affect classification triggers the counterweight predicate, the r
 
 If counterweight injection is disabled at the dyad level (via consent), the response includes `warnings: ["counterweights_disabled_at_dyad_level"]` so the caller knows the safety primitive is off.
 
+**Routing path actually wired (as of v1.1):**
+
+- `routing.phase = "1"` — the request routed through `librarians.routing_keywords` and a dyad-scoped JOIN against `librarian_membership`. This is the real CAMA Phase-1 pipeline documented in [RETRIEVAL.md § 2](RETRIEVAL.md#2--route--librarian-activation). The `score` surfaced per result is the librarian-to-memory `membership_strength`; full blended scoring (the example block above) lands in v1.2 once the embedding cache is portable across the API and MCP processes.
+- `routing.phase = "1_keyword_fallback"` — the dyad's routing index produced nothing (fresh dyad, or no librarians populated yet), so the request fell back to `LOWER(raw_text) LIKE ?` against `memories` directly. The contract still holds — dyad scoping, status filter, counterweight injection — only the routing layer degraded.
+- `routing.phase = "2.6"` — semantic era-aware routing. **Not yet wired through the HTTP API.** It runs through the MCP `cama_search` tool today; surfacing it through `/v1/search` is v1.2 work (depends on extracting the sentence-transformer cache into `cama.core` so the API process can call it without warming a second copy).
+
 ### 4.6 `POST /v1/thread/start` — warm boot
 
 ```http
@@ -526,6 +532,7 @@ The API does not claim compliance itself — it provides the primitives a compli
 | `POST /v1/memories` | ✅ | — |
 | `GET /v1/memories/{id}` | ✅ | — |
 | `POST /v1/search` (with counterweight injection wired in) | ✅ | — |
+| `POST /v1/search` runs through real Phase-1 librarian routing (not keyword-LIKE placeholder) | ✅ (v1.1, PR #17) | Phase-2.6 semantic routing through HTTP: v1.2 |
 | `POST /v1/thread/start` | ✅ | — |
 | `GET /v1/health` | ✅ | — |
 | `tests/test_api.py` (auth, provenance, dyad scope, counterweight) | ✅ | — |
