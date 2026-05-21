@@ -152,3 +152,26 @@ select = ["F", "I"]
 # __init__.py files frequently re-export names; that pattern reads as
 # "unused import" to ruff. Allow it.
 "__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+# Declare what counts as "first-party" so the import-sort verdict is
+# deterministic regardless of whether the package is pip-installed in
+# the linter's environment (it isn't, in the CI lint job).
+known-first-party = [
+    "cama",
+    "mcp_sections",
+    # Root-level scripts:
+    "cama_mcp",
+    "cama_supervisor_mcp",
+    "cama_check_self_mcp",
+    "cama_temporal_mcp",
+    "cama_hive_messages_mcp",
+    # Gitignored local scripts at repo root that other modules still
+    # reference (e.g. continuity.py imports cama_phase2_embed). Group
+    # them with first-party so the sort order matches across machines.
+    "cama_check_self",
+    "cama_eval",
+    "cama_librarians",
+    "cama_phase2_embed",
+    "cama_phase25_subcentroid",
+]
