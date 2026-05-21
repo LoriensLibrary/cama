@@ -1,9 +1,0 @@
-# Minimal deps to run the CAMA test suite in CI.
-# Importing cama_mcp at test time needs: mcp, pydantic, pydantic-settings, httpx.
-# sentence-transformers / fastapi / uvicorn are lazy-loaded by other modules and
-# not exercised by these tests, so we keep CI fast by skipping them.
-mcp>=1.0.0
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
-httpx>=0.24.0
-pytest>=7.0

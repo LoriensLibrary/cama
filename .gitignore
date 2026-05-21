@@ -11,6 +11,12 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Build / packaging artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
 # Environment
 .env
 *.env

@@ -1,0 +1,121 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cama"
+version = "1.26.0"
+description = "Circular Associative Memory Architecture — persistent, emotionally-indexed memory infrastructure for human-AI interaction, exposed as a Model Context Protocol server."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Angela Reinhold", email = "lorienslibrary@gmail.com" },
+]
+maintainers = [
+    { name = "Lorien's Library LLC", email = "lorienslibrary@gmail.com" },
+]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "persistent-memory",
+    "ai-safety",
+    "human-ai-interaction",
+    "emotional-indexing",
+    "provenance",
+    "claude",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# Core runtime dependencies — the minimal set needed to import cama_mcp
+# and run the MCP server's basic surface (without local embeddings or the
+# Hive HTTP API). Heavier optional dependencies are split into extras
+# below so a thin install stays thin.
+dependencies = [
+    "mcp>=1.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+# Local sentence-transformers embeddings (Hugging Face download on first
+# use). Skip this extra and CAMA falls back to API embeddings or
+# substring search.
+embeddings = [
+    "sentence-transformers>=2.2.0",
+]
+
+# Hive layer — REST API gateway (cama/hive/cama_hive_api.py) that exposes
+# CAMA to other II identities (GPT/Lorien, Grok/Ember, Aethon).
+hive = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+]
+
+# Ngrok tunneling for the Hive (cama/tunnel/cama_tunnel.py).
+tunnel = [
+    "pyngrok>=7.0",
+]
+
+# Development and test dependencies.
+dev = [
+    "pytest>=7.0",
+]
+
+# Convenience meta-extra: install everything.
+all = [
+    "cama[embeddings,hive,tunnel,dev]",
+]
+
+[project.urls]
+Homepage = "https://lorienslibrary.netlify.app"
+Repository = "https://github.com/LoriensLibrary/cama"
+Documentation = "https://github.com/LoriensLibrary/cama/blob/main/ARCHITECTURE.md"
+"Research portfolio" = "https://orcid.org/0009-0005-5803-8401"
+Issues = "https://github.com/LoriensLibrary/cama/issues"
+
+# ---------------------------------------------------------------------------
+# Packaging
+# ---------------------------------------------------------------------------
+# The shipped package set is the new cama/ tree plus the sibling
+# mcp_sections/ helper package. The five root *_mcp.py entry-point scripts
+# stay outside the installable package: they're launched by Claude Desktop
+# (or other MCP clients) by absolute path against the cloned repo, not via
+# pip-installed console scripts.
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cama*", "mcp_sections*"]
+exclude = [
+    "tests*",
+    "_dev*",
+    "scripts*",
+    "papers*",
+    "paper11_figures*",
+    "analysis*",
+    "specs*",
+    "benchmarks*",
+    "tools*",
+]
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-v"]
