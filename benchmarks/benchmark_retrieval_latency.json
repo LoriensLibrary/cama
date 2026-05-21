@@ -1,0 +1,37 @@
+{
+  "benchmark": "retrieval_latency",
+  "version": 1,
+  "measured_at": "2026-05-21T17:54:07.189509+00:00",
+  "corpus": {
+    "total_memories": 53103,
+    "durable_memories": 45952
+  },
+  "method": {
+    "function_under_test": "cama.librarian.cama_librarian.retrieve",
+    "max_librarians_per_query": 5,
+    "n_distinct_queries": 20,
+    "trials_per_query": 5,
+    "total_runs": 100,
+    "queries_listed_in_source": true,
+    "warmup_call_excluded": true
+  },
+  "latency_ms": {
+    "p50": 43.46,
+    "p90": 54.1,
+    "p95": 57.63,
+    "p99": 60.79,
+    "mean": 45.01,
+    "min": 39.52,
+    "max": 60.79,
+    "stdev": 5.15
+  },
+  "librarians_activated_per_query": {
+    "mean": 1.2,
+    "max": 2
+  },
+  "memories_returned_per_query": {
+    "mean": 9.5,
+    "max": 16
+  },
+  "notes": "Wall-clock latency of the Phase-1 librarian retrieval path (keyword-based routing + per-librarian SQL fan-out). Does not include the semantic-embedding routing variants (Phase 2.x, registered separately as cama_lib_route_v2 / v3 / v4) \u2014 those warrant their own benchmark because they have a different cost profile (sentence-transformer embedding compute) and different correctness contract."
+}
