@@ -89,9 +89,11 @@ def _init_memory_schema(db_path: Path) -> None:
             is_core INTEGER DEFAULT 0,
             evidence TEXT,
             counterweight_type TEXT,
+            dyad_id TEXT NOT NULL DEFAULT 'default',
             updated_at TEXT,
             created_at TEXT NOT NULL
         );
+        CREATE INDEX IF NOT EXISTS idx_memories_dyad ON memories(dyad_id);
         CREATE TABLE IF NOT EXISTS memory_affect (
             memory_id INTEGER PRIMARY KEY,
             valence REAL, arousal REAL, dominance REAL,
@@ -282,12 +284,39 @@ class TestDyadScope:
         )
         mem_id = r.json()["id"]
 
-        # Try to read it with the other-dyad key
-        r = client.get(f"/v1/memories/{mem_id}", headers=_auth(other_key))
-        # In single-tenant v1 the SQL query doesn't filter by dyad,
-        # which is a known limitation. But the *get_dyad* endpoint
-        # below is the right behavior check.
-        # Skip strict assertion here; cover via dyad endpoint test.
+        # The OWNING key can read it
+        r_own = client.get(f"/v1/memories/{mem_id}", headers=_auth(live_key))
+        assert r_own.status_code == 200
+
+        # The OTHER-dyad key gets 404 — SQL filter enforces isolation
+        r_other = client.get(f"/v1/memories/{mem_id}", headers=_auth(other_key))
+        assert r_other.status_code == 404
+        assert r_other.json()["cama"]["violated_contract"] == "dyad_scope"
+
+    def test_cross_dyad_search_does_not_leak(self, client, live_key, other_key):
+        # Default dyad writes a memory with a uniquely-recognizable token
+        client.post(
+            "/v1/memories",
+            headers=_auth(live_key),
+            json={
+                "text": "tenant_isolation_canary_token_xyzzy",
+                "memory_type": "experience",
+                "proposed_by": "user",
+                "source_type": "exchange",
+            },
+        )
+        # other-dyad key searches for the canary; must not see it
+        r = client.post(
+            "/v1/search",
+            headers=_auth(other_key),
+            json={"query": "xyzzy"},
+        )
+        assert r.status_code == 200
+        results = r.json()["results"]
+        for item in results:
+            assert "xyzzy" not in item["text"], (
+                f"cross-dyad leak: other-dyad key retrieved {item}"
+            )
 
     def test_cross_dyad_dyad_get_returns_404(self, client, other_key):
         r = client.get("/v1/dyads/default", headers=_auth(other_key))

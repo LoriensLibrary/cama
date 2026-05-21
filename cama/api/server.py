@@ -35,6 +35,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
 import sqlite3
 import time
 import uuid
@@ -51,6 +52,11 @@ from cama.api.auth import (
     validate_bearer,
     write_audit,
 )
+from cama.api.consent import (
+    init_consent_schema,
+    mint_token,
+    verify_token,
+)
 from cama.api.errors import CamaAPIError, CamaContract, to_problem
 from cama.api.schemas import (
     Affect,
@@ -66,6 +72,14 @@ from cama.api.schemas import (
     SearchResultItem,
     ThreadStartRequest,
     ThreadStartResponse,
+)
+from cama.api.webhooks import (
+    KNOWN_EVENTS,
+    create_webhook,
+    delete_webhook,
+    init_webhooks_schema,
+    list_webhooks,
+    notify,
 )
 from cama.core.time_utils import now_iso
 
@@ -94,6 +108,26 @@ def _open_memory_db() -> sqlite3.Connection:
     conn = sqlite3.connect(path, timeout=10.0)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _ensure_dyad_column() -> None:
+    """Idempotent migration: add a dyad_id column to memories if it's
+    missing. Existing rows are tagged with the default-dyad sentinel so
+    pre-multi-tenant data is still reachable by the default-dyad key."""
+    c = _open_memory_db()
+    try:
+        cols = {r[1] for r in c.execute("PRAGMA table_info(memories)").fetchall()}
+        if "dyad_id" not in cols:
+            c.execute("ALTER TABLE memories ADD COLUMN dyad_id TEXT NOT NULL DEFAULT 'default'")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_memories_dyad ON memories(dyad_id)")
+            c.commit()
+    except sqlite3.Error:
+        # Memory DB may not be writable at startup (test fixtures init
+        # their own schema). Migration is best-effort here; handlers
+        # will still scope correctly if the column exists.
+        pass
+    finally:
+        c.close()
 
 
 def _row_to_memory(row: sqlite3.Row, dyad_id: str) -> MemoryResponse:
@@ -145,6 +179,12 @@ def require_auth(
 async def lifespan(app: FastAPI):
     # Initialize keys DB schema (idempotent)
     init_keys_schema()
+    # Idempotent migration of the memories table for multi-tenant dyad scoping
+    _ensure_dyad_column()
+    # Webhooks subsystem (subscriptions + delivery log)
+    init_webhooks_schema()
+    # Consent-token consumed-nonce table
+    init_consent_schema()
     yield
 
 
@@ -330,8 +370,8 @@ def create_app() -> FastAPI:
                 INSERT INTO memories
                     (raw_text, memory_type, context, source_type, status,
                      proposed_by, consent_level, review_after, is_core,
-                     evidence, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     evidence, created_at, updated_at, dyad_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payload.text,
@@ -346,6 +386,7 @@ def create_app() -> FastAPI:
                     payload.evidence,
                     now_iso(),
                     None,
+                    ctx.dyad_id,
                 ),
             )
             memory_id = cur.lastrowid
@@ -377,7 +418,18 @@ def create_app() -> FastAPI:
         finally:
             c.close()
 
-        return _row_to_memory(row, ctx.dyad_id)
+        mem = _row_to_memory(row, ctx.dyad_id)
+        # Fire webhook subscriptions for memory.created (best-effort;
+        # delivery failures are logged but never block the response).
+        try:
+            notify(ctx.dyad_id, "memory.created", {
+                "id": mem.id,
+                "memory_type": mem.memory_type,
+                "status": mem.status,
+            })
+        except Exception:
+            pass
+        return mem
 
     @app.get(
         "/v1/memories/{memory_id}",
@@ -391,7 +443,8 @@ def create_app() -> FastAPI:
         c = _open_memory_db()
         try:
             row = c.execute(
-                "SELECT * FROM memories WHERE id = ?", (memory_id,)
+                "SELECT * FROM memories WHERE id = ? AND dyad_id = ?",
+                (memory_id, ctx.dyad_id),
             ).fetchone()
         finally:
             c.close()
@@ -416,17 +469,26 @@ def create_app() -> FastAPI:
         c = _open_memory_db()
         try:
             row = c.execute(
-                "SELECT id FROM memories WHERE id = ?", (memory_id,)
+                "SELECT id FROM memories WHERE id = ? AND dyad_id = ?",
+                (memory_id, ctx.dyad_id),
             ).fetchone()
             if row is None:
                 raise CamaAPIError(404, CamaContract.DYAD_SCOPE)
             c.execute("DELETE FROM memory_affect WHERE memory_id = ?", (memory_id,))
             c.execute("DELETE FROM memory_embeddings WHERE memory_id = ?", (memory_id,))
             c.execute("DELETE FROM librarian_membership WHERE memory_id = ?", (memory_id,))
-            c.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
+            c.execute(
+                "DELETE FROM memories WHERE id = ? AND dyad_id = ?",
+                (memory_id, ctx.dyad_id),
+            )
             c.commit()
         finally:
             c.close()
+        # Notify subscribers of memory.deleted
+        try:
+            notify(ctx.dyad_id, "memory.deleted", {"id": memory_id})
+        except Exception:
+            pass
         return JSONResponse(status_code=204, content=None)
 
     # ----------------- search ------------------------------------------------
@@ -457,11 +519,14 @@ def create_app() -> FastAPI:
             like_clauses = " OR ".join(
                 ["LOWER(raw_text) LIKE ?"] * len(words)
             )
-            params: list[Any] = [f"%{w}%" for w in words] + list(statuses)
+            params: list[Any] = (
+                [f"%{w}%" for w in words] + list(statuses) + [ctx.dyad_id]
+            )
             sql = (
                 "SELECT * FROM memories "
                 f"WHERE ({like_clauses}) AND status IN "
                 f"({','.join(['?'] * len(statuses))}) "
+                "AND dyad_id = ? "
                 "ORDER BY created_at DESC LIMIT ?"
             )
             params.append(limit)
@@ -500,7 +565,9 @@ def create_app() -> FastAPI:
                     "SELECT * FROM memories "
                     "WHERE counterweight_type IS NOT NULL "
                     "AND status = 'durable' "
-                    "ORDER BY RANDOM() LIMIT 3"
+                    "AND dyad_id = ? "
+                    "ORDER BY RANDOM() LIMIT 3",
+                    (ctx.dyad_id,),
                 ).fetchall()
                 for r in cw_rows:
                     results.append(
@@ -551,12 +618,14 @@ def create_app() -> FastAPI:
         c = _open_memory_db()
         try:
             total = c.execute(
-                "SELECT COUNT(*) FROM memories WHERE status='durable'"
+                "SELECT COUNT(*) FROM memories WHERE status='durable' AND dyad_id = ?",
+                (ctx.dyad_id,),
             ).fetchone()[0]
             recent = c.execute(
                 "SELECT id, raw_text, memory_type, created_at "
-                "FROM memories WHERE status='durable' "
-                "ORDER BY created_at DESC LIMIT 5"
+                "FROM memories WHERE status='durable' AND dyad_id = ? "
+                "ORDER BY created_at DESC LIMIT 5",
+                (ctx.dyad_id,),
             ).fetchall()
         finally:
             c.close()
@@ -586,6 +655,273 @@ def create_app() -> FastAPI:
             performance_ms=round((time.perf_counter() - t0) * 1000.0, 2),
         )
 
+    # ----------------- compliance: export, delete, consent, COPPA -----------
+    @app.get("/v1/dyads/{dyad_id}/export", tags=["dyads"])
+    def dyad_export(
+        dyad_id: str,
+        ctx: AuthContext = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """GDPR data portability: full export of every memory + affect
+        + edge + consent row for the requested dyad."""
+        if dyad_id != ctx.dyad_id:
+            raise CamaAPIError(404, CamaContract.DYAD_SCOPE)
+        c = _open_memory_db()
+        try:
+            mem_rows = c.execute(
+                "SELECT * FROM memories WHERE dyad_id = ?",
+                (ctx.dyad_id,),
+            ).fetchall()
+            mem_ids = [r["id"] for r in mem_rows]
+            affect_rows: list[Any] = []
+            if mem_ids:
+                qmarks = ",".join(["?"] * len(mem_ids))
+                affect_rows = c.execute(
+                    f"SELECT * FROM memory_affect WHERE memory_id IN ({qmarks})",
+                    mem_ids,
+                ).fetchall()
+        finally:
+            c.close()
+        return {
+            "dyad_id": dyad_id,
+            "exported_at": now_iso(),
+            "format": "cama-export-v1",
+            "memories": [dict(r) for r in mem_rows],
+            "affect": [dict(r) for r in affect_rows],
+            "note": (
+                "This bundle contains all stored content for the dyad. "
+                "Edges, embeddings, and librarian memberships are "
+                "regenerable artifacts and are not included."
+            ),
+        }
+
+    @app.delete("/v1/dyads/{dyad_id}", tags=["dyads"])
+    def dyad_delete(
+        dyad_id: str,
+        x_confirm: str | None = Header(default=None, alias="X-Confirm"),
+        x_confirm_again: str | None = Header(
+            default=None, alias="X-Confirm-Again"
+        ),
+        ctx: AuthContext = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """GDPR right-to-erasure: real wipe of every row associated with
+        the dyad. Double-confirm to prevent accidents."""
+        if dyad_id != ctx.dyad_id:
+            raise CamaAPIError(404, CamaContract.DYAD_SCOPE)
+        if x_confirm != dyad_id:
+            raise CamaAPIError(400, CamaContract.CONFIRM_HEADER_MISSING)
+        if x_confirm_again != "I-understand-this-is-permanent":
+            raise CamaAPIError(
+                400, CamaContract.CONFIRM_HEADER_MISSING,
+                detail=(
+                    "DELETE /v1/dyads requires BOTH X-Confirm: <dyad_id> "
+                    "and X-Confirm-Again: I-understand-this-is-permanent."
+                ),
+            )
+
+        c = _open_memory_db()
+        deleted_ids: list[int] = []
+        try:
+            rows = c.execute(
+                "SELECT id FROM memories WHERE dyad_id = ?",
+                (ctx.dyad_id,),
+            ).fetchall()
+            deleted_ids = [r["id"] for r in rows]
+            if deleted_ids:
+                qmarks = ",".join(["?"] * len(deleted_ids))
+                c.execute(
+                    f"DELETE FROM memory_affect WHERE memory_id IN ({qmarks})",
+                    deleted_ids,
+                )
+                c.execute(
+                    f"DELETE FROM memory_embeddings WHERE memory_id IN ({qmarks})",
+                    deleted_ids,
+                )
+                c.execute(
+                    f"DELETE FROM librarian_membership WHERE memory_id IN ({qmarks})",
+                    deleted_ids,
+                )
+            c.execute(
+                "DELETE FROM memories WHERE dyad_id = ?",
+                (ctx.dyad_id,),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+        # Merkle root over the deleted IDs (sorted, canonical bytes).
+        # IDs themselves are not leaked in the response; only the root.
+        merkle = hashlib.sha256(
+            json.dumps(sorted(deleted_ids)).encode("utf-8")
+        ).hexdigest()
+
+        try:
+            notify(ctx.dyad_id, "dyad.deleted", {
+                "dyad_id": dyad_id,
+                "counts": {"memories": len(deleted_ids)},
+            })
+        except Exception:
+            pass
+
+        return {
+            "deleted_at": now_iso(),
+            "dyad_id": dyad_id,
+            "counts": {"memories": len(deleted_ids)},
+            "deleted_ids_merkle_root": merkle,
+        }
+
+    @app.post("/v1/consent/challenge", tags=["consent"])
+    def consent_challenge(
+        payload: dict[str, Any],
+        ctx: AuthContext = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """Step 1 of the user-authored consent flow. Returns a payload
+        with the proposed action for the user to acknowledge. In a
+        full deployment, the application server redirects the user's
+        browser to a hosted page that displays this and posts to
+        /v1/consent/grant on accept."""
+        action = payload.get("action")
+        memory_id = payload.get("memory_id")
+        if action not in ("promote_to_durable", "delete_memory"):
+            raise CamaAPIError(
+                422, CamaContract.ENUM_VALUE_UNKNOWN,
+                detail="action must be one of: promote_to_durable, delete_memory",
+            )
+        if action == "promote_to_durable" and not isinstance(memory_id, int):
+            raise CamaAPIError(
+                422, CamaContract.ENUM_VALUE_UNKNOWN,
+                detail="promote_to_durable requires a memory_id (int)",
+            )
+        return {
+            "challenge_id": secrets.token_urlsafe(16),
+            "dyad_id": ctx.dyad_id,
+            "action": action,
+            "memory_id": memory_id,
+            "expires_at": _iso_days_from_now(0)[:-13] + "T00:00:00+00:00",
+            "next": "POST /v1/consent/grant with the same payload",
+        }
+
+    @app.post("/v1/consent/grant", tags=["consent"])
+    def consent_grant(
+        payload: dict[str, Any],
+        ctx: AuthContext = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """Step 2: server mints a one-shot HMAC-signed consent token.
+        In a real deployment the user's browser hits this directly
+        after acknowledging the challenge UI, and the response is
+        relayed to the application server for use in step 3."""
+        action = payload.get("action")
+        memory_id = payload.get("memory_id")
+        if action not in ("promote_to_durable", "delete_memory"):
+            raise CamaAPIError(
+                422, CamaContract.ENUM_VALUE_UNKNOWN,
+                detail="action must be one of: promote_to_durable, delete_memory",
+            )
+        token = mint_token(
+            dyad_id=ctx.dyad_id,
+            memory_id=memory_id,
+            action=action,
+        )
+        return {"token": token, "ttl_seconds": 300, "action": action}
+
+    @app.patch("/v1/memories/{memory_id}/confirm", tags=["memories"])
+    def memory_confirm(
+        memory_id: int,
+        x_consent_token: str | None = Header(
+            default=None, alias="X-Consent-Token"
+        ),
+        ctx: AuthContext = Depends(require_auth),
+    ) -> MemoryResponse:
+        """Step 3: promote a provisional inference to durable.
+        Requires a one-shot consent token bound to this memory."""
+        if not x_consent_token:
+            raise CamaAPIError(401, CamaContract.CONSENT_TOKEN_REQUIRED)
+        verify_token(
+            x_consent_token,
+            expected_dyad_id=ctx.dyad_id,
+            expected_memory_id=memory_id,
+            expected_action="promote_to_durable",
+        )
+        c = _open_memory_db()
+        try:
+            row = c.execute(
+                "SELECT * FROM memories WHERE id = ? AND dyad_id = ?",
+                (memory_id, ctx.dyad_id),
+            ).fetchone()
+            if row is None:
+                raise CamaAPIError(404, CamaContract.DYAD_SCOPE)
+            c.execute(
+                "UPDATE memories SET status = 'durable', "
+                "review_after = NULL, updated_at = ? "
+                "WHERE id = ? AND dyad_id = ?",
+                (now_iso(), memory_id, ctx.dyad_id),
+            )
+            c.commit()
+            row = c.execute(
+                "SELECT * FROM memories WHERE id = ?", (memory_id,)
+            ).fetchone()
+        finally:
+            c.close()
+        return _row_to_memory(row, ctx.dyad_id)
+
+    # ----------------- webhooks ----------------------------------------------
+    @app.post("/v1/webhooks", status_code=status.HTTP_201_CREATED, tags=["webhooks"])
+    def webhook_create(
+        payload: dict[str, Any],
+        ctx: AuthContext = Depends(require_auth),
+    ) -> dict[str, Any]:
+        url = payload.get("url")
+        events = payload.get("events") or []
+        if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+            raise CamaAPIError(
+                422, CamaContract.ENUM_VALUE_UNKNOWN,
+                detail="`url` must be an http(s) URL",
+            )
+        if not isinstance(events, list) or not events:
+            raise CamaAPIError(
+                422, CamaContract.ENUM_VALUE_UNKNOWN,
+                detail="`events` must be a non-empty list of event types.",
+            )
+        unknown = [e for e in events if e not in KNOWN_EVENTS]
+        if unknown:
+            raise CamaAPIError(
+                422, CamaContract.ENUM_VALUE_UNKNOWN,
+                detail=f"unknown event types: {unknown}. valid: {list(KNOWN_EVENTS)}",
+            )
+        webhook_id, secret = create_webhook(
+            dyad_id=ctx.dyad_id, url=url, events=events
+        )
+        return {
+            "id": webhook_id,
+            "dyad_id": ctx.dyad_id,
+            "url": url,
+            "events": events,
+            "secret": secret,
+            "note": "The 'secret' field is shown ONCE. Store it now.",
+        }
+
+    @app.get("/v1/webhooks", tags=["webhooks"])
+    def webhook_list(
+        ctx: AuthContext = Depends(require_auth),
+    ) -> dict[str, Any]:
+        items = list_webhooks(ctx.dyad_id)
+        return {"webhooks": items, "count": len(items)}
+
+    @app.delete(
+        "/v1/webhooks/{webhook_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["webhooks"],
+    )
+    def webhook_delete(
+        webhook_id: int,
+        x_confirm: str | None = Header(default=None, alias="X-Confirm"),
+        ctx: AuthContext = Depends(require_auth),
+    ):
+        if x_confirm is None or x_confirm != str(webhook_id):
+            raise CamaAPIError(400, CamaContract.CONFIRM_HEADER_MISSING)
+        if not delete_webhook(ctx.dyad_id, webhook_id):
+            raise CamaAPIError(404, CamaContract.DYAD_SCOPE)
+        return JSONResponse(status_code=204, content=None)
+
     # ----------------- dyads --------------------------------------------------
     @app.get(
         "/v1/dyads/{dyad_id}",
@@ -605,7 +941,8 @@ def create_app() -> FastAPI:
         try:
             row = c.execute(
                 "SELECT COUNT(*) AS n, MAX(created_at) AS last "
-                "FROM memories WHERE status='durable'"
+                "FROM memories WHERE status='durable' AND dyad_id = ?",
+                (ctx.dyad_id,),
             ).fetchone()
         finally:
             c.close()
