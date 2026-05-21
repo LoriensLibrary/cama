@@ -42,6 +42,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from cama.api.auth import (
@@ -209,8 +210,6 @@ def create_app() -> FastAPI:
     @app.exception_handler(HTTPException)
     async def _http_error_handler(request: Request, exc: HTTPException):
         # Map raw FastAPI HTTPExceptions through the 7807 envelope too.
-        # 422 from Pydantic validation is the common case — surface it
-        # as provenance_required when the missing fields match.
         contract = CamaContract.UNAUTHORIZED
         if exc.status_code == 422:
             contract = CamaContract.ENUM_VALUE_UNKNOWN
@@ -221,6 +220,39 @@ def create_app() -> FastAPI:
                 exc.status_code,
                 contract,
                 detail=str(exc.detail) if exc.detail else None,
+            ),
+            request,
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error_handler(
+        request: Request, exc: RequestValidationError
+    ):
+        # Pydantic validation errors land here. We map them to the 7807
+        # envelope so the SDK can branch on cama.violated_contract.
+        # Choose the most specific contract code by inspecting the
+        # first error's location: if it's about proposed_by or
+        # source_type, surface as provenance_required; otherwise it's
+        # an enum or shape violation.
+        contract = CamaContract.ENUM_VALUE_UNKNOWN
+        errors = exc.errors()
+        if errors:
+            first_loc = errors[0].get("loc", [])
+            if any(
+                str(part) in {"proposed_by", "source_type"}
+                for part in first_loc
+            ):
+                contract = CamaContract.PROVENANCE_REQUIRED
+        return to_problem(
+            CamaAPIError(
+                422,
+                contract,
+                detail=(
+                    "Request body failed validation. See the "
+                    "OpenAPI schema for the canonical field set "
+                    "and enum values."
+                ),
+                extra={"validation_errors": exc.errors()},
             ),
             request,
         )
