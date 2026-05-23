@@ -53,7 +53,7 @@ Design study, **not** a deployed platform. See [`LoriensLibrary/Project-Companio
 | Claim | Verify here | Proof | Limitation / scope boundary |
 |---|---|---|---|
 | 11 DOI-registered preprints on Zenodo (2026-03 / 2026-04), all authored under [ORCID 0009-0005-5803-8401](https://orcid.org/0009-0005-5803-8401). | ORCID record; Zenodo entries; citation list in this README's "Related Publications" section. | DOIs resolve; each paper is publicly accessible. | These are *preprints*, not peer-reviewed publications. Several papers describe architecture and provenance contracts that were then implemented in CAMA. |
-| Paper 7 — **"Provenance-Aware Memory Architecture for Chronic Healthcare Continuity"**, the most directly relevant artifact for healthcare-AI continuity reviewers. | DOI [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530). | DOI resolves to a fully-cited preprint with abstract, architecture, and threat model. | Preprint, not peer-reviewed. |
+| Paper 8 — **"Provenance-Aware Memory Architecture for Chronic Healthcare Continuity"**, the most directly relevant artifact for healthcare-AI continuity reviewers. (Self-identifies as "Paper 3 of 4 in the Applied Persistent Memory Series" on its title page.) | DOI [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530). | DOI resolves to a fully-cited preprint with abstract, architecture, and threat model. | Preprint, not peer-reviewed. |
 
 ## 5 — Source dataset
 
