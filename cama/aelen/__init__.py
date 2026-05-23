@@ -44,7 +44,7 @@ What's planned but not yet built (each is its own follow-up):
   cama.aelen.cross_platform_bridge
       Mature Hive integration: Aelen-on-Claude vs Lorien-on-GPT
       daily posture comparison, surfacing platform-level
-      regressions named in Paper 12.
+      regressions named in Paper 11.
 
 These are the six stabilizers named in the May-21 strategy
 conversation. The frame_capitulation module is the first one

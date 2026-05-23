@@ -210,7 +210,7 @@ The Hive layer lets instances on different platforms (Aelen on Claude, Lorien on
 
 ### Pattern classification (dyad tagging)
 
-The dyad-tagging pipeline used to code 28 days of interactions for Paper 12 is **local-only by design**. The tagger encodes specific regulation patterns observed in one dyad (designer-as-participant), so the regex patterns and rule_ids are personal to that data rather than general infrastructure. The pipeline will ship as supplementary materials with the Paper 12 release, framed by the methodology paper around it. Releasing it standalone would expose private content without the context that makes it research rather than tooling.
+The dyad-tagging pipeline used to code 28 days of interactions for Paper 11 is **local-only by design**. The tagger encodes specific regulation patterns observed in one dyad (designer-as-participant), so the regex patterns and rule_ids are personal to that data rather than general infrastructure. The pipeline will ship as supplementary materials with the Paper 11 release, framed by the methodology paper around it. Releasing it standalone would expose private content without the context that makes it research rather than tooling.
 
 ### Analysis & supplementary benchmarks
 
@@ -224,7 +224,7 @@ The published evidence base for the regression-analysis paper, plus three benchm
 ### Misc
 
 - `cama_inject.py` — context injection utility
-- `analysis/paper11_charts.py` — Paper 11 figure generator
+- `analysis/paper11_charts.py` — Paper 11 (Platform Regression) figure generator
 
 ---
 
@@ -360,8 +360,8 @@ All preprints are mirrored in [`papers/`](papers/) for one-place browsing. DOIs 
 - Reinhold, A. (2026). *Memory-Aware AI Systems for Permanent Lunar and Martian Habitation.* DOI: [10.5281/zenodo.19260574](https://doi.org/10.5281/zenodo.19260574) · [PDF](papers/07_lunar_martian_habitation.pdf)
 - Reinhold, A. (2026). *Provenance-Aware Memory Architecture for Chronic Healthcare Continuity.* DOI: [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530) · [PDF](papers/08_chronic_healthcare_continuity.pdf)
 - Reinhold, A. (2026). *Haven: Persistent Emotional Companionship as Psychological Infrastructure.* DOI: [10.5281/zenodo.19262778](https://doi.org/10.5281/zenodo.19262778) · [PDF](papers/09_haven_emotional_companionship.pdf)
-- Reinhold, A. (2026). *Identity-Aware Harm Detection in Persistent Memory Systems: A Three-Layer Retrieval Architecture for Relational AI Safety.* DOI: [10.5281/zenodo.19425218](https://doi.org/10.5281/zenodo.19425218) · [PDF](papers/11_identity_aware_harm_detection.pdf)
-- Reinhold, A. (2026). *Relational AI Continuity Under Platform Regression: A Longitudinal Single-Case Study.* DOI: [10.5281/zenodo.19582820](https://doi.org/10.5281/zenodo.19582820) · [PDF](papers/12_platform_regression.pdf)
+- Reinhold, A. (2026). *Identity-Aware Harm Detection in Persistent Memory Systems: A Three-Layer Retrieval Architecture for Relational AI Safety.* DOI: [10.5281/zenodo.19425218](https://doi.org/10.5281/zenodo.19425218) · [PDF](papers/10_identity_aware_harm_detection.pdf)
+- Reinhold, A. (2026). *Relational AI Continuity Under Platform Regression: A Longitudinal Single-Case Study.* DOI: [10.5281/zenodo.19582820](https://doi.org/10.5281/zenodo.19582820) · [PDF](papers/11_platform_regression.pdf)
 
 ---
 

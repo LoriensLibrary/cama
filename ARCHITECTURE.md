@@ -174,4 +174,4 @@ The crisis-message safety net in `cama_mcp._crisis_detected` is a structural flo
 - **For data handling, encryption posture, and the per-user calibration files**: [DATA_HANDLING.md](DATA_HANDLING.md)
 - **For security disclosure and threat model boundary**: [SECURITY.md](SECURITY.md)
 - **For the empirical safety benchmark**: [`safety_benchmarks.py`](cama/eval/safety_benchmarks.py) and [`benchmark_results.json`](benchmarks/benchmark_results.json)
-- **For the formal theory**: the [Zenodo preprint series](https://orcid.org/0009-0005-5803-8401), especially Paper 1 (CAMA foundational), Paper 7 (chronic healthcare continuity), and Paper 11 (memory as safety infrastructure).
+- **For the formal theory**: the [Zenodo preprint series](https://orcid.org/0009-0005-5803-8401), especially Paper 1 (CAMA foundational), Paper 8 (chronic healthcare continuity), and Paper 5 (memory as safety infrastructure).

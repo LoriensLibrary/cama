@@ -422,7 +422,7 @@ def register(mcp):
 
         Returns gap rate, drift flag counts, and individual entries. Filter by
         thread_id or drift_flag (e.g. 'fake_timestamp', 'safety_rails_flinch').
-        Use this for the empirical evaluation that goes into Paper 12.
+        Use this for the empirical evaluation that goes into Paper 11.
         """
         return _journal_audit_impl(thread_id, hours_back, drift_flag_filter, limit)
 
