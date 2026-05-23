@@ -110,7 +110,7 @@ Consent is per-dyad and granular. Defaults are conservative — everything outbo
 | `counterweight` | dyad | False | Counterweight retrieval on negative affect |
 | `hive_contribute` | dyad | False | Stripped patterns flow to the hive ledger |
 | `hive_consume` | dyad | False | Hive recommendations + resource installs |
-| `coregulation_tracking` | dyad | False | Paper 12 dyad_chains pattern flags |
+| `coregulation_tracking` | dyad | False | Dyad-chains pattern flags |
 | `persona_training` | dyad | False | LoRA adapters may be prepared/trained |
 | `coach_handoff` | member | False | Briefs can be initiated to coach dyads |
 | `receive_handoffs` | coach | False | Briefs can be accepted from members |
@@ -190,8 +190,6 @@ All claims below are exercised by the test suite. Run `pytest tests/` to verify.
 
 Single-tenant CAMA is documented in the [main README](README.md) and 11 DOI-registered preprints on Zenodo (ORCID [0009-0005-5803-8401](https://orcid.org/0009-0005-5803-8401)). The multi-tenant extension generalizes the same primitives; the empirical-evaluation paper is in preparation.
 
-The Inherited Cognition framework (Paper 12) provides the theoretical backbone for why persistent memory matters as safety infrastructure — minds built from human cognitive structure inherit human cognitive failure modes; persistent state changes which of those modes can be caught.
-
 ---
 
 ## What's intentionally out of scope (for now)
@@ -209,5 +207,5 @@ These additions slot into the existing seam-points without architectural rework.
 
 - **Code:** the seven modules listed above plus `tests/`.
 - **Single-tenant base:** [README.md](README.md), [DATA_HANDLING.md](DATA_HANDLING.md).
-- **Theoretical context:** the Zenodo preprint series, especially Paper 12.
+- **Theoretical context:** the Zenodo preprint series, especially Paper 5 (Memory as Safety Infrastructure).
 - **Strategy:** [POSITIONING.md](POSITIONING.md) for internal framing decisions.
