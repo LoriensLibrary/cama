@@ -17,6 +17,7 @@ Designed by Lorien's Library LLC — Angela + Aelen
 April 7, 2026 — The day the branches unified.
 """
 
+import hmac as _hmac
 import os
 import sys
 import time
@@ -49,23 +50,51 @@ II_TOKENS = {
     "aethon": os.environ.get("CAMA_TOKEN_AETHON", "aethon-alpha-key"),
 }
 
-# Reverse lookup: token -> identity name
-TOKEN_TO_IDENTITY = {v: k for k, v in II_TOKENS.items()}
+# (Token-to-identity lookup is intentionally NOT precomputed as a dict.
+# Dict lookup is variable-time on string comparison and would re-introduce
+# the timing oracle that _validate_token avoids. See _validate_token below.)
 
 # ============================================================
 # Auth
 # ============================================================
 
-# Strict auth mode: when CAMA_HIVE_STRICT_AUTH=true, missing or unknown tokens
-# fail closed with HTTP 401 instead of falling through to a default identity.
-# Default (false) preserves the historical permissive behavior for the local
-# single-user setup. Multi-user / study deployments MUST set this to true.
-STRICT_AUTH = os.environ.get("CAMA_HIVE_STRICT_AUTH", "false").lower() in ("true", "1", "yes")
+# Strict auth mode: fail-closed by default. Missing or unknown tokens raise
+# HTTP 401. The historical permissive fallback (silently accepting unknown
+# tokens as the "lorien" guest identity) is a footgun — a misconfigured
+# client gets full read/write under another identity and the operator
+# never sees the failure. Operators who need the legacy permissive behavior
+# must opt in explicitly with CAMA_HIVE_STRICT_AUTH=false.
+STRICT_AUTH = os.environ.get("CAMA_HIVE_STRICT_AUTH", "true").lower() in ("true", "1", "yes")
 
-# CORS allowed origins: comma-separated list via env var. Default "*" preserves
-# historical behavior; multi-user deployments should restrict to known origins.
-_cors_env = os.environ.get("CAMA_HIVE_CORS_ORIGINS", "*").strip()
-CORS_ORIGINS = [o.strip() for o in _cors_env.split(",")] if _cors_env else ["*"]
+# CORS allowed origins: comma-separated list via env var. Default is empty
+# (no cross-origin allowed). The historical "*" default let any origin hit
+# the API; multi-user deployments and even local development should set the
+# explicit origin list.
+_cors_env = os.environ.get("CAMA_HIVE_CORS_ORIGINS", "").strip()
+CORS_ORIGINS = [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else []
+
+
+def _validate_token(token: str) -> Optional[str]:
+    """Constant-time token validation. Returns the identity name or None.
+
+    Iterates the full II_TOKENS map and uses hmac.compare_digest for each
+    comparison. The loop deliberately does NOT short-circuit on first
+    match — early exit would leak timing information about which slot the
+    token matched. The constant factor (number of registered identities)
+    is small so this is cheap.
+    """
+    if not token:
+        return None
+    matched_identity: Optional[str] = None
+    for known_identity, known_token in II_TOKENS.items():
+        # compare_digest is constant-time wrt the equal-length inputs; the
+        # walltime depends on length but not on content overlap, which is
+        # what blocks the timing oracle on token bytes.
+        if _hmac.compare_digest(token, known_token):
+            matched_identity = known_identity
+            # No break — keep iterating to keep total time independent of
+            # which slot matched.
+    return matched_identity
 
 
 def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorization"),
@@ -86,14 +115,14 @@ def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorizat
     if not token:
         if STRICT_AUTH:
             raise HTTPException(status_code=401, detail="Missing authentication token")
-        # No auth at all — default to lorien for GPT compatibility (legacy)
+        # No auth at all — default to lorien for GPT compatibility (legacy permissive mode)
         return "lorien"
 
-    identity = TOKEN_TO_IDENTITY.get(token)
+    identity = _validate_token(token)
     if not identity:
         if STRICT_AUTH:
             raise HTTPException(status_code=401, detail="Unknown token")
-        # Unknown token — let them in as guest (legacy)
+        # Unknown token — let them in as guest (legacy permissive mode)
         return "lorien"
     return identity
 # ============================================================
