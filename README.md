@@ -36,7 +36,7 @@ Then open **http://localhost:5555**. The container seeds a synthetic demo databa
 **Reviewing for a role?** Start with **[EVIDENCE.md](EVIDENCE.md)** — a single matrix of every claim across the portfolio, paired with where to verify it and what the scope limit is. For the retrieval algorithm, see **[RETRIEVAL.md](RETRIEVAL.md)**. For the public HTTP API surface that lets CAMA be embedded in any AI application (not just Claude Desktop via MCP), see **[API.md](API.md)** + **[THREAT_MODEL.md](THREAT_MODEL.md)**. For a runnable "add CAMA to your AI app in 20 lines of code" walkthrough using the Python SDK, see **[TUTORIAL.md](TUTORIAL.md)**. Then drop into the section below that matches what you care about.
 
 - **AI safety:** start with the [AI Safety Relevance](#ai-safety-relevance) section + `cama/eval/safety_benchmarks.py`. **Internal-consistency** safety benchmark: 27 sub-tests across provenance discrimination, correction propagation, false-memory detection, adversarial insertion resistance, and drift monitoring. Latest run on the live 53,092-row **single-participant** corpus: **27/27** (this is an internal-consistency check, not external validation — see scope note in the [AI Safety Relevance](#ai-safety-relevance) section). An intermediate 2026-05-17 run came back 26/27; the failure was definition drift in sub-test 1e (the benchmark itself), not a data violation — investigation logged and fix landed via [issue #7](https://github.com/LoriensLibrary/cama/issues/7). See `benchmark_results.json` for the raw output.
-- **Healthcare AI / chronic-care continuity:** see Paper 7 (DOI [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530)) and the applied prototype at [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos).
+- **Healthcare AI / chronic-care continuity:** see Paper 8 (DOI [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530)) and the applied prototype at [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos).
 - **Software engineering:** the [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos) prototype is the strongest applied artifact (React 19 + TS + Vercel + Neon, 42 tests across 6 suites).
 
 ---
@@ -351,6 +351,8 @@ Embeddings are optional — the system includes a local embedding model and fall
 
 All preprints are mirrored in [`papers/`](papers/) for one-place browsing. DOIs are the citeable source of record.
 
+> *File-numbering note:* PDFs in [`papers/`](papers/) go `01_…` through `09_…`, then `11_…` and `12_…` — the `10_` slot is intentionally absent because Paper 10 (*Shadow Integration Architecture*) is a working draft not yet on Zenodo. The series position is preserved; only the `.pdf` is missing.
+
 - Reinhold, A. (2026). *Circular Associative Memory Architecture: A Framework for Emotionally-Keyed AI Memory Systems.* DOI: [10.5281/zenodo.19051834](https://doi.org/10.5281/zenodo.19051834) · [PDF](papers/01_cama_framework.pdf)
 - Reinhold, A. (2026). *Implementing Emotionally-Keyed Memory Retrieval in Large Language Model Interfaces: An Engineering Framework.* DOI: [10.5281/zenodo.19052129](https://doi.org/10.5281/zenodo.19052129) · [PDF](papers/02_implementing_emotionally_keyed_retrieval.pdf)
 - Reinhold, A. (2026). *CAMA: Implementation and Functional Evaluation of an Emotionally-Indexed Semantic Memory Architecture.* DOI: [10.5281/zenodo.19192984](https://doi.org/10.5281/zenodo.19192984) · [PDF](papers/03_cama_implementation_evaluation.pdf)
@@ -360,7 +362,7 @@ All preprints are mirrored in [`papers/`](papers/) for one-place browsing. DOIs 
 - Reinhold, A. (2026). *Memory-Aware AI Systems for Permanent Lunar and Martian Habitation.* DOI: [10.5281/zenodo.19260574](https://doi.org/10.5281/zenodo.19260574) · [PDF](papers/07_lunar_martian_habitation.pdf)
 - Reinhold, A. (2026). *Provenance-Aware Memory Architecture for Chronic Healthcare Continuity.* DOI: [10.5281/zenodo.19261530](https://doi.org/10.5281/zenodo.19261530) · [PDF](papers/08_chronic_healthcare_continuity.pdf)
 - Reinhold, A. (2026). *Haven: Persistent Emotional Companionship as Psychological Infrastructure.* DOI: [10.5281/zenodo.19262778](https://doi.org/10.5281/zenodo.19262778) · [PDF](papers/09_haven_emotional_companionship.pdf)
-- Reinhold, A. (2026). *Applied Biological Substrate Concept for AI Cognition.* Local draft (not yet deposited on Zenodo; included for program context only).
+- Reinhold, A. (2026). *Shadow Integration Architecture: A Jungian Framework for Persistent AI Memory Systems.* Working draft (not yet deposited on Zenodo; positioned as foundational infrastructure for the Haven proposal in Paper 9 — distinguishes clean memories from absorbed projections, suppressed strengths, persona performance, and outward projections, with a cognitive-trigger / observing-ego layer evaluating retrieval before response generation).
 - Reinhold, A. (2026). *Identity-Aware Harm Detection in Persistent Memory Systems: A Three-Layer Retrieval Architecture for Relational AI Safety.* DOI: [10.5281/zenodo.19425218](https://doi.org/10.5281/zenodo.19425218) · [PDF](papers/11_identity_aware_harm_detection.pdf)
 - Reinhold, A. (2026). *Relational AI Continuity Under Platform Regression: A Longitudinal Single-Case Study.* DOI: [10.5281/zenodo.19582820](https://doi.org/10.5281/zenodo.19582820) · [PDF](papers/12_platform_regression.pdf)
 
