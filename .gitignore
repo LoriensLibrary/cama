@@ -4,6 +4,8 @@ memories.json
 users.json
 projects.json
 Untitled.txt
+_affect_exports/
+_affect_exports*/
 
 # Python
 .venv/
