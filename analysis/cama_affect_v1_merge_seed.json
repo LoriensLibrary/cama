@@ -1,0 +1,45 @@
+{
+  "description": "Seed merge clusters for the private CAMA Affect v1 vocabulary worksheet. These are review prompts, not locked vocabulary decisions.",
+  "clusters": [
+    {
+      "canonical_candidate": "tenderness",
+      "tokens": ["tender", "tenderness"],
+      "question": "Should affect store the state noun only, or preserve adjective tokens?"
+    },
+    {
+      "canonical_candidate": "protectiveness",
+      "tokens": ["protective", "protectiveness"],
+      "question": "Keep as an affect posture or split into protective stance vs protective action?"
+    },
+    {
+      "canonical_candidate": "satisfaction",
+      "tokens": ["satisfied", "satisfaction"],
+      "question": "Prefer noun-form affect labels for classifier outputs?"
+    },
+    {
+      "canonical_candidate": "correction",
+      "tokens": ["correction", "corrective"],
+      "question": "Is correction an affect chord, a memory function, or both?"
+    },
+    {
+      "canonical_candidate": "exhaustion",
+      "tokens": ["tired", "fatigue", "exhaustion"],
+      "question": "Should v1 distinguish physical tiredness from emotional depletion?"
+    },
+    {
+      "canonical_candidate": "respect",
+      "tokens": ["respect", "respectful", "respect_for_the_work"],
+      "question": "Collapse to respect, or preserve respect-for-work as workflow context?"
+    },
+    {
+      "canonical_candidate": "recognition",
+      "tokens": ["recognition", "research_recognition"],
+      "question": "Move domain-specific compounds into context tags?"
+    },
+    {
+      "canonical_candidate": "clarity",
+      "tokens": ["clarity", "engineering_clarity"],
+      "question": "Keep engineering_clarity distinct from general clarity?"
+    }
+  ]
+}

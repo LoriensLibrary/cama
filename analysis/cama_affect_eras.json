@@ -1,0 +1,41 @@
+{
+  "description": "Era buckets used by analysis/cama_affect_dataset.py when first-class schema_version/tagger-era columns are absent. Boundaries are UTC dates, end-exclusive. These are analytic labels, not claims about the memory content itself.",
+  "eras": [
+    {
+      "name": "pre_2026_import_or_early",
+      "start": null,
+      "end": "2026-01-01",
+      "rationale": "Pre-2026 imported or early records before the current public CAMA schema and evaluation story stabilized."
+    },
+    {
+      "name": "2026_q1_schema_settling",
+      "start": "2026-01-01",
+      "end": "2026-04-01",
+      "rationale": "Q1 2026 memory imports and schema-settling period."
+    },
+    {
+      "name": "2026_april_research_push",
+      "start": "2026-04-01",
+      "end": "2026-05-01",
+      "rationale": "April research/publication push; useful boundary for checking wrapper-voice and paper-era tagging effects."
+    },
+    {
+      "name": "2026_may_pre_may7",
+      "start": "2026-05-01",
+      "end": "2026-05-08",
+      "rationale": "Early-May live memory period before the May 7 boundary called out in the CAMA Affect v1 review notes."
+    },
+    {
+      "name": "2026_may_post_may7",
+      "start": "2026-05-08",
+      "end": "2026-05-18",
+      "rationale": "Post-May-7 period before the May 18 public repo stabilization pass."
+    },
+    {
+      "name": "2026_may_current",
+      "start": "2026-05-18",
+      "end": null,
+      "rationale": "Current public-repo / live-prototype stabilization period."
+    }
+  ]
+}
