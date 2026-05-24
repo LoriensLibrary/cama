@@ -1,6 +1,67 @@
 """Bridge tools: exec, read_file, write_file."""
 
 import os
+from pathlib import Path
+
+DEFAULT_WRITE_ALLOWLIST = (
+    "~/.cama",
+    "~/Desktop/cama",
+    "~/Desktop/ProjectCompanion",
+)
+
+
+def _resolved_write_allowlist() -> list[Path]:
+    """Resolve the set of directory roots cama_write_file is allowed to write under.
+
+    Read at call time (not import time) so tests and operators can override via the
+    CAMA_BRIDGE_WRITE_ALLOWLIST env var without restarting the process. The env var
+    is split on os.pathsep (``;`` on Windows, ``:`` on POSIX) so absolute paths on
+    Windows — which contain ``:`` after the drive letter — survive the split.
+    """
+    override = os.environ.get("CAMA_BRIDGE_WRITE_ALLOWLIST")
+    if override:
+        entries = [e for e in override.split(os.pathsep) if e.strip()]
+    else:
+        entries = list(DEFAULT_WRITE_ALLOWLIST)
+    resolved: list[Path] = []
+    for entry in entries:
+        try:
+            resolved.append(Path(os.path.expanduser(entry)).resolve(strict=False))
+        except (OSError, RuntimeError):
+            continue
+    return resolved
+
+
+def _check_write_path(path: str) -> tuple[Path | None, str | None]:
+    """Validate a cama_write_file target. Returns (resolved_path, None) on success
+    or (None, error_message) on refusal.
+
+    Refuses:
+    - ``..`` traversal segments in the raw input
+    - resolved target outside every allowlist root (catches symlink escapes)
+    """
+    if ".." in Path(path).parts:
+        return None, f"Refused: path contains '..' traversal: {path}"
+
+    expanded = os.path.expanduser(path)
+    try:
+        resolved = Path(expanded).resolve(strict=False)
+    except (OSError, RuntimeError) as exc:
+        return None, f"Refused: cannot resolve path: {exc}"
+
+    allowlist = _resolved_write_allowlist()
+    for root in allowlist:
+        try:
+            resolved.relative_to(root)
+            return resolved, None
+        except ValueError:
+            continue
+
+    roots_str = ", ".join(str(r) for r in allowlist) or "(empty allowlist)"
+    return None, (
+        f"Refused: write target outside allowlist. Resolved: {resolved}. "
+        f"Allowed roots: {roots_str}. Override with CAMA_BRIDGE_WRITE_ALLOWLIST."
+    )
 
 
 async def cama_exec(command: str, timeout: int = 30) -> str:
@@ -71,29 +132,44 @@ async def cama_read_file(path: str, max_lines: int = 100) -> str:
 
 async def cama_write_file(path: str, content: str) -> str:
     """Write content to a file on Angela's machine. Creates parent directories if needed.
-    Returns confirmation with file size."""
+    Returns confirmation with file size.
+
+    Writes are restricted to an allowlist of roots (default: ~/.cama, ~/Desktop/cama,
+    ~/Desktop/ProjectCompanion). Override via CAMA_BRIDGE_WRITE_ALLOWLIST. Paths with
+    ``..`` segments are refused; symlinks are resolved before the allowlist check, so
+    a symlink inside an allowed root that points elsewhere is also refused."""
     try:
-        path = os.path.expanduser(path)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
+        resolved, error = _check_write_path(path)
+        if error is not None:
+            return error
+        assert resolved is not None  # narrow for type-checkers
+        parent = resolved.parent
+        parent.mkdir(parents=True, exist_ok=True)
+        with open(resolved, 'w', encoding='utf-8') as f:
             f.write(content)
-        size = os.path.getsize(path)
-        return f"Written: {path} ({size} bytes)"
+        size = resolved.stat().st_size
+        return f"Written: {resolved} ({size} bytes)"
     except Exception as e:
         return f"Error writing file: {str(e)}"
 
 
 def register(mcp):
-    """Attach this section's tools to the given FastMCP instance."""
+    """Attach this section's tools to the given FastMCP instance.
+
+    Annotation honesty:
+    - cama_exec: destructiveHint=True (arbitrary shell), openWorldHint=True
+    - cama_write_file: destructiveHint=True (filesystem mutation, even sandboxed)
+    - cama_read_file: destructiveHint=False but openWorldHint=True (read scope is unbounded)
+    """
     mcp.tool(
         name="cama_exec",
-        annotations={"title":"Execute Command","readOnlyHint":False,"destructiveHint":False,"idempotentHint":False,"openWorldHint":True},
+        annotations={"title":"Execute Command","readOnlyHint":False,"destructiveHint":True,"idempotentHint":False,"openWorldHint":True},
     )(cama_exec)
     mcp.tool(
         name="cama_read_file",
-        annotations={"title":"Read File","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},
+        annotations={"title":"Read File","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":True},
     )(cama_read_file)
     mcp.tool(
         name="cama_write_file",
-        annotations={"title":"Write File","readOnlyHint":False,"destructiveHint":False,"idempotentHint":False,"openWorldHint":False},
+        annotations={"title":"Write File","readOnlyHint":False,"destructiveHint":True,"idempotentHint":False,"openWorldHint":False},
     )(cama_write_file)
