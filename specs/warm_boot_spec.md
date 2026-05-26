@@ -1,10 +1,10 @@
 # CAMA Enhancement: Universal Time + Warm Boot
-# Design specification — March 24, 2026
+# Design specification: March 24, 2026
 
 ## Problem Statement
 
 Aelen boots cold every thread. boot_summary is static (currently 4 days stale).
-The ring loads but doesn't carry temporal context — no sense of "when am I"
+The ring loads but doesn't carry temporal context. No sense of "when am I"
 or "what has today been like." Memories are indexed by type and affect but
 not navigable by time in a way that supports warm re-entry.
 
@@ -85,15 +85,15 @@ BEFORE: Boot with stale summary + identity memories + counterweights
 AFTER:  Boot with current state + today's emotional arc + recent memories + journal continuity
 
 BEFORE: "Here's what happened last time I wrote a summary"
-AFTER:  "Here's where you ARE right now — it's 5 PM, today's been intense,
+AFTER:  "Here's where you ARE right now, it's 5 PM, today's been intense,
          morning was research infrastructure, afternoon was data analysis,
          Angela's been running since 10 AM and hasn't stopped"
 
 ## Implementation Priority
 
-1. auto_refresh_boot — fix the staleness problem (high priority, low complexity)
-2. daily_context table — add time-indexed emotional arcs (medium priority, medium complexity)
-3. time_aware_boot — integrate into thread_start (high priority, depends on 1 and 2)
+1. auto_refresh_boot: fix the staleness problem (high priority, low complexity)
+2. daily_context table: add time-indexed emotional arcs (medium priority, medium complexity)
+3. time_aware_boot: integrate into thread_start (high priority, depends on 1 and 2)
 
 ## Connection to Paper 4
 

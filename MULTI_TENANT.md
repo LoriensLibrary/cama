@@ -1,16 +1,16 @@
 # CAMA Multi-Tenant Stack
 
 **Status:** layered extension to the single-tenant [CAMA](README.md). Local-first Python, SQLite-per-dyad, 131 tests across seven modules.
-**Author:** Angela Reinhold — Lorien's Library LLC
+**Author:** Angela Reinhold, Lorien's Library LLC
 **License:** MIT
 
 ---
 
 ## What this is
 
-CAMA originated as a single-participant persistent-memory architecture for human-AI interaction ([README.md](README.md)). This multi-tenant extension generalizes the same memory primitives to deployments serving many users — one paired AI per person, one paired AI per coach, with cross-vault learning that preserves privacy by construction.
+CAMA originated as a single-participant persistent-memory architecture for human-AI interaction ([README.md](README.md)). This multi-tenant extension generalizes the same memory primitives to deployments serving many users, one paired AI per person, one paired AI per coach, with cross-vault learning that preserves privacy by construction.
 
-The motivating use case is clinical coaching infrastructure (DEXA + CGM + behavior-change practice, e.g. [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos) / Kalos Health), but the architecture is domain-agnostic. Any deployment where individuals want a persistent, sovereign, auditable AI companion — and where domain experts want to publish curated knowledge or models that those companions can opt into — fits this stack.
+The motivating use case is clinical coaching infrastructure (DEXA + CGM + behavior-change practice, e.g. [Telos_kalos](https://github.com/LoriensLibrary/Telos_kalos) / Kalos Health), but the architecture is domain-agnostic. Any deployment where individuals want a persistent, sovereign, auditable AI companion (and where domain experts want to publish curated knowledge or models that those companions can opt into), fits this stack.
 
 **What this is NOT:** a hosted service. This is the local-first reference implementation. Production deployments would add network transport, signed publisher attestation, and end-to-end encryption between vaults. The architecture supports those additions cleanly; the scaffolding ships without them.
 
@@ -44,7 +44,7 @@ Each module is small, lazily imports its heavy dependencies, and has its own tes
 
 **Total: 131 tests, all green. Run with `pytest tests/`.**
 
-### 1. Dyad — the unit of isolation
+### 1. Dyad: the unit of isolation
 
 A *dyad* is one person paired with one named AI, with a sovereign SQLite database at `~/.cama-vaults/<dyad_id>/memory.db`. Isolation is enforced at the filesystem boundary: no global view, no central index, no cross-dyad query path. Each dyad has its own consent state, hive signing salt, identity teachings.
 
@@ -55,13 +55,13 @@ cama_dyad.update_consent(r["dyad_id"], {"hive_consume": True}, reason="opt in")
 cama_dyad.delete_dyad(r["dyad_id"], confirm_token=r["dyad_id"])  # real, permanent
 ```
 
-### 2. Hive protocol — patterns flow up
+### 2. Hive protocol: patterns flow up
 
 Dyads with `consent.hive_contribute=True` publish stripped pattern records: bucketed valence/arousal, dominant emotion + top-3 chord, 10-category topic abstraction, weekday/weekend × time-of-day bucket, delta-valence trajectory. Each contribution carries a rotating HMAC dyad signature (consistent within an epoch-week for dedupe, unlinkable across weeks). The salt stays local.
 
-Queries against the hive ledger return aggregate policies only when at least `K_THRESHOLD` (default 5) distinct dyads contributed to the slice — k-anonymity by construction. Below threshold, the slice surfaces nothing.
+Queries against the hive ledger return aggregate policies only when at least `K_THRESHOLD` (default 5) distinct dyads contributed to the slice, k-anonymity by construction. Below threshold, the slice surfaces nothing.
 
-### 3. Persona — per-pair LoRA with identity preservation
+### 3. Persona: per-pair LoRA with identity preservation
 
 For deployments using open-weights foundation models, each dyad can train a small LoRA adapter on its own exchanges. The trainer (`cama_persona_train.py`) is decoupled from the scaffolding (`cama_persona.py`); training requires PyTorch + transformers + PEFT, the scaffolding does not.
 
@@ -75,23 +75,23 @@ Two properties matter:
 `DyadAgent.chat(user_message)` composes the full pipeline: boot the dyad from CAMA, estimate user affect, FTS-retrieve relevant memories, surface counterweights if affect is negative AND the user consented to counterweights, assemble a system prompt with identity teachings pinned ahead of everything, call a pluggable backend, store the exchange and affect back to the dyad.
 
 Three backends ship:
-- `EchoBackend` — deterministic, zero deps, used by tests
-- `ClaudeBackend` — Anthropic API (Claude as foundation, CAMA as memory)
-- `TransformersLoraBackend` — local open-weights base + dyad's persona LoRA
+- `EchoBackend`: deterministic, zero deps, used by tests
+- `ClaudeBackend`: Anthropic API (Claude as foundation, CAMA as memory)
+- `TransformersLoraBackend`: local open-weights base + dyad's persona LoRA
 
-### 5. Hive resources — domain expertise flows down
+### 5. Hive resources: domain expertise flows down
 
 A domain expert (e.g. Kalos Health) publishes named, versioned, fingerprinted resources to the hive: `domain_lora`, `knowledge_index`, `prompt_pack`, `policy_set`. Member dyads install with `cama_hive_resources.install_resource()`, gated by `consent.hive_consume`.
 
 The agent runtime then enumerates installed resources in the system prompt with full attribution and surfaces knowledge-index excerpts at inference. The publisher sees zero per-user data; the user sees the full provenance of what's been installed and can uninstall at any time.
 
-### 6. Coach handoff — pattern-level by default
+### 6. Coach handoff: pattern-level by default
 
 When a member meets a coach, both must have consented (`coach_handoff` on the member side, `receive_handoffs` on the coach side) AND the member must explicitly authorize the specific handoff. The brief is built from the member's CAMA but is pattern-level: bucketed daily affect trend, top topic categories, counterweight effectiveness, open questions. No raw exchange text unless the member explicitly attaches a memory ID via `explicit_shares`.
 
 Brief is SHA-256 fingerprinted, byte-identical on both sides. Member can revoke before read (coach copy deleted) or after read (revocation recorded; clinical reality). Coach can attach a session note that mirrors back to the member's audit.
 
-### 7. Memory surface — sovereignty made usable
+### 7. Memory surface: sovereignty made usable
 
 A user-facing CLI / API over every other layer: overview, memory listing with filters, full memory detail with affect and provenance, real delete with confirm token, category purge with double-confirm (`keep_core=True` protects identity by default), consent history view, hive publish log, installed resources, persona adapters, handoffs, full vault export with optional raw-text redaction.
 
@@ -101,7 +101,7 @@ This is the surface where sovereignty is exercised. Every other layer's audit tr
 
 ## Sovereignty model
 
-Consent is per-dyad and granular. Defaults are conservative — everything outbound is off until explicit opt-in.
+Consent is per-dyad and granular. Defaults are conservative, everything outbound is off until explicit opt-in.
 
 | Flag | Side | Default | What it gates |
 |---|---|---|---|
@@ -197,7 +197,7 @@ Single-tenant CAMA is documented in the [main README](README.md) and 11 DOI-regi
 - **Hosted multi-tenant transport.** The reference implementation is local-first. A production deployment would route via an authenticated API gateway.
 - **Cryptographic publisher attestation.** Resources carry SHA-256 content fingerprints but not signatures. Ed25519 signatures are the natural next addition.
 - **End-to-end encryption between vaults.** Handoff briefs are byte-identical on both sides; in a hosted setting they would be encrypted at rest and in transit.
-- **AI-to-AI consultation channel.** The "council side" of the hive — a peer-to-peer pattern-level case consultation channel between dyads. Sketched in design notes; not in this scaffolding.
+- **AI-to-AI consultation channel.** The "council side" of the hive, a peer-to-peer pattern-level case consultation channel between dyads. Sketched in design notes; not in this scaffolding.
 
 These additions slot into the existing seam-points without architectural rework.
 

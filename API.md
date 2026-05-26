@@ -1,4 +1,4 @@
-# CAMA HTTP API — v1
+# CAMA HTTP API: v1
 
 The public surface that lets CAMA be embedded in any AI application, not just Claude Desktop via MCP.
 
@@ -8,23 +8,23 @@ This document is the contract: what the endpoints are, what they accept, what th
 
 ## 1. Product positioning
 
-**v1 ships self-hosted single-tenant.** A company runs one CAMA instance, one SQLite store, one shared dyad. Auth is an API key per app. The pitch is "Redis for persistent emotionally-indexed memory" — one process, one config file, one Docker image.
+**v1 ships self-hosted single-tenant.** A company runs one CAMA instance, one SQLite store, one shared dyad. Auth is an API key per app. The pitch is "Redis for persistent emotionally-indexed memory", one process, one config file, one Docker image.
 
-**Multi-tenant is exposed via the dyad model.** The same CAMA architecture supports many users (each user = a dyad with its own consent state, hive signing salt, identity teachings). The API surface for that is already in this document — the difference is operational, not architectural.
+**Multi-tenant is exposed via the dyad model.** The same CAMA architecture supports many users (each user = a dyad with its own consent state, hive signing salt, identity teachings). The API surface for that is already in this document, the difference is operational, not architectural.
 
-**Hosted SaaS is not v1.** That's billing, isolation guarantees, SOC 2, on-call rotation — a company-building conversation, not engineering work. The API is designed so a hosted operator can layer those concerns on top, but no v1 endpoint depends on them.
+**Hosted SaaS is not v1.** That's billing, isolation guarantees, SOC 2, on-call rotation, a company-building conversation, not engineering work. The API is designed so a hosted operator can layer those concerns on top, but no v1 endpoint depends on them.
 
 ---
 
-## 2. Architectural commitments — what the API refuses to compromise
+## 2. Architectural commitments: what the API refuses to compromise
 
 These are the contracts that distinguish CAMA from a generic memory API. The API enforces them at the boundary; a caller cannot bypass them by malformed input.
 
 1. **Provenance is required on every write.** `POST /v1/memories` rejects (HTTP 422) any payload missing both `proposed_by` (`user` | `assistant` | `system`) and `source_type` (`teaching` | `inference` | `exchange`). No defaults that obscure intent.
 2. **Inferences cannot self-promote.** A write with `proposed_by=assistant` AND `source_type=inference` is stored with `status=provisional` and a TTL. Promotion to `durable` requires `PATCH /v1/memories/{id}/confirm` with a *user-authored token* from an interactive consent challenge (see §6.3).
-3. **Dyad isolation is absolute.** Every endpoint reads the auth context's dyad scope and runs SQL with that scope. There is no API path that returns memories from a dyad the caller is not authorized for. A tenant key that created N dyads can act on those N — not on dyads it did not create.
+3. **Dyad isolation is absolute.** Every endpoint reads the auth context's dyad scope and runs SQL with that scope. There is no API path that returns memories from a dyad the caller is not authorized for. A tenant key that created N dyads can act on those N, not on dyads it did not create.
 4. **Counterweight injection is on by default.** `POST /v1/search` runs the anti-spiral logic for queries with strongly-negative affect (see [RETRIEVAL.md § 4](RETRIEVAL.md#4--counterweight-injection--anti-spiral-protection)). This cannot be turned off per-request. It can be disabled at the *dyad* level via `consent.counterweights_enabled=false`, which writes an audit row and surfaces in `GET /v1/dyads/{id}`. The dyad owner has to opt out knowingly.
-5. **Right to delete is real.** `DELETE /v1/dyads/{id}` (with double-confirm) performs an actual filesystem + DB wipe and returns a deletion manifest (counts + Merkle root of deleted IDs — IDs themselves are not leaked in the manifest).
+5. **Right to delete is real.** `DELETE /v1/dyads/{id}` (with double-confirm) performs an actual filesystem + DB wipe and returns a deletion manifest (counts + Merkle root of deleted IDs, IDs themselves are not leaked in the manifest).
 
 If a future version of this API loosens any of those five, it must be at `/v2/` with a documented migration and the old version supported in parallel for six months minimum.
 
@@ -61,7 +61,7 @@ The ops surface is **deliberately not an HTTP endpoint.** Operator-level access 
 
 ## 4. The endpoint reference
 
-### 4.1 `POST /v1/memories` — store a memory
+### 4.1 `POST /v1/memories`: store a memory
 
 ```http
 POST /v1/memories
@@ -104,16 +104,16 @@ Content-Type: application/json
 
 **Inference write behavior:** if `proposed_by=assistant` AND `source_type=inference`, the response includes `status=provisional` and `review_after=<utc-iso-30-days-out>`. The memory is not retrievable as a durable hit until promoted via `PATCH /v1/memories/{id}/confirm`.
 
-### 4.2 `GET /v1/memories/{id}` — read one memory
+### 4.2 `GET /v1/memories/{id}`: read one memory
 
 ```http
 GET /v1/memories/53104
 Authorization: Bearer cama_sk_live_...
 ```
 
-**200 OK** with the full record + affect block. **404 Not Found** if the ID belongs to a different dyad (deliberately not 403 — does not leak existence). **404** also if the ID does not exist.
+**200 OK** with the full record + affect block. **404 Not Found** if the ID belongs to a different dyad (deliberately not 403, does not leak existence). **404** also if the ID does not exist.
 
-### 4.3 `DELETE /v1/memories/{id}` — real delete
+### 4.3 `DELETE /v1/memories/{id}`: real delete
 
 ```http
 DELETE /v1/memories/53104
@@ -125,7 +125,7 @@ X-Confirm: 53104
 
 Deletion is real: the row is removed from `memories`, related `memory_affect` and `memory_embeddings` rows cascade-delete, and `librarian_membership` rows for the deleted memory are cleared. No soft-delete tombstone.
 
-### 4.4 `PATCH /v1/memories/{id}/confirm` — promote provisional → durable
+### 4.4 `PATCH /v1/memories/{id}/confirm`: promote provisional → durable
 
 ```http
 PATCH /v1/memories/53104/confirm
@@ -135,9 +135,9 @@ X-Consent-Token: cons_01HXY...
 
 The consent token must come from a successful `POST /v1/consent/grant` for this same dyad + memory ID within the last 5 minutes. **403 Forbidden** if the token is missing, expired, or doesn't bind to this memory.
 
-This is the architectural mechanism enforcing "AI cannot self-promote teachings." The token is one-shot — promoting consumes it.
+This is the architectural mechanism enforcing "AI cannot self-promote teachings." The token is one-shot, promoting consumes it.
 
-### 4.5 `POST /v1/search` — blended retrieval
+### 4.5 `POST /v1/search`: blended retrieval
 
 ```http
 POST /v1/search
@@ -188,11 +188,11 @@ If counterweight injection is disabled at the dyad level (via consent), the resp
 
 **Routing path actually wired (as of v1.1):**
 
-- `routing.phase = "1"` — the request routed through `librarians.routing_keywords` and a dyad-scoped JOIN against `librarian_membership`. This is the real CAMA Phase-1 pipeline documented in [RETRIEVAL.md § 2](RETRIEVAL.md#2--route--librarian-activation). The `score` surfaced per result is the librarian-to-memory `membership_strength`; full blended scoring (the example block above) lands in v1.2 once the embedding cache is portable across the API and MCP processes.
-- `routing.phase = "1_keyword_fallback"` — the dyad's routing index produced nothing (fresh dyad, or no librarians populated yet), so the request fell back to `LOWER(raw_text) LIKE ?` against `memories` directly. The contract still holds — dyad scoping, status filter, counterweight injection — only the routing layer degraded.
-- `routing.phase = "2.6"` — semantic era-aware routing. **Not yet wired through the HTTP API.** It runs through the MCP `cama_search` tool today; surfacing it through `/v1/search` is v1.2 work (depends on extracting the sentence-transformer cache into `cama.core` so the API process can call it without warming a second copy).
+- `routing.phase = "1"`: the request routed through `librarians.routing_keywords` and a dyad-scoped JOIN against `librarian_membership`. This is the real CAMA Phase-1 pipeline documented in [RETRIEVAL.md § 2](RETRIEVAL.md#2--route--librarian-activation). The `score` surfaced per result is the librarian-to-memory `membership_strength`; full blended scoring (the example block above) lands in v1.2 once the embedding cache is portable across the API and MCP processes.
+- `routing.phase = "1_keyword_fallback"`: the dyad's routing index produced nothing (fresh dyad, or no librarians populated yet), so the request fell back to `LOWER(raw_text) LIKE ?` against `memories` directly. The contract still holds (dyad scoping, status filter, counterweight injection), only the routing layer degraded.
+- `routing.phase = "2.6"`: semantic era-aware routing. **Not yet wired through the HTTP API.** It runs through the MCP `cama_search` tool today; surfacing it through `/v1/search` is v1.2 work (depends on extracting the sentence-transformer cache into `cama.core` so the API process can call it without warming a second copy).
 
-### 4.6 `POST /v1/thread/start` — warm boot
+### 4.6 `POST /v1/thread/start`: warm boot
 
 ```http
 POST /v1/thread/start
@@ -219,15 +219,15 @@ Content-Type: application/json
 }
 ```
 
-### 4.7 `POST /v1/thread/end` — close session
+### 4.7 `POST /v1/thread/end`: close session
 
 Closes the active thread, triggers a fresh `boot_summary.json` regeneration so the next thread/start is fast. No body required.
 
 ### 4.8 Dyad endpoints (§4.9–§4.12)
 
-`GET /v1/dyads/{id}` — read consent state, totals, last activity. Returns 404 if not authorized for that dyad.
+`GET /v1/dyads/{id}`, read consent state, totals, last activity. Returns 404 if not authorized for that dyad.
 
-`PATCH /v1/dyads/{id}/consent` — update consent flags. Requires:
+`PATCH /v1/dyads/{id}/consent`, update consent flags. Requires:
 - Bearer token authorized for that dyad
 - `X-Confirm: <dyad_id>` header
 - `Origin` in the configured allowlist (CSRF defense)
@@ -243,7 +243,7 @@ Closes the active thread, triggers a fresh `boot_summary.json` regeneration so t
 }
 ```
 
-`DELETE /v1/dyads/{id}` — real, permanent wipe. Requires double-confirm:
+`DELETE /v1/dyads/{id}`, real, permanent wipe. Requires double-confirm:
 - `X-Confirm: <dyad_id>`
 - `X-Confirm-Again: I-understand-this-is-permanent`
 
@@ -266,9 +266,9 @@ Returns 200 with the deletion manifest (counts + Merkle root of deleted IDs):
 
 The audit file (not exposed via API) contains the full ID list for the operator's records and can be used to verify completeness against backups.
 
-`GET /v1/dyads/{id}/export` — GDPR-style data portability. Returns a JSON bundle of every memory, affect, edge, and consent-history row for the dyad. Streamed to handle large dyads. Response includes `Content-Disposition: attachment; filename="dyad_<id>_export_<utc>.json"`.
+`GET /v1/dyads/{id}/export`, GDPR-style data portability. Returns a JSON bundle of every memory, affect, edge, and consent-history row for the dyad. Streamed to handle large dyads. Response includes `Content-Disposition: attachment; filename="dyad_<id>_export_<utc>.json"`.
 
-### 4.9 `POST /v1/consent/challenge` and `POST /v1/consent/grant` — user-authored consent flow
+### 4.9 `POST /v1/consent/challenge` and `POST /v1/consent/grant`: user-authored consent flow
 
 When `PATCH /v1/memories/{id}/confirm` is needed, the application server first calls `/v1/consent/challenge`:
 
@@ -284,7 +284,7 @@ The response contains a one-time challenge URL the application redirects the end
 
 **This is the architectural mechanism enforcing "AI cannot promote its own inferences."** The user has to *see* the inference and explicitly approve it. The challenge URL is signed (HMAC over dyad ID + memory ID + nonce + TTL), tokens have a 5-minute TTL, and each token is one-shot.
 
-### 4.10 `GET /v1/health` — liveness + degradation
+### 4.10 `GET /v1/health`: liveness + degradation
 
 ```json
 {
@@ -298,11 +298,11 @@ The response contains a one-time challenge URL the application redirects the end
 }
 ```
 
-If the embedding model failed to load, `embedding_model: "unavailable"` and `degraded: true`. In degraded mode, search falls back to keyword-only routing and responses include `warnings: ["search_in_degraded_mode_keyword_only"]`. The API is *not* a 5xx in this state — degraded > failed for memory continuity.
+If the embedding model failed to load, `embedding_model: "unavailable"` and `degraded: true`. In degraded mode, search falls back to keyword-only routing and responses include `warnings: ["search_in_degraded_mode_keyword_only"]`. The API is *not* a 5xx in this state, degraded > failed for memory continuity.
 
 ---
 
-## 5. Error model — RFC 7807 with CAMA extension
+## 5. Error model: RFC 7807 with CAMA extension
 
 Every error response uses Problem Details (RFC 7807) plus a `cama` extension that identifies the violated contract:
 
@@ -349,20 +349,20 @@ The SDK uses `cama.violated_contract` for structured retries and developer-facin
 
 Two key types, distinguished by prefix:
 
-- `cama_sk_live_...` — long-lived application keys (no expiry)
-- `cama_sk_dev_...` — short-lived dev keys (7-day default expiry, configurable up to 30d)
+- `cama_sk_live_...`: long-lived application keys (no expiry)
+- `cama_sk_dev_...`: short-lived dev keys (7-day default expiry, configurable up to 30d)
 
 Format: `cama_sk_<env>_<32_url_safe_base64>`. The 32 bytes of entropy give 192-bit randomness, well above brute-force feasibility.
 
-Storage: keys are hashed at rest with **Argon2id** (memory cost 64 MB, time cost 3, parallelism 4 — OWASP 2023 defaults). The plaintext is shown exactly once at creation (in the `cama-ops keys create` output) and never persisted in plaintext.
+Storage: keys are hashed at rest with **Argon2id** (memory cost 64 MB, time cost 3, parallelism 4, OWASP 2023 defaults). The plaintext is shown exactly once at creation (in the `cama-ops keys create` output) and never persisted in plaintext.
 
 Validation: incoming bearer is Argon2-verified against each active key's hash. Verifies are constant-time per the Argon2 library.
 
 ### 6.2 Two scope models
 
-**Per-dyad keys:** authorize a single dyad. Most common shape — one app = one dyad = one key.
+**Per-dyad keys:** authorize a single dyad. Most common shape, one app = one dyad = one key.
 
-**Tenant keys:** authorize the *set of dyads created by this key*. A consuming application that manages many end-users creates dyads with the tenant key (`POST /v1/dyads` — only callable by a tenant key) and gets per-dyad operating rights for those dyads. The tenant key cannot read across dyads it did not create.
+**Tenant keys:** authorize the *set of dyads created by this key*. A consuming application that manages many end-users creates dyads with the tenant key (`POST /v1/dyads`, only callable by a tenant key) and gets per-dyad operating rights for those dyads. The tenant key cannot read across dyads it did not create.
 
 Tenant keys are the multi-tenant story without inventing org/account hierarchies.
 
@@ -372,7 +372,7 @@ Tenant keys are the multi-tenant story without inventing org/account hierarchies
 
 - One-shot (single use; promoting consumes the token)
 - 5-minute TTL
-- Bound to `(dyad_id, memory_id, action)` triple — cannot be reused for a different memory
+- Bound to `(dyad_id, memory_id, action)` triple, cannot be reused for a different memory
 - Verified via HMAC-SHA256 with a server-side secret
 - The user-facing consent page is served on a different Origin than the API itself (CSRF defense)
 
@@ -387,7 +387,7 @@ Tiered by key kind, configurable per key. Defaults:
 | Tenant (per dyad) | 600 req/min | 1200 req |
 | Operator (file token) | unlimited | n/a |
 
-Rate-limit responses include the standard `RateLimit-*` headers (draft IETF). The token bucket persists in SQLite — a process restart does *not* reset budgets.
+Rate-limit responses include the standard `RateLimit-*` headers (draft IETF). The token bucket persists in SQLite, a process restart does *not* reset budgets.
 
 ### 6.5 CSRF & origin checks
 
@@ -397,7 +397,7 @@ The consent endpoints (`/v1/consent/grant`, `/v1/dyads/{id}/consent`) require:
 - `Origin` header in the configured allowlist
 - `X-Confirm` header for destructive operations
 
-Three layers because consent flows are uniquely sensitive to forgery — a malicious site could trick a browser into changing dyad consent flags. The origin allowlist + X-Confirm + bearer token defends.
+Three layers because consent flows are uniquely sensitive to forgery, a malicious site could trick a browser into changing dyad consent flags. The origin allowlist + X-Confirm + bearer token defends.
 
 ---
 
@@ -417,7 +417,7 @@ This split is named explicitly so operators with high concurrency expectations k
 
 Two SDKs, both client libraries:
 
-**Python first**, package name `cama-sdk` on PyPI (distinct from `cama` which is the server). Released independently — `cama-sdk 1.x` speaks `/v1/`.
+**Python first**, package name `cama-sdk` on PyPI (distinct from `cama` which is the server). Released independently, `cama-sdk 1.x` speaks `/v1/`.
 
 **Node/TS second**, package `@lorienslibrary/cama-sdk`. Same shape, idiomatic TypeScript types.
 
@@ -468,7 +468,7 @@ The SDK is *not* implemented in v1 of this PR. It's specified here so the API sh
 
 ## 10. Observability
 
-- **`api_audit_log` table** in the CAMA SQLite store. One row per request. Schema: `(id INTEGER PK, ts TEXT, key_fingerprint TEXT, dyad_id TEXT, endpoint TEXT, http_method TEXT, status_code INT, latency_ms REAL, request_body_hash TEXT, error_code TEXT)`. Append-only. The `request_body_hash` is SHA-256 of the canonical JSON for replay-detection only — the body itself is never logged.
+- **`api_audit_log` table** in the CAMA SQLite store. One row per request. Schema: `(id INTEGER PK, ts TEXT, key_fingerprint TEXT, dyad_id TEXT, endpoint TEXT, http_method TEXT, status_code INT, latency_ms REAL, request_body_hash TEXT, error_code TEXT)`. Append-only. The `request_body_hash` is SHA-256 of the canonical JSON for replay-detection only, the body itself is never logged.
 - **No PII in logs.** Memory text, query text, consent values: never logged.
 - **Prometheus metrics** at `GET /v1/metrics` (ops-key-gated): request rate, p50/p95/p99 latency per endpoint, error rate by `cama.violated_contract`, dyad-scoped throughput.
 - **Structured stderr logs** in JSON format. Existing `~/.cama/logs/` continues to receive sleep-cycle / boot logs.
@@ -494,7 +494,7 @@ docker run -p 8080:8080 \
   ghcr.io/lorienslibrary/cama-api:1.26.0
 ```
 
-The Docker image and `cama-api-server` console script land in a follow-up PR after v1 of this design is verified — both are designed-for, not built-in-this-PR.
+The Docker image and `cama-api-server` console script land in a follow-up PR after v1 of this design is verified, both are designed-for, not built-in-this-PR.
 
 Required env vars (no defaults that leak privilege):
 
@@ -517,7 +517,7 @@ Required env vars (no defaults that leak privilege):
 | **GDPR** (EU users) | `GET /v1/dyads/{id}/export` for portability, `DELETE /v1/dyads/{id}` for erasure | Operator publishes a privacy policy that names the lawful basis |
 | **COPPA** (under-13 users) | Consent flow primitives | **v1 is NOT approved for under-13 deployments.** v2 will add age-gating + parental-consent middleware before this is unblocked |
 
-The API does not claim compliance itself — it provides the primitives a compliant operator builds with.
+The API does not claim compliance itself. It provides the primitives a compliant operator builds with.
 
 ---
 
@@ -525,20 +525,20 @@ The API does not claim compliance itself — it provides the primitives a compli
 
 | Item | In this PR | Follow-up |
 |---|---|---|
-| `cama/api/server.py` (FastAPI app, lifespan) | ✅ | — |
-| `cama/api/auth.py` (Argon2 key validation, dyad scoping middleware) | ✅ | — |
-| `cama/api/schemas.py` (Pydantic models, enums) | ✅ | — |
-| `cama/api/errors.py` (RFC 7807 envelope) | ✅ | — |
-| `POST /v1/memories` | ✅ | — |
-| `GET /v1/memories/{id}` | ✅ | — |
-| `POST /v1/search` (with counterweight injection wired in) | ✅ | — |
+| `cama/api/server.py` (FastAPI app, lifespan) | ✅ |, |
+| `cama/api/auth.py` (Argon2 key validation, dyad scoping middleware) | ✅ |, |
+| `cama/api/schemas.py` (Pydantic models, enums) | ✅ |, |
+| `cama/api/errors.py` (RFC 7807 envelope) | ✅ |, |
+| `POST /v1/memories` | ✅ |, |
+| `GET /v1/memories/{id}` | ✅ |, |
+| `POST /v1/search` (with counterweight injection wired in) | ✅ |, |
 | `POST /v1/search` runs through real Phase-1 librarian routing (not keyword-LIKE placeholder) | ✅ (v1.1, PR #17) | Phase-2.6 semantic routing through HTTP: v1.2 |
-| `POST /v1/thread/start` | ✅ | — |
-| `GET /v1/health` | ✅ | — |
-| `tests/test_api.py` (auth, provenance, dyad scope, counterweight) | ✅ | — |
-| `[api]` extra in `pyproject.toml` + console script | ✅ | — |
-| `THREAT_MODEL.md` | ✅ | — |
-| API.md (this file) linked from README + EVIDENCE | ✅ | — |
+| `POST /v1/thread/start` | ✅ |, |
+| `GET /v1/health` | ✅ |, |
+| `tests/test_api.py` (auth, provenance, dyad scope, counterweight) | ✅ |, |
+| `[api]` extra in `pyproject.toml` + console script | ✅ |, |
+| `THREAT_MODEL.md` | ✅ |, |
+| API.md (this file) linked from README + EVIDENCE | ✅ |, |
 | `cama-sdk` package on PyPI | ❌ | next session |
 | Tutorial / "20 lines" example repo | ❌ | next session |
 | Webhooks (`POST /v1/webhooks`) | ❌ | v1.1 |

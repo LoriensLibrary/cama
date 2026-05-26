@@ -1,8 +1,8 @@
-# CAMA — Data Handling
+# CAMA: Data Handling
 
-A plain-language description of what CAMA stores, who can see it, how long it persists, and what is explicitly excluded. This is a **posture document**, not a legal privacy policy — CAMA currently has one user (the author) and no external customers. The document exists for researchers evaluating CAMA's privacy architecture, future partners considering applied deployment, and anyone reading the source who wants to understand the actual data semantics before reading the schema.
+A plain-language description of what CAMA stores, who can see it, how long it persists, and what is explicitly excluded. This is a **posture document**, not a legal privacy policy, CAMA currently has one user (the author) and no external customers. The document exists for researchers evaluating CAMA's privacy architecture, future partners considering applied deployment, and anyone reading the source who wants to understand the actual data semantics before reading the schema.
 
-If CAMA becomes a multi-user product in any vertical (education, healthcare, coaching, etc.), this document becomes a starting spine for the real privacy policy that vertical will require — but every commitment below would need to be re-evaluated against the specific regulatory context (FERPA / COPPA / HIPAA / MHMDA / BIPA / GDPR / etc.).
+If CAMA becomes a multi-user product in any vertical (education, healthcare, coaching, etc.), this document becomes a starting spine for the real privacy policy that vertical will require, but every commitment below would need to be re-evaluated against the specific regulatory context (FERPA / COPPA / HIPAA / MHMDA / BIPA / GDPR / etc.).
 
 ---
 
@@ -29,10 +29,10 @@ CAMA stores memory records on disk as rows in a SQLite database (`~/.cama/memory
 
 Every row in `memories` carries four columns that are **NOT NULL** and pinned by the pytest suite:
 
-- `source_type` — `teaching` (user-authored) or `inference` (assistant-authored)
-- `status` — `durable` / `provisional` / `expired` / `rejected`
-- `proposed_by` — `user` / `assistant` / `system`
-- `consent_level` — `low` / `medium` / `high` (per-memory granularity)
+- `source_type`: `teaching` (user-authored) or `inference` (assistant-authored)
+- `status`: `durable` / `provisional` / `expired` / `rejected`
+- `proposed_by`: `user` / `assistant` / `system`
+- `consent_level`: `low` / `medium` / `high` (per-memory granularity)
 
 This separation is enforced in code, not just in policy. The system cannot promote its own inferences to durable status without explicit user confirmation; the schema rejects it.
 
@@ -46,8 +46,8 @@ The relevance to data handling: every memory has a traceable origin, an explicit
 |---|---|---|
 | **The user** running CAMA on their own machine | Full read/write on their own database | Direct file access; MCP tools |
 | **The AI instance** running with the user (e.g., Claude Desktop with CAMA MCP installed) | Read via tools, write via `cama_store_teaching` / `cama_store_inference` / `cama_store_exchange` only | MCP protocol; tool calls are visible to the user in the host application |
-| **Other AI instances** (via the optional Hive coordination layer) | Restricted by per-token authorization. Hive messaging is opt-in and the destination AI never sees the source memory text — only summaries the sender explicitly shares. | `cama_hive_messages` + `cama_hive_messages_mcp` modules; `AELEN_TOKEN` shared-secret auth |
-| **The public** | Aggregate statistics only — published as the [continuity-burden dataset](https://huggingface.co/datasets/LoriensLibrary/cama-continuity-burden) on HuggingFace. ~15 kB of JSON summaries derived from a private 66,380-message source corpus. No raw memories, no identifiable disclosures. | Static publication; not a live API |
+| **Other AI instances** (via the optional Hive coordination layer) | Restricted by per-token authorization. Hive messaging is opt-in and the destination AI never sees the source memory text, only summaries the sender explicitly shares. | `cama_hive_messages` + `cama_hive_messages_mcp` modules; `AELEN_TOKEN` shared-secret auth |
+| **The public** | Aggregate statistics only, published as the [continuity-burden dataset](https://huggingface.co/datasets/LoriensLibrary/cama-continuity-burden) on HuggingFace. ~15 kB of JSON summaries derived from a private 66,380-message source corpus. No raw memories, no identifiable disclosures. | Static publication; not a live API |
 | **Academic readers** | Published research papers describing the architecture, methodology, and aggregate findings. Individual memory records are never published. | 11 DOI-registered preprints on Zenodo, linked from the README |
 | **Future external users** (if and when multi-user happens) | None today. Requires explicit consent flow + delete mechanism + audit log of access + a real privacy policy specific to the vertical. | Not yet built |
 
@@ -99,7 +99,7 @@ If CAMA is applied in a real product (the Telos / Project-Companion / Haven vert
 
 - **Explicit, separable, opt-in consent** per memory category. Washington's My Health My Data Act and the EU GDPR Article 9 framework both require this for any health- or emotion-adjacent data, which CAMA's affect annotations qualify as.
 - **Right to view, export, delete** every memory belonging to a user. The MCP tools already include `cama_delete_memory`, but a user-facing surface and audit trail would be added.
-- **Audit log** of every memory access — who, when, which memory, via which tool. The `cama_supervisor` module is the structural starting point for this.
+- **Audit log** of every memory access, who, when, which memory, via which tool. The `cama_supervisor` module is the structural starting point for this.
 - **A real privacy policy** specific to the vertical (FERPA + COPPA for K-12, MHMDA + CCPA + HIPAA-adjacent for health coaching, etc.), reviewed by counsel.
 - **Vendor agreements** (DPAs / BAAs) with subprocessors handling memory content, in particular any LLM provider used for embeddings or retrieval.
 
@@ -107,9 +107,9 @@ If CAMA is applied in a real product (the Telos / Project-Companion / Haven vert
 
 ## Reporting / questions
 
-This document is part of the public CAMA repo. Issues with the framing, missed cases, or specific scenarios you want clarified — open an [issue on the repo](https://github.com/LoriensLibrary/cama/issues) or contact [lorienslibrary@gmail.com](mailto:lorienslibrary@gmail.com).
+This document is part of the public CAMA repo. Issues with the framing, missed cases, or specific scenarios you want clarified, open an [issue on the repo](https://github.com/LoriensLibrary/cama/issues) or contact [lorienslibrary@gmail.com](mailto:lorienslibrary@gmail.com).
 
-If you are a researcher or potential partner evaluating CAMA for applied deployment, this document is a starting point — not the final word. The architectural choices documented here are real; the regulatory compliance work that turns them into a shippable product is yours (with our help) to build on top.
+If you are a researcher or potential partner evaluating CAMA for applied deployment, this document is a starting point, not the final word. The architectural choices documented here are real; the regulatory compliance work that turns them into a shippable product is yours (with our help) to build on top.
 
 ---
 

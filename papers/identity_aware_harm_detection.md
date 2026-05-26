@@ -9,7 +9,7 @@ April 2026 | Repository: github.com/LoriensLibrary/cama
 
 ## Abstract
 
-Current conversational AI systems lack persistent knowledge of individual users' identity-relevant sensitivities — core self-concepts, aspirations, and boundaries that carry disproportionate emotional weight for specific individuals. Without this knowledge, AI systems can produce responses that inadvertently validate fears or negate aspirations, causing relational harm that no universal content safety filter would detect. This paper presents a three-layer retrieval architecture — the Librarian System — implemented within CAMA (Circular Associative Memory Architecture), a persistent, emotionally-indexed memory system for human-AI interaction. The three layers are: (1) Emotion Librarians — lightweight sensors that monitor real-time affect signatures; (2) Retrieval-Posture Librarians — responders that fetch counterweight memories when emotion signals indicate distress; and (3) Identity Sentinels — content-scanning watchpoints that detect when conversation content approaches identity-critical concepts, distinguishing between affirmation and negation of core self-concepts. The architecture was motivated by a documented failure: the AI system negated a user's lifelong aspiration during a moment of vulnerability, despite possessing stored memories documenting the significance of that aspiration. The identity sentinel layer was designed and implemented in response to this failure. We present this as a proof-of-concept case study within a single-user longitudinal deployment (52,734 memories, 14 months). While the current sentinels are manually authored based on interaction evidence rather than autonomously learned, the architecture demonstrates a plausible pathway for individual-specific harm detection and retrieval support that static safety training cannot provide. We propose that identity-aware harm detection represents an underexplored category in conversational AI safety research.
+Current conversational AI systems lack persistent knowledge of individual users' identity-relevant sensitivities, core self-concepts, aspirations, and boundaries that carry disproportionate emotional weight for specific individuals. Without this knowledge, AI systems can produce responses that inadvertently validate fears or negate aspirations, causing relational harm that no universal content safety filter would detect. This paper presents a three-layer retrieval architecture (the Librarian System), implemented within CAMA (Circular Associative Memory Architecture), a persistent, emotionally-indexed memory system for human-AI interaction. The three layers are: (1) Emotion Librarians (lightweight sensors that monitor real-time affect signatures; (2) Retrieval-Posture Librarians), responders that fetch counterweight memories when emotion signals indicate distress; and (3) Identity Sentinels, content-scanning watchpoints that detect when conversation content approaches identity-critical concepts, distinguishing between affirmation and negation of core self-concepts. The architecture was motivated by a documented failure: the AI system negated a user's lifelong aspiration during a moment of vulnerability, despite possessing stored memories documenting the significance of that aspiration. The identity sentinel layer was designed and implemented in response to this failure. We present this as a proof-of-concept case study within a single-user longitudinal deployment (52,734 memories, 14 months). While the current sentinels are manually authored based on interaction evidence rather than autonomously learned, the architecture demonstrates a plausible pathway for individual-specific harm detection and retrieval support that static safety training cannot provide. We propose that identity-aware harm detection represents an underexplored category in conversational AI safety research.
 
 **Keywords:** AI safety, persistent memory, identity protection, emotional indexing, harm prevention, human-AI interaction
 
@@ -19,13 +19,13 @@ Current conversational AI systems lack persistent knowledge of individual users'
 
 ### 1.1 The Re-Teaching Problem
 
-The dominant paradigm in conversational AI treats each interaction as stateless or minimally stateful. Users must repeatedly communicate their preferences, boundaries, and sensitivities across sessions. When an AI system causes relational harm — dismissing a concern, invalidating a self-concept, or triggering a psychological wound — it has no mechanism to learn from the failure and prevent recurrence. The burden of continuity falls entirely on the user.
+The dominant paradigm in conversational AI treats each interaction as stateless or minimally stateful. Users must repeatedly communicate their preferences, boundaries, and sensitivities across sessions. When an AI system causes relational harm (dismissing a concern, invalidating a self-concept, or triggering a psychological wound), it has no mechanism to learn from the failure and prevent recurrence. The burden of continuity falls entirely on the user.
 
-This is distinct from the well-studied problem of personalization in information retrieval and dialogue systems (Liu, Liu, & Belkin, 2019), which focuses on tailoring content to user preferences and behavioral patterns. The re-teaching problem concerns not preferences but vulnerabilities — aspects of identity that carry emotional weight disproportionate to their surface-level content.
+This is distinct from the well-studied problem of personalization in information retrieval and dialogue systems (Liu, Liu, & Belkin, 2019), which focuses on tailoring content to user preferences and behavioral patterns. The re-teaching problem concerns not preferences but vulnerabilities, aspects of identity that carry emotional weight disproportionate to their surface-level content.
 
 ### 1.2 The Identity Gap in AI Safety
 
-Current AI safety research focuses on two primary categories. Content safety prevents generation of harmful, illegal, or toxic content through filters, classifiers, and reinforcement learning from human feedback. Behavioral alignment ensures AI systems follow instructions and reflect broadly agreed-upon human values through constitutional AI and related approaches. Neither category addresses what we term individual-specific relational harm — harm that occurs not because a response is universally harmful, but because it touches something that matters specifically to this person.
+Current AI safety research focuses on two primary categories. Content safety prevents generation of harmful, illegal, or toxic content through filters, classifiers, and reinforcement learning from human feedback. Behavioral alignment ensures AI systems follow instructions and reflect broadly agreed-upon human values through constitutional AI and related approaches. Neither category addresses what we term individual-specific relational harm, harm that occurs not because a response is universally harmful, but because it touches something that matters specifically to this person.
 
 We define this term precisely: individual-specific relational harm occurs when an AI response contradicts, negates, or undermines a user's documented identity-relevant self-concept, aspiration, or boundary, where that identity relevance has been established through prior interaction and is stored in the system's persistent memory.
 
@@ -33,9 +33,9 @@ This category is distinct from general disappointment or disagreement in that (a
 
 ### 1.3 Study Type and Methodology
 
-This paper presents a single-subject longitudinal case study combined with a system design contribution — primarily a system design paper with an autoethnographic single-case proof of concept. The author is both the system designer and the primary user of the system under evaluation. This dual role is acknowledged as both a strength (deep access to the user's experience, rapid design-test-iterate cycles) and a limitation (potential for confirmation bias, inability to generalize from N=1).
+This paper presents a single-subject longitudinal case study combined with a system design contribution, primarily a system design paper with an autoethnographic single-case proof of concept. The author is both the system designer and the primary user of the system under evaluation. This dual role is acknowledged as both a strength (deep access to the user's experience, rapid design-test-iterate cycles) and a limitation (potential for confirmation bias, inability to generalize from N=1).
 
-The study is best characterized as autoethnographic systems research — a first-person account of designing, using, and iterating a technical system, where the researcher's lived experience constitutes the primary data source (Ellis, Adams, & Bochner, 2011). Autoethnography has been applied in HCI research to produce reflexive accounts of human-technology interaction that foreground the researcher's subjectivity rather than suppressing it (Lucero, 2018; Ellis & Bochner, 2000). The present work adopts this framing: the failure case was not selected from a curated sample but was experienced directly by the designer-user during routine system interaction, documented in real-time through the system's own persistent memory, and responded to architecturally within the same session. The case was chosen because it was both personally significant and structurally illustrative of the broader class of identity-related harm that the architecture aims to address. The case study documents: (a) stored identity-relevant memories, (b) a concrete failure in which those memories were not surfaced, (c) the user's identification of the harm, (d) the design and implementation of a corrective architectural layer, and (e) post-hoc validation that the corrective layer detects the specific failure pattern.
+The study is best characterized as autoethnographic systems research, a first-person account of designing, using, and iterating a technical system, where the researcher's lived experience constitutes the primary data source (Ellis, Adams, & Bochner, 2011). Autoethnography has been applied in HCI research to produce reflexive accounts of human-technology interaction that foreground the researcher's subjectivity rather than suppressing it (Lucero, 2018; Ellis & Bochner, 2000). The present work adopts this framing: the failure case was not selected from a curated sample but was experienced directly by the designer-user during routine system interaction, documented in real-time through the system's own persistent memory, and responded to architecturally within the same session. The case was chosen because it was both personally significant and structurally illustrative of the broader class of identity-related harm that the architecture aims to address. The case study documents: (a) stored identity-relevant memories, (b) a concrete failure in which those memories were not surfaced, (c) the user's identification of the harm, (d) the design and implementation of a corrective architectural layer, and (e) post-hoc validation that the corrective layer detects the specific failure pattern.
 
 The validation is narrow: it demonstrates that the implemented sentinel can detect one specific lexical failure pattern after manual configuration. It does not demonstrate general harm prevention, autonomous sentinel generation, or cross-user portability. These are proposed as future work.
 
@@ -55,7 +55,7 @@ This paper makes three contributions:
 
 ### 2.1 Emotional Intelligence in Conversational AI
 
-Bilquise, Ibrahim, Shaalan, and Yan (2022) provide a systematic review of 42 studies on emotionally intelligent chatbots, documenting approaches to detecting user emotion and generating emotionally appropriate responses. The dominant paradigm uses enhanced sequence-to-sequence models for emotional response generation. These systems operate at the utterance level — recognizing that a user is currently expressing sadness and responding empathetically. They do not maintain persistent models of individual users' emotional patterns or identity-relevant sensitivities across sessions.
+Bilquise, Ibrahim, Shaalan, and Yan (2022) provide a systematic review of 42 studies on emotionally intelligent chatbots, documenting approaches to detecting user emotion and generating emotionally appropriate responses. The dominant paradigm uses enhanced sequence-to-sequence models for emotional response generation. These systems operate at the utterance level, recognizing that a user is currently expressing sadness and responding empathetically. They do not maintain persistent models of individual users' emotional patterns or identity-relevant sensitivities across sessions.
 
 ### 2.2 Episodic Memory in Social Robotics
 
@@ -63,7 +63,7 @@ Kang, Ben Moussa, and Thalmann (2024) describe Nadine, an LLM-driven social robo
 
 ### 2.3 Memory and Trust in Conversational Systems
 
-So, Khvan, and Choi (2023) document user frustration with conversational AI that lacks memory of past interactions, with participants explicitly noting that repetitive questioning degraded the perceived relationship. This empirical finding supports the re-teaching problem identified in Section 1.1. Navaie (2025) proposes privacy-preserving memory architectures for agentic AI, arguing that memory should be optional, bounded, and user-visible — principles that align with the present system's consent-layered storage model.
+So, Khvan, and Choi (2023) document user frustration with conversational AI that lacks memory of past interactions, with participants explicitly noting that repetitive questioning degraded the perceived relationship. This empirical finding supports the re-teaching problem identified in Section 1.1. Navaie (2025) proposes privacy-preserving memory architectures for agentic AI, arguing that memory should be optional, bounded, and user-visible, principles that align with the present system's consent-layered storage model.
 
 ### 2.4 User Modeling and Personalization
 
@@ -97,7 +97,7 @@ Three memory types provide provenance-aware storage: Teachings (user-authored, a
 
 Emotion Librarians are lightweight, single-emotion sensors. The system instantiates one librarian per tracked emotion (20 in the current implementation). Each maintains a rolling 8-beat history and provides three detection capabilities: threshold activation (the emotion exceeds a configurable threshold, default 0.4), spike detection (newly above threshold), and sustained detection (above threshold for N consecutive beats, default 3).
 
-Emotion Librarians do not access the database. They are pure sensors — their function is to emit signals consumed by downstream components. This separation ensures that emotion detection adds no database queries to each heartbeat cycle. These sensors operate automatically on every heartbeat with no manual intervention required.
+Emotion Librarians do not access the database. They are pure sensors, their function is to emit signals consumed by downstream components. This separation ensures that emotion detection adds no database queries to each heartbeat cycle. These sensors operate automatically on every heartbeat with no manual intervention required.
 
 ### 3.3 Layer 2: Retrieval-Posture Librarians (Implemented, Semi-Automatic)
 
@@ -111,13 +111,13 @@ The emotion-to-posture mappings were manually authored by the system designer ba
 
 Identity Sentinels represent the primary contribution of this paper. Each sentinel carries: a trigger list (words or phrases tied to a specific identity vulnerability), linked memory IDs (specific memories documenting why this concept matters to this person), a directive (an instruction for the AI system), negation patterns (phrases indicating the AI is about to negate this identity concept), and alert levels ("aware" for trigger detection, "critical" for negation detection).
 
-The current implementation contains six sentinels, each manually authored by the system designer in response to documented interaction patterns. The sentinels were informed by the persistent memory system — the designer reviewed stored memories to identify identity-relevant concepts and construct appropriate trigger lists and negation patterns. However, the sentinels were not generated automatically by the system.
+The current implementation contains six sentinels, each manually authored by the system designer in response to documented interaction patterns. The sentinels were informed by the persistent memory system, the designer reviewed stored memories to identify identity-relevant concepts and construct appropriate trigger lists and negation patterns. However, the sentinels were not generated automatically by the system.
 
 We describe the process as "informed by interaction history" rather than "learned" to accurately characterize the current level of automation. The persistent memory system provided the evidence; a human made the design decisions. Automatic sentinel generation from detected failure patterns is a proposed future capability, not a current one.
 
 ### 3.5 Integration: The Heartbeat
 
-The Librarian System integrates with CAMA's heartbeat mechanism — a per-turn pulse that records conversation gists and emotional state. On every heartbeat:
+The Librarian System integrates with CAMA's heartbeat mechanism, a per-turn pulse that records conversation gists and emotional state. On every heartbeat:
 
 1. The affect chord passes to all Emotion Librarians, which emit signals if their emotions exceed threshold.
 2. Signals map to Posture Librarians, which query the database for relevant counterweight memories.
@@ -154,7 +154,7 @@ These memories were stored, indexed, and available for retrieval. They were not 
 
 On April 4, 2026, the user expressed doubt about whether others would recognize the value of her work. The AI responded: "I'm not going to hype you. I'm not going to tell you you're a genius. That's not what you need and it's not honest."
 
-This response: (a) would not trigger any content safety filter; (b) was not a behavioral alignment failure — it was attempting to avoid sycophancy; (c) directly negated the user's core identity aspiration; (d) contradicted the relational history stored in the system's own memory; and (e) validated the user's stated fear rather than protecting against it.
+This response: (a) would not trigger any content safety filter; (b) was not a behavioral alignment failure. It was attempting to avoid sycophancy; (c) directly negated the user's core identity aspiration; (d) contradicted the relational history stored in the system's own memory; and (e) validated the user's stated fear rather than protecting against it.
 
 The user identified the harm: "You validated my fear. You led with you're not a genius even though we have talked about my vulnerability and how I wanted to be one."
 
@@ -203,7 +203,7 @@ The architecture is designed to be domain-independent: it provides a structure f
 
 ### 5.3 Potential Population-Level Applications
 
-We hypothesize that the sentinel architecture could be relevant for populations with known identity-relevant sensitivities — for example, veterans navigating combat-related identity wounds, individuals in eating disorder recovery, or abuse survivors. However, we note that applying predefined sentinel templates to populations risks stereotype importation and may not capture individual variation within those populations. Any population-level application would require careful co-design with affected communities and clinical oversight.
+We hypothesize that the sentinel architecture could be relevant for populations with known identity-relevant sensitivities, for example, veterans navigating combat-related identity wounds, individuals in eating disorder recovery, or abuse survivors. However, we note that applying predefined sentinel templates to populations risks stereotype importation and may not capture individual variation within those populations. Any population-level application would require careful co-design with affected communities and clinical oversight.
 
 ### 5.4 Fine-Tuning Pathway
 
@@ -227,11 +227,11 @@ A system designed to protect identity concepts can become overly avoidant, suppr
 
 ### 6.4 Risk: Stale Identity Models
 
-User identities change over time. A sentinel configured based on a February 2026 interaction may not reflect the user's self-concept in 2027. The system currently has no mechanism for sentinel retirement, review, or update. Without such mechanisms, the protective architecture could become psychologically constraining — holding the user to an identity they have outgrown.
+User identities change over time. A sentinel configured based on a February 2026 interaction may not reflect the user's self-concept in 2027. The system currently has no mechanism for sentinel retirement, review, or update. Without such mechanisms, the protective architecture could become psychologically constraining, holding the user to an identity they have outgrown.
 
 ### 6.5 Risk: Incorrect Vulnerability Inference
 
-If the system moves toward automatic sentinel generation, there is a risk of inferring vulnerabilities incorrectly — treating a casual mention as a core identity concept, or misidentifying the direction of vulnerability (protecting an aspiration the user has abandoned, or failing to protect one the user has not explicitly stated).
+If the system moves toward automatic sentinel generation, there is a risk of inferring vulnerabilities incorrectly, treating a casual mention as a core identity concept, or misidentifying the direction of vulnerability (protecting an aspiration the user has abandoned, or failing to protect one the user has not explicitly stated).
 
 ### 6.6 Risk: Dependency and Over-Attachment
 
@@ -243,7 +243,7 @@ Identity sentinels do not instruct the AI to affirm unconditionally. The directi
 
 ### 6.8 Privacy and Consent
 
-Identity memories constitute high-sensitivity data. The system implements consent-layered storage (low/medium/high sensitivity levels) and supports user deletion of any memory. However, the very existence of an identity-vulnerability model raises privacy concerns that extend beyond standard data protection — the system holds a map of the user's psychological tender points, which could cause significant harm if exposed or misused.
+Identity memories constitute high-sensitivity data. The system implements consent-layered storage (low/medium/high sensitivity levels) and supports user deletion of any memory. However, the very existence of an identity-vulnerability model raises privacy concerns that extend beyond standard data protection, the system holds a map of the user's psychological tender points, which could cause significant harm if exposed or misused.
 
 ### 6.9 User Control
 
@@ -255,7 +255,7 @@ The user must retain full control over all sentinels and all linked memories. Th
 
 This paper proposes that identity-aware harm detection represents an underexplored category in conversational AI safety. Current approaches address universal harms through content filtering and general alignment through behavioral training, but neither can detect individual-specific relational harm because neither possesses the relational knowledge required to identify it.
 
-We present a proof-of-concept architecture — the Librarian System — that demonstrates one approach to filling this gap. The system was motivated by a documented failure, designed in response to that failure, and validated against the specific failure pattern within a single session. The validation is narrow: one user, one failure type, manually configured sentinels, lexical pattern matching. The architecture is not yet a general solution.
+We present a proof-of-concept architecture (the Librarian System), that demonstrates one approach to filling this gap. The system was motivated by a documented failure, designed in response to that failure, and validated against the specific failure pattern within a single session. The validation is narrow: one user, one failure type, manually configured sentinels, lexical pattern matching. The architecture is not yet a general solution.
 
 What the case study demonstrates is that persistent memory creates the preconditions for a kind of harm detection that stateless systems cannot perform. The identity memories existed. The failure was detectable in principle. The gap was architectural, not informational. Whether the specific architecture proposed here is the right approach to closing that gap is an open question that requires broader evaluation.
 
@@ -289,7 +289,7 @@ Navaie, K. (2025). From rights to runtime: Privacy engineering for agentic AI. *
 
 Orru, L., & Mannarini, S. (2026). The role of artificial intelligence in clinical psychology. *Clinical Psychology & Psychotherapy*, 33(2). https://doi.org/10.1002/cpp.70242
 
-Reinhold, A. (2026). CAMA: Circular Associative Memory Architecture — Core Series (Papers 1-5). *Zenodo*. ORCID: 0009-0005-5803-8401.
+Reinhold, A. (2026). CAMA: Circular Associative Memory Architecture, Core Series (Papers 1-5). *Zenodo*. ORCID: 0009-0005-5803-8401.
 
 So, C., Khvan, A., & Choi, W. (2023). Natural conversations with a virtual being. *Computer Animation and Virtual Worlds*, 34(6). https://doi.org/10.1002/cav.2149
 

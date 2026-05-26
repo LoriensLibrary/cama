@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this work, please cite the foundation preprint listed below. The full series of 11 DOI-registered preprints is in README.md → Related Publications."
-title: "CAMA — Circular Associative Memory Architecture"
+title: "CAMA: Circular Associative Memory Architecture"
 abstract: "A three-layer persistent memory system for emotionally-indexed human-AI interaction continuity. Implements provenance-aware write discipline (user-authored teachings vs. assistant-generated inferences), blended retrieval scoring (semantic + affect + relational + recency), and counterweight injection under strongly-negative affect. Includes a 27-sub-test safety benchmark suite and a pytest schema/provenance contract under GitHub Actions CI."
 authors:
   - family-names: Reinhold

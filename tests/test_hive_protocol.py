@@ -307,7 +307,7 @@ def test_bucket_arousal(a, expected):
     ("I'm thrilled about my wedding!", "joy"),
     ("working on the new song tonight", "creative"),
     ("the deadline at work is killing me", "work"),
-    ("fight with my partner again", "interpersonal"),
+    ("argument with a friend again", "interpersonal"),
     ("who am I becoming", "identity"),
     ("groceries and laundry", "routine"),
     ("blah blah completely uncategorizable", "other"),

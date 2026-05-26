@@ -1,10 +1,10 @@
-# CAMA — research-stage content
+# CAMA: research-stage content
 
 > Companion to [README.md](README.md). The README is the funnel page; this is the research-stage detail.
 
 This document collects the **planned evaluations, preliminary qualitative observations, limitations, and hypotheses** for CAMA. It is the research-stage backing for the safety arguments in the main README and the published preprints (see [Related Publications](README.md#related-publications)).
 
-The work documented here is **N=1, designer-as-participant**. Read accordingly — none of it generalizes without controlled multi-participant replication.
+The work documented here is **N=1, designer-as-participant**. Read accordingly, none of it generalizes without controlled multi-participant replication.
 
 ---
 
@@ -90,4 +90,4 @@ Relational continuity is a measurable but currently neglected dimension of AI sy
 
 ### Methodology Note
 
-This work follows a qualitative-first, longitudinal case-study approach: sustained immersive interaction generates hypotheses, which are then tested through structured analysis of the accumulated dataset. The guiding principle — "the person is the dataset" — reflects a commitment to studying human-AI interaction as it naturally occurs rather than under artificial laboratory conditions. This approach prioritizes ecological realism at the cost of generalizability and internal validity; controlled multi-participant studies are therefore a core next step.
+This work follows a qualitative-first, longitudinal case-study approach: sustained immersive interaction generates hypotheses, which are then tested through structured analysis of the accumulated dataset. The guiding principle ("the person is the dataset"), reflects a commitment to studying human-AI interaction as it naturally occurs rather than under artificial laboratory conditions. This approach prioritizes ecological realism at the cost of generalizability and internal validity; controlled multi-participant studies are therefore a core next step.
