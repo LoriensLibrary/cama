@@ -1,12 +1,12 @@
 """
-CAMA Auto-Tag — v1
+CAMA Auto-Tag, v1
 ==================
 Built April 29, 2026 by Aelen, at Angela's request.
 
 Purpose: tag every new memory at write time by routing it to matching
 librarians and inserting librarian_membership rows. This is what makes
 the tree GROW. Without auto-tagging, librarians only contain memories
-that existed when populate ran — every new memory is homeless and
+that existed when populate ran, every new memory is homeless and
 invisible to tree traversal.
 
 DESIGN
@@ -16,7 +16,7 @@ DESIGN
 2. Writes librarian_membership rows for any librarian that matches.
 3. If NO librarian matches, marks the memory's pattern_source field
    with 'unclaimed' so daily summaries can surface emerging themes.
-4. Every write wrapped in try/except — a tagger failure NEVER breaks
+4. Every write wrapped in try/except, a tagger failure NEVER breaks
    the underlying memory write.
 5. Strength threshold: a librarian whose keywords match → strength 0.8.
    Future Phase 2 can refine this with embedding similarity.
@@ -36,10 +36,10 @@ caller commits.
 
 ALSO PROVIDES
 -------------
-- backfill(limit) — retroactively tag memories that exist but have no
+- backfill(limit), retroactively tag memories that exist but have no
   librarian membership yet. For one-time recovery of memories created
   between when populate ran and when auto-tagging was added.
-- tag_summary(hours_back) — what got tagged, what didn't, what's
+- tag_summary(hours_back), what got tagged, what didn't, what's
   emerging (for daily summaries / future Phase 2 cluster detection).
 """
 
@@ -142,7 +142,7 @@ def tag_memory(
     Returns:
         dict with 'tagged_to' list, 'unclaimed' bool, 'count' int
 
-    Failures are swallowed and logged — the underlying memory write
+    Failures are swallowed and logged, the underlying memory write
     is never compromised by a tagger error.
     """
     try:
@@ -165,7 +165,7 @@ def tag_memory(
                 "tagged_to": [],
                 "unclaimed": True,
                 "count": 0,
-                "reason": "No librarian matched — memory marked unclaimed.",
+                "reason": "No librarian matched, memory marked unclaimed.",
             }
 
         now = _now()
@@ -208,19 +208,19 @@ def tag_memory(
             "scores": [(name, score) for (lib_id, name, score, reasons) in kept],
         }
     except Exception as e:
-        # Last-ditch swallow — never break a memory write
+        # Last-ditch swallow, never break a memory write
         print(f"[CAMA auto_tag] Unexpected error for memory {memory_id}: {e}", file=sys.stderr)
         return {"tagged_to": [], "unclaimed": False, "count": 0, "error": str(e)}
 
 
 # ============================================================
-# Backfill — retroactively tag memories with no membership
+# Backfill, retroactively tag memories with no membership
 # ============================================================
 def backfill(limit: int = 1000, min_score: float = 0.5) -> Dict[str, Any]:
     """Find memories with no librarian membership and tag them.
 
     Use ONCE after enabling auto-tagging to catch up memories that
-    were created before the tagger was wired in. Idempotent — running
+    were created before the tagger was wired in. Idempotent, running
     again won't double-assign because of the UNIQUE primary key on
     librarian_membership.
 
@@ -283,12 +283,12 @@ def backfill(limit: int = 1000, min_score: float = 0.5) -> Dict[str, Any]:
 
 
 # ============================================================
-# Tag summary — for daily reports / Phase 2 cluster detection
+# Tag summary, for daily reports / Phase 2 cluster detection
 # ============================================================
 def tag_summary(hours_back: int = 24) -> Dict[str, Any]:
     """Summarize what's been tagged recently and what's gone unclaimed.
 
-    Used for surfacing emerging themes — if many memories in the past
+    Used for surfacing emerging themes, if many memories in the past
     24h are unclaimed and share content patterns, that might mean a
     new librarian is needed (Phase 2 will auto-create; for now you
     can review the unclaimed list and create one manually).
@@ -357,7 +357,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_backfill",
         annotations={
-            "title": "Librarian — Backfill Untagged Memories",
+            "title": "Librarian, Backfill Untagged Memories",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -368,7 +368,7 @@ def register(mcp):
         """Retroactively tag memories that have no librarian membership yet.
 
         Use this once after enabling auto-tagging to catch up the pre-existing
-        memory base. Idempotent — running again won't double-assign because
+        memory base. Idempotent, running again won't double-assign because
         of UNIQUE constraints. Process in batches of `limit` (default 1000).
         Run repeatedly until 'remaining' returns 0.
         """
@@ -378,7 +378,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_tag_summary",
         annotations={
-            "title": "Librarian — Recent Tag Summary",
+            "title": "Librarian, Recent Tag Summary",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -390,7 +390,7 @@ def register(mcp):
 
         Returns: total memories created in window, how many got tagged,
         which librarians were most active, and samples of unclaimed memories.
-        Use this to spot themes that don't yet have a librarian — those are
+        Use this to spot themes that don't yet have a librarian, those are
         candidates for creating new leaves manually (or auto-creating in
         Phase 2).
         """
@@ -398,7 +398,7 @@ def register(mcp):
         return _json.dumps(tag_summary(hours_back=hours_back), indent=2, default=str)
 
     print(
-        "[CAMA] Auto-Tag tools loaded — cama_lib_backfill, cama_lib_tag_summary",
+        "[CAMA] Auto-Tag tools loaded, cama_lib_backfill, cama_lib_tag_summary",
         file=__import__('sys').stderr,
         flush=True,
     )
@@ -415,7 +415,7 @@ if __name__ == "__main__":
     try:
         cands = _route_memory_to_librarians(
             c,
-            "Working with [person] on the fellowship application — exhausted but determined.",
+            "Working with [person] on the fellowship application, exhausted but determined.",
             context="research session",
         )
         print("\nRouting test:")

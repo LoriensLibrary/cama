@@ -1,5 +1,5 @@
 """
-CAMA Dashboard Server v3 — with benchmarks + logo
+CAMA Dashboard Server v3, with benchmarks + logo
 """
 
 import http.server
@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 CAMA_DIR = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get("CAMA_DASHBOARD_PORT", "5555"))
-# Default binds loopback only — set CAMA_DASHBOARD_HOST=0.0.0.0 inside Docker
+# Default binds loopback only, set CAMA_DASHBOARD_HOST=0.0.0.0 inside Docker
 # where the port is published explicitly. Never default to 0.0.0.0 on a
 # developer machine; the dashboard reads a personal SQLite corpus.
 HOST = os.environ.get("CAMA_DASHBOARD_HOST", "127.0.0.1")

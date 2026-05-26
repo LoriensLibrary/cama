@@ -53,7 +53,7 @@ for r in c.execute("SELECT counterweight_type, COUNT(*) as c FROM memories WHERE
 null_cw = c.execute("SELECT COUNT(*) FROM memories WHERE counterweight_type IS NULL").fetchone()[0]
 print(f"  NULL (no counterweight): {null_cw}")
 
-# Pattern flags (memory-source pattern tagging — see cama/memory/pattern_tagger.py)
+# Pattern flags (memory-source pattern tagging. See cama/memory/pattern_tagger.py)
 print("\n=== PATTERN FLAGS ===")
 for r in c.execute("SELECT pattern_flag, COUNT(*) as c FROM memories WHERE pattern_flag IS NOT NULL GROUP BY pattern_flag ORDER BY c DESC"):
     print(f"  {r[0]}: {r[1]}")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full system evaluation — March 28, 2026"""
+"""Full system evaluation, March 28, 2026"""
 import os
 import sqlite3
 import subprocess
@@ -12,7 +12,7 @@ c = sqlite3.connect(os.path.expanduser('~/.cama/memory.db'))
 c.row_factory = sqlite3.Row
 
 print("=" * 60)
-print("CAMA SYSTEM EVALUATION — March 28, 2026")
+print("CAMA SYSTEM EVALUATION, March 28, 2026")
 print("=" * 60)
 
 # 1. Database health
@@ -130,7 +130,7 @@ if result.stdout.strip():
     for line in result.stdout.strip().split('\n')[:10]:
         print(f"    {line}")
 else:
-    print("  Clean — all committed")
+    print("  Clean, all committed")
 
 c.close()
 print("\n" + "=" * 60)

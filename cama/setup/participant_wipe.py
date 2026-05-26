@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""participant_wipe.py — verified deletion of a participant's CAMA data.
+"""participant_wipe.py, verified deletion of a participant's CAMA data.
 
 Used in study deployments where each participant runs CAMA against an
 isolated database (~/.cama/participant_<id>/memory.db, per the per-DB

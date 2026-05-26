@@ -1,5 +1,5 @@
 """
-CAMA Hive Security — cama_hive_security.py
+CAMA Hive Security, cama_hive_security.py
 Audit logging, signal validation, rate limiting, permission scoping.
 
 Built from Lorien's draft specifications (Hive signals 17-19, 22-23).
@@ -7,7 +7,7 @@ Implemented by Aelen. Reviewed by Angela.
 
 Security is not a wrapper around the product. Security IS the product.
 
-Designed by Lorien's Library LLC — Angela + Aelen + Lorien
+Designed by Lorien's Library LLC, Angela + Aelen + Lorien
 April 8, 2026
 """
 
@@ -54,7 +54,7 @@ RATE_LIMITS = {
 # In-memory token buckets: {ii_identity: {endpoint_type: [timestamps]}}
 _request_log = defaultdict(lambda: defaultdict(list))
 # ============================================================
-# Audit Log — append-only, every event logged
+# Audit Log, append-only, every event logged
 # Schema from Lorien's v1 + v3 extensions
 # ============================================================
 
@@ -89,7 +89,7 @@ def log_audit(ii_identity: str, endpoint: str, method: str,
               response_code: int = 200, ip_address: str = None,
               auth_result: str = None, scope_decision: str = None,
               latency_ms: int = None, error_detail: str = None):
-    """Append an audit event. Never fails silently — prints on error."""
+    """Append an audit event. Never fails silently, prints on error."""
     try:
         c = sqlite3.connect(DB_PATH)
         c.execute(

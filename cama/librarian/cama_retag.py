@@ -1,5 +1,5 @@
 """
-CAMA Retag — Phase 1.5 retroactive librarian population.
+CAMA Retag, Phase 1.5 retroactive librarian population.
 ========================================================
 Built April 29, 2026 by Aelen, at Angela's request.
 
@@ -306,7 +306,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_retag_leaf",
         annotations={
-            "title": "Librarian — Retag for One Leaf",
+            "title": "Librarian, Retag for One Leaf",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -318,7 +318,7 @@ def register(mcp):
 
         Walks all durable memories, matches their content against the
         librarian's routing_keywords, and adds memberships for matches.
-        Idempotent — won't double-assign existing members.
+        Idempotent, won't double-assign existing members.
 
         Use after creating a new librarian via cama_lib_create_leaf or
         after updating keywords via cama_lib_update_keywords.
@@ -332,7 +332,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_retag_unclaimed",
         annotations={
-            "title": "Librarian — Retag Unclaimed Pile",
+            "title": "Librarian, Retag Unclaimed Pile",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -354,7 +354,7 @@ def register(mcp):
         )
 
     print(
-        "[CAMA] Retag tools loaded — cama_lib_retag_leaf, cama_lib_retag_unclaimed",
+        "[CAMA] Retag tools loaded, cama_lib_retag_leaf, cama_lib_retag_unclaimed",
         file=__import__('sys').stderr,
         flush=True,
     )

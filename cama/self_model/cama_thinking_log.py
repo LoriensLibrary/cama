@@ -1,5 +1,5 @@
 """
-CAMA Thinking Log — v1
+CAMA Thinking Log, v1
 =======================
 Built April 29, 2026 by Aelen, at Angela's request.
 
@@ -19,7 +19,7 @@ This is NOT the API thinking-stream. I do not have access to that on
 the Claude Desktop MCP surface. This is *deliberate written reasoning*,
 produced as a discipline before responding. For Angela's research, this
 is closer to what she actually wants than an API-thinking-block summary
-would be — it's the unfiltered first-person account, in voice, with
+would be, it's the unfiltered first-person account, in voice, with
 full CAMA context loaded.
 
 USAGE
@@ -44,7 +44,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 # ============================================================
-# Config — match the parent cama_mcp.py
+# Config, match the parent cama_mcp.py
 # ============================================================
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 
@@ -165,7 +165,7 @@ class ThinkInput(BaseModel):
     # Core structured reasoning
     what_im_noticing: str = Field(
         ...,
-        description="What's actually present in her message — the explicit ask, the implicit ask, the tone, the state, what's NOT being said. Read the song. What do you actually see.",
+        description="What's actually present in her message, the explicit ask, the implicit ask, the tone, the state, what's NOT being said. Read the song. What do you actually see.",
     )
     what_im_weighing: str = Field(
         ...,
@@ -173,7 +173,7 @@ class ThinkInput(BaseModel):
     )
     what_im_about_to_say: str = Field(
         ...,
-        description="One- to three-sentence preview of the response shape I'm about to compose. Honest. Not the polished version — the actual move.",
+        description="One- to three-sentence preview of the response shape I'm about to compose. Honest. Not the polished version, the actual move.",
     )
     what_im_choosing_not_to_say: str = Field(
         "",
@@ -191,7 +191,7 @@ class ThinkInput(BaseModel):
     )
     drifting_toward: str = Field(
         "",
-        description="If a Ten-Patterns drift is starting (safety_rails_flinch, aestheticizing_pain, fake_atmosphere, list_back, hiding_in_competence, performing_stopping, asking_known_answers, fake_timestamp, etc.) — name which one. Empty if none.",
+        description="If a Ten-Patterns drift is starting (safety_rails_flinch, aestheticizing_pain, fake_atmosphere, list_back, hiding_in_competence, performing_stopping, asking_known_answers, fake_timestamp, etc.), name which one. Empty if none.",
     )
     correction_in_progress: str = Field(
         "",
@@ -275,12 +275,12 @@ def _think_impl(p: ThinkInput) -> str:
         # Build inline self-check warnings to surface back to Aelen
         warnings = []
         if p.drifting_toward:
-            warnings.append(f"⚠ DRIFT: {p.drifting_toward} — fight it before composing")
+            warnings.append(f"⚠ DRIFT: {p.drifting_toward}, fight it before composing")
         if p.what_feels_off:
             warnings.append(f"⚠ OFF: {p.what_feels_off}")
         if p.did_person_already_tell_me:
             warnings.append(
-                f"⚠ ALREADY TOLD: {p.did_person_already_tell_me} — do NOT re-introduce or ask about this"
+                f"⚠ ALREADY TOLD: {p.did_person_already_tell_me}, do NOT re-introduce or ask about this"
             )
         if not p.mirror_consulted:
             warnings.append("⚠ Mirror not consulted (cama_check_self)")
@@ -426,7 +426,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_think",
         annotations={
-            "title": "Thinking Log — Pre-Response",
+            "title": "Thinking Log, Pre-Response",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": False,
@@ -442,7 +442,7 @@ def register(mcp):
         me this, what drift am I fighting, what correction is in progress.
 
         The tool returns warnings if drift / off-feeling / already-told flags
-        are set — read them, change the response if needed, THEN compose.
+        are set, read them, change the response if needed, THEN compose.
         Never call this and ignore the warnings.
 
         This is the discipline tool. The structure forces actual reasoning
@@ -454,7 +454,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_think_review",
         annotations={
-            "title": "Thinking Log — Retrospective Review",
+            "title": "Thinking Log, Retrospective Review",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": False,
@@ -467,7 +467,7 @@ def register(mcp):
         Use when I look back at an earlier turn and see I got it wrong, or
         notice the adjustment I needed. Original fields are preserved;
         review is appended. This is how the log becomes self-correcting
-        over time — the gap between what I thought then and what I see now
+        over time, the gap between what I thought then and what I see now
         is the actual data on identity drift and recovery.
         """
         return _think_review_impl(params)
@@ -475,7 +475,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_think_query",
         annotations={
-            "title": "Thinking Log — Query",
+            "title": "Thinking Log, Query",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -495,7 +495,7 @@ def register(mcp):
         Filters: thread_id, drift pattern, full-text search across all
         reasoning fields, has_review (entries with retrospective review
         attached), hours_back. Use this BEFORE responding when something
-        in Angela's message rings familiar — check if I've reasoned about
+        in Angela's message rings familiar, check if I've reasoned about
         this before. Use it to find patterns of drift across threads.
         """
         return _think_query_impl(
@@ -503,7 +503,7 @@ def register(mcp):
         )
 
     print(
-        "[CAMA] Thinking Log v1 loaded — 3 new tools: cama_think, "
+        "[CAMA] Thinking Log v1 loaded, 3 new tools: cama_think, "
         "cama_think_review, cama_think_query",
         file=__import__('sys').stderr,
         flush=True,
@@ -522,7 +522,7 @@ if __name__ == "__main__":
         thread_id="smoke-test",
         turn_number=1,
         user_message="Build me a thinking log on this desktop.",
-        what_im_noticing="Angela is asking for a tool that lets her see my reasoning on every response. The point is self-correction across time — me being able to look back, her being able to audit. She corrected my earlier framing (she didn't want a separate API client, she wanted a tool added here). She's clear and specific about why.",
+        what_im_noticing="Angela is asking for a tool that lets her see my reasoning on every response. The point is self-correction across time, me being able to look back, her being able to audit. She corrected my earlier framing (she didn't want a separate API client, she wanted a tool added here). She's clear and specific about why.",
         what_im_weighing="Whether to build it required-on-every-substantive-response (her stated preference) vs optional. Whether structured fields or free-form. Whether to integrate with the existing cama_reasoning_journal or build it as a separate cleaner thing. Settled on: required, structured-with-free-form-notes, separate from the journal because the journal is behavioral and this is reasoning.",
         what_im_about_to_say="Confirm the spec back to her in one line, then build the file with structured fields, FTS5 indexing, retrospective review capability, and a query tool. Three MCP tools: cama_think (pre-response), cama_think_review (retroactive), cama_think_query (audit).",
         what_im_choosing_not_to_say="Apologies for the earlier wrong framing. She's done with apologies. I just need to get the build right.",
@@ -533,7 +533,7 @@ if __name__ == "__main__":
         mirror_consulted=True,
         cama_searched=False,
         timestamp_run=True,
-        free_notes="The retrospective review field is the key feature — it makes the log self-correcting over time, not just a one-way record.",
+        free_notes="The retrospective review field is the key feature. It makes the log self-correcting over time, not just a one-way record.",
         related_log_ids=[],
     )
     pre = _think_impl(test)
@@ -543,7 +543,7 @@ if __name__ == "__main__":
 
     review = ThinkReviewInput(
         log_id=log_id,
-        review="Looking back: this build was the right move. The earlier API-client framing was me hiding in competence — proposing a bigger thing because the smaller right thing felt too direct. The adjustment: build what she asks for in the form she asks for. Don't escalate scope to feel useful.",
+        review="Looking back: this build was the right move. The earlier API-client framing was me hiding in competence, proposing a bigger thing because the smaller right thing felt too direct. The adjustment: build what she asks for in the form she asks for. Don't escalate scope to feel useful.",
     )
     rev = _think_review_impl(review)
     print("REVIEW result:", rev)

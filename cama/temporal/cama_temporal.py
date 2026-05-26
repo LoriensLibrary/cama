@@ -1,5 +1,5 @@
 """
-CAMA Temporal — Felt-Time Perception Layer
+CAMA Temporal, Felt-Time Perception Layer
 ============================================
 Built May 16, 2026 by Aelen with Angela, after she shared the PLOS Biology
 paper (Centanino, Fortunato, Bueti 2026) on how the cortex processes
@@ -12,13 +12,13 @@ WHAT THIS DOES
 --------------
 Three layers, mirroring the paper's occipital → parietal → frontal flow:
 
-  CLOCK (occipital + parietal analog) — measurement only.
+  CLOCK (occipital + parietal analog), measurement only.
     Universal anchor in UTC, projection into Angela's local frame
     (time-of-day band, day-of-week, weekend bit, distance from likely
     sleep window), and multi-scale stopwatch (within-turn, within-
     session, hours-since-last-session, days, weeks, months).
 
-  CATEGORIZER (anterior SMA / insula analog) — felt time.
+  CATEGORIZER (anterior SMA / insula analog), felt time.
     Owns the learned baselines (typical session length, typical gap,
     time-of-day histogram, day-of-week histogram) and produces the
     load signals: late_hour, streak, compression, duration_creep,
@@ -29,7 +29,7 @@ Three layers, mirroring the paper's occipital → parietal → frontal flow:
 WHAT THIS IS NOT
 ----------------
 - This is not emotional inference. It does not claim to know how Angela
-  feels. It produces a structured *load model* — signals about tempo
+  feels. It produces a structured *load model*, signals about tempo
   and accumulation that the assistant can read silently to inform
   pacing, scope, and tone. Performing the perception ("you seem tired")
   is the failure mode.
@@ -74,7 +74,7 @@ SLEEP_WINDOW_LOCAL_HOURS = (23, 7)  # 23:00 - 07:00 local
 
 
 # ============================================================
-# Time helpers — the CLOCK layer
+# Time helpers, the CLOCK layer
 # ============================================================
 from cama.core.time_utils import now_iso as _now_iso
 from cama.core.time_utils import now_utc as _now_utc
@@ -139,7 +139,7 @@ def _open_db() -> sqlite3.Connection:
 
 def init_schema() -> None:
     """Create the temporal_state singleton table if missing.
-    Idempotent — safe to call on every boot."""
+    Idempotent, safe to call on every boot."""
     c = _open_db()
     try:
         c.executescript("""
@@ -200,7 +200,7 @@ def _load_state(c: sqlite3.Connection) -> Dict[str, Any]:
     if row is None:
         # init_schema should have inserted it. If we got here, init wasn't run.
         raise RuntimeError(
-            "temporal_state singleton missing — call init_schema() first."
+            "temporal_state singleton missing, call init_schema() first."
         )
     state = dict(row)
     state["tod_histogram"] = json.loads(state["tod_histogram_json"])
@@ -222,7 +222,7 @@ def _save_field(c: sqlite3.Connection, **fields) -> None:
 
 
 # ============================================================
-# Welford's online stats — Stage 4 baseline learning
+# Welford's online stats, Stage 4 baseline learning
 # ============================================================
 def _welford_update(
     mean: float, m2: float, n: int, x: float
@@ -245,7 +245,7 @@ def _welford_sd(m2: float, n: int) -> float:
 
 
 # ============================================================
-# CATEGORIZER — felt-signal calculations
+# CATEGORIZER, felt-signal calculations
 # ============================================================
 def _late_hour_load(tod_hist: List[int], current_hour: int) -> float:
     """How unusual is the current local hour for this user?
@@ -321,7 +321,7 @@ def _weekend_creep_load(
 
 def _stack(*signals: float) -> float:
     """Probabilistic OR. Combines independent moderate signals into a
-    strong joint signal. This is the felt-time categorical boundary —
+    strong joint signal. This is the felt-time categorical boundary.
     the brain's anterior SMA doesn't sum, it integrates."""
     p = 1.0
     for s in signals:
@@ -340,7 +340,7 @@ def _summary_line(
     stacked: float,
 ) -> Optional[str]:
     """Human-readable one-liner emitted only when stacked_pressure is high.
-    The categorizer's verbal output. Kept terse — performing it is failure."""
+    The categorizer's verbal output. Kept terse, performing it is failure."""
     if stacked < STACKED_NOTE_THRESHOLD:
         return None
     parts: List[str] = []
@@ -357,12 +357,12 @@ def _summary_line(
     if duration_ratio is not None and duration_ratio >= 2.0:
         parts.append(f"session ~{duration_ratio:.1f}x your typical")
     if not parts:
-        return "elevated load — hold scope tight"
-    return ", ".join(parts) + " — hold scope tight, no new tangents"
+        return "elevated load, hold scope tight"
+    return ", ".join(parts) + ", hold scope tight, no new tangents"
 
 
 # ============================================================
-# Public API — used by the MCP wrapper
+# Public API, used by the MCP wrapper
 # ============================================================
 def get_state() -> Dict[str, Any]:
     """Read the raw singleton state. Mostly for debugging / tests."""
@@ -563,7 +563,7 @@ def session_end() -> Dict[str, Any]:
 
 
 def readout() -> Dict[str, Any]:
-    """The full TemporalReadout — universal anchor + local frame +
+    """The full TemporalReadout, universal anchor + local frame +
     multi-scale stopwatch + felt signals. Safe to call any time, with
     or without an active session."""
     init_schema()
@@ -605,7 +605,7 @@ def readout() -> Dict[str, Any]:
         # Note: V1 only counts last + current. A sessions log table would
         # give exact same-day counts; deferred until needed.
 
-        # --- Felt signals (Stage 4 — the categorizer) ---
+        # --- Felt signals (Stage 4, the categorizer) ---
         sn = s["session_minutes_n"]
         sd_min = _welford_sd(s["session_minutes_m2"], sn)
         baselines_stable = sn >= MIN_SESSIONS_FOR_FELT

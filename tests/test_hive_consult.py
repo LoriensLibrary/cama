@@ -1,4 +1,4 @@
-"""Tests for cama_hive_consult — the AI-to-AI council channel.
+"""Tests for cama_hive_consult, the AI-to-AI council channel.
 
 Properties under test:
   1. consent gating: post refused without hive_consult; respond refused

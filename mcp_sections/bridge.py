@@ -16,7 +16,7 @@ def _resolved_write_allowlist() -> list[Path]:
     Read at call time (not import time) so tests and operators can override via the
     CAMA_BRIDGE_WRITE_ALLOWLIST env var without restarting the process. The env var
     is split on os.pathsep (``;`` on Windows, ``:`` on POSIX) so absolute paths on
-    Windows — which contain ``:`` after the drive letter — survive the split.
+    Windows, which contain ``:`` after the drive letter, survive the split.
     """
     override = os.environ.get("CAMA_BRIDGE_WRITE_ALLOWLIST")
     if override:

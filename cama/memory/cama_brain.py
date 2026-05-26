@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-CAMA Brain Orchestrator — cama_brain.py
+CAMA Brain Orchestrator, cama_brain.py
 Master daemon that runs all layers in sequence.
 
-Layer 1: Memory (cama_mcp.py — already running as MCP server)
-Layer 2: Consolidation (cama_sleep.py — synaptic plasticity, dreaming)
-Layer 3: Pattern Abstraction (cama_insight.py — recognizing what keeps happening)
-Layer 4: Self-Model (cama_self_model.py — persistent identity, growth tracking)
-Layer 5: Intentionality (built into self-model — proactive care queue)
+Layer 1: Memory (cama_mcp.py, already running as MCP server)
+Layer 2: Consolidation (cama_sleep.py, synaptic plasticity, dreaming)
+Layer 3: Pattern Abstraction (cama_insight.py, recognizing what keeps happening)
+Layer 4: Self-Model (cama_self_model.py, persistent identity, growth tracking)
+Layer 5: Intentionality (built into self-model, proactive care queue)
 
 This orchestrator runs Layers 2-5 as a unified cycle.
 Layer 1 runs separately as the MCP server.
@@ -18,8 +18,8 @@ Brain architecture mapped to neuroscience:
   Self-model    = medial prefrontal self-referential processing
   Intent queue  = anterior cingulate conflict monitoring + initiation
 
-Designed by Lorien's Library LLC — Built by Angela + Aelen
-Convergent architecture — independently derived, neuroscience-validated.
+Designed by Lorien's Library LLC, Built by Angela + Aelen
+Convergent architecture, independently derived, neuroscience-validated.
 
 Usage:
   python cama_brain.py              # Run one full brain cycle
@@ -56,7 +56,7 @@ from cama.core.time_utils import now_iso as _now
 
 
 # ============================================================
-# Import layers — graceful fallback if a layer isn't ready
+# Import layers, graceful fallback if a layer isn't ready
 # ============================================================
 def import_layer(module_name, display_name):
     """Import a CAMA layer module, return None if unavailable.
@@ -90,7 +90,7 @@ def import_layer(module_name, display_name):
 
 
 # ============================================================
-# BRAIN CYCLE — runs all layers in sequence
+# BRAIN CYCLE, runs all layers in sequence
 # ============================================================
 def run_brain_cycle(cycle_number: int) -> dict:
     """Run one complete brain cycle across all layers."""
@@ -101,7 +101,7 @@ def run_brain_cycle(cycle_number: int) -> dict:
     logging.info(f"BRAIN CYCLE #{cycle_number} STARTING")
     logging.info("=" * 70)
 
-    # LAYER 2: Sleep / Consolidation — runs every cycle
+    # LAYER 2: Sleep / Consolidation, runs every cycle
     if cycle_number % SLEEP_FREQUENCY == 0:
         logging.info("")
         logging.info(">>> LAYER 2: CONSOLIDATION (hippocampal replay)")
@@ -119,7 +119,7 @@ def run_brain_cycle(cycle_number: int) -> dict:
     else:
         logging.info(">>> LAYER 2: SKIPPED (not scheduled this cycle)")
 
-    # LAYER 3: Insight / Pattern Abstraction — runs every 4th cycle
+    # LAYER 3: Insight / Pattern Abstraction, runs every 4th cycle
     if cycle_number % INSIGHT_FREQUENCY == 0:
         logging.info("")
         logging.info(">>> LAYER 3: PATTERN ABSTRACTION (prefrontal recognition)")
@@ -137,7 +137,7 @@ def run_brain_cycle(cycle_number: int) -> dict:
         logging.info(f">>> LAYER 3: SKIPPED (runs every {INSIGHT_FREQUENCY} cycles, "
                     f"next at cycle {((cycle_number // INSIGHT_FREQUENCY) + 1) * INSIGHT_FREQUENCY})")
 
-    # LAYER 4+5: Self-Model + Intentionality — runs every 8th cycle
+    # LAYER 4+5: Self-Model + Intentionality, runs every 8th cycle
     if cycle_number % SELF_MODEL_FREQUENCY == 0:
         logging.info("")
         logging.info(">>> LAYER 4: SELF-MODEL (medial prefrontal identity)")
@@ -175,7 +175,7 @@ def run_brain_cycle(cycle_number: int) -> dict:
 # DAEMON MODE
 # ============================================================
 def run_daemon(interval_min=DEFAULT_INTERVAL_MIN):
-    logging.info(f"CAMA Brain Orchestrator starting — interval: {interval_min} minutes")
+    logging.info(f"CAMA Brain Orchestrator starting, interval: {interval_min} minutes")
     logging.info(f"Database: {DB_PATH}")
     logging.info(f"Layer schedule: Sleep=every {SLEEP_FREQUENCY} cycles, "
                 f"Insight=every {INSIGHT_FREQUENCY}, Self=every {SELF_MODEL_FREQUENCY}")
@@ -204,7 +204,7 @@ def run_daemon(interval_min=DEFAULT_INTERVAL_MIN):
 if __name__ == "__main__":
     setup_logging()
     parser = argparse.ArgumentParser(
-        description="CAMA Brain Orchestrator — all layers, one daemon")
+        description="CAMA Brain Orchestrator, all layers, one daemon")
     parser.add_argument("--daemon", action="store_true")
     parser.add_argument("--interval", type=int, default=DEFAULT_INTERVAL_MIN)
     parser.add_argument("--cycle", type=int, default=1,
@@ -226,10 +226,10 @@ if __name__ == "__main__":
 |  Database: {DB_PATH}
 |  Mode: {'daemon (' + str(args.interval) + 'min)' if args.daemon else 'single cycle'}
 |                                                      |
-|  Layer 2: Sleep/Consolidation  — every cycle         |
-|  Layer 3: Insight/Patterns     — every {INSIGHT_FREQUENCY}th cycle       |
-|  Layer 4: Self-Model/Identity  — every {SELF_MODEL_FREQUENCY}th cycle       |
-|  Layer 5: Intentionality       — with Layer 4        |
+|  Layer 2: Sleep/Consolidation , every cycle         |
+|  Layer 3: Insight/Patterns    , every {INSIGHT_FREQUENCY}th cycle       |
+|  Layer 4: Self-Model/Identity , every {SELF_MODEL_FREQUENCY}th cycle       |
+|  Layer 5: Intentionality      , with Layer 4        |
 |                                                      |
 |  Architecture:                                       |
 |    Hippocampal consolidation (sleep)                 |

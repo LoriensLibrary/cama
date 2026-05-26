@@ -1,5 +1,5 @@
 """
-CAMA Regression Analysis — January 2026 to April 14, 2026
+CAMA Regression Analysis, January 2026 to April 14, 2026
 Tracks: corrections, negative exchanges, self-evaluation failures, drift patterns.
 Outputs: timeline of regression markers with severity scoring.
 """

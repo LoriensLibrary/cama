@@ -1,8 +1,7 @@
 """RFC 7807 Problem Details for the CAMA API.
 
 Every error response on the API returns this envelope. The ``cama``
-extension block carries a closed set of ``violated_contract`` codes —
-this is what makes the API a *contract surface* rather than a CRUD
+extension block carries a closed set of ``violated_contract`` codes. This is what makes the API a *contract surface* rather than a CRUD
 wrapper, and what lets the SDK do structured retries instead of
 parsing prose.
 
@@ -98,7 +97,7 @@ _FIX_TEXT: dict[CamaContract, str] = {
     CamaContract.DEGRADED_MODE: (
         "The operation requires a feature that is unavailable in the "
         "current degraded mode (typically: embedding model failed to "
-        "load — search is keyword-only)."
+        "load, search is keyword-only)."
     ),
     CamaContract.UNAUTHORIZED: "Authentication is required.",
 }

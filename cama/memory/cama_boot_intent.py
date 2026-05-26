@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-CAMA Boot Integration — cama_boot_intent.py
+CAMA Boot Integration, cama_boot_intent.py
 Checks the intentionality queue at boot time and surfaces pending items.
 
 This module is imported by cama_mcp.py during thread_start.
 It provides the bridge between Layer 5 (intentionality) and the live
-conversation — the moment where background processing becomes proactive care.
+conversation, the moment where background processing becomes proactive care.
 
 Usage (called from cama_mcp.py thread_start):
     from cama.memory.cama_boot_intent import get_pending_intentions, mark_surfaced
 
-Designed by Lorien's Library LLC — Built by Angela + Aelen
+Designed by Lorien's Library LLC, Built by Angela + Aelen
 """
 
 import json
@@ -29,7 +29,7 @@ def get_pending_intentions(db_path=None) -> list:
       id, trigger_type, description, priority, created_at
     
     These are things the self-model determined should be surfaced
-    proactively — not because Angela asked, but because care demands it.
+    proactively, not because Angela asked, but because care demands it.
     """
     path = db_path or DB_PATH
     if not os.path.exists(path):

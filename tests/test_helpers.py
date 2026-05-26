@@ -54,7 +54,7 @@ def test_is_neg_flags_negative_valence(fresh_db):
 
 
 def test_status_weight_unknown_status_falls_back_safely(fresh_db):
-    """Unknown statuses should not crash — they get a middling weight."""
+    """Unknown statuses should not crash. They get a middling weight."""
     _, cama_mcp = fresh_db
     w = cama_mcp._status_weight("something-unexpected")
     assert 0.0 <= w <= 1.0

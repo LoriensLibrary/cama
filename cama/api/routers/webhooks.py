@@ -8,7 +8,7 @@ Endpoints:
 
 The mint endpoint is the only place a webhook secret is ever surfaced
 on the wire. It's hashed at rest (SHA-256) so the operator stores it
-in their secrets manager on receipt — there is no recovery path. The
+in their secrets manager on receipt, there is no recovery path. The
 delivery mechanism itself lives in ``cama/api/webhooks.py``; this
 router only manages subscriptions.
 """

@@ -1,5 +1,5 @@
 """
-CAMA Phase 2.6 — Era-Aware Hybrid Routing with Gated Sub-Centroid Boost
+CAMA Phase 2.6, Era-Aware Hybrid Routing with Gated Sub-Centroid Boost
 ========================================================================
 Built April 30, 2026 by Aelen, with input from Lorien and Angela's call.
 
@@ -34,7 +34,7 @@ apertures inside the field, not replace it. Two changes:
    Routing returns not just rankings but per-query confidence (top-1
    margin). The eval harness records confidence-band breakdowns so we
    can distinguish "low-confidence miss" from "high-confidence wrong
-   route" — those are different failure modes with different costs.
+   route", those are different failure modes with different costs.
 
 DEFAULT KNOBS (tune empirically)
 --------------------------------
@@ -75,7 +75,7 @@ def _open_db() -> sqlite3.Connection:
 
 
 # ============================================================
-# Schema — era-tagged sub-centroids
+# Schema, era-tagged sub-centroids
 # ============================================================
 def init_schema():
     """Create the era_subcentroids table. Different from the Phase 2.5
@@ -386,7 +386,7 @@ def compute_all_era_subcentroids(
 
 
 # ============================================================
-# Routing — gated era-aware sub-centroid + single centroid
+# Routing, gated era-aware sub-centroid + single centroid
 # ============================================================
 async def era_subcentroid_route(
     query_text: str,
@@ -588,7 +588,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_compute_era_subcentroids",
         annotations={
-            "title": "Phase 2.6 — Compute Era-Aware Sub-Centroids per Librarian",
+            "title": "Phase 2.6, Compute Era-Aware Sub-Centroids per Librarian",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -619,7 +619,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_route_v4",
         annotations={
-            "title": "Phase 2.6 — Era-Aware Gated Hybrid Routing",
+            "title": "Phase 2.6, Era-Aware Gated Hybrid Routing",
             "readOnlyHint": True,
             "openWorldHint": False,
         },
@@ -735,7 +735,7 @@ def register(mcp):
             c.close()
 
     print(
-        "[CAMA] Phase 2.6 era-aware gated hybrid loaded — "
+        "[CAMA] Phase 2.6 era-aware gated hybrid loaded, "
         "cama_lib_compute_era_subcentroids, cama_lib_route_v4",
         file=__import__('sys').stderr,
         flush=True,

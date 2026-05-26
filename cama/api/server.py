@@ -1,4 +1,4 @@
-"""CAMA HTTP API — v1 application factory.
+"""CAMA HTTP API, v1 application factory.
 
 This module is the application *factory* for the CAMA v1 API. It does
 exactly four things:
@@ -12,7 +12,7 @@ exactly four things:
      branch on ``cama.violated_contract``.
   4. ``include_router(...)`` every router under ``cama.api.routers.*``.
 
-Endpoint handlers do NOT live in this file — they live in
+Endpoint handlers do NOT live in this file. They live in
 ``cama/api/routers/`` (one module per endpoint family). Shared helpers
 (``require_auth``, ``open_memory_db``, ``is_negative_affect``, etc.)
 live in ``cama/api/deps.py``.

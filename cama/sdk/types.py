@@ -18,7 +18,7 @@ MemoryStatus = Literal["durable", "provisional", "expired", "rejected"]
 
 
 # ---------------------------------------------------------------------------
-# Provenance helpers — the architectural contract surfaced as ergonomic API
+# Provenance helpers, the architectural contract surfaced as ergonomic API
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True, slots=True)
 class Provenance:
@@ -45,7 +45,7 @@ class Provenance:
     @classmethod
     def inference(cls, *, by: ProposedBy = "assistant") -> Provenance:
         """Assistant-proposed inferences land as ``provisional`` per the
-        v1 API contract — the consent token flow is required to promote
+        v1 API contract, the consent token flow is required to promote
         them to ``durable``."""
         return cls(proposed_by=by, source_type="inference")
 

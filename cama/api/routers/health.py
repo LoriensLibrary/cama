@@ -1,8 +1,8 @@
-"""``/v1/health`` and ``/v1/version`` — meta endpoints (no auth).
+"""``/v1/health`` and ``/v1/version``, meta endpoints (no auth).
 
 Health is degraded-mode aware: a missing embedding model is reported
 as ``degraded=True`` with ``status="degraded"`` rather than ``"down"``,
-because the API still serves memory CRUD without embeddings — only
+because the API still serves memory CRUD without embeddings, only
 semantic search is impacted.
 """
 

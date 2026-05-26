@@ -1,5 +1,5 @@
 """
-CAMA pattern Tagger — Tag existing memories with interaction pattern pattern flags.
+CAMA pattern Tagger, Tag existing memories with interaction pattern pattern flags.
 Run after pattern_migrate.py. Can be re-run safely (updates, doesn't duplicate).
 
 This script tags known memories by ID with their pattern classification.
@@ -11,7 +11,7 @@ Usage:
   python pattern_tagger.py --tag ID FLAG SRC  # Tag a single memory
   python pattern_tagger.py --bulk FILE        # Bulk tag from JSON file
 
-Lorien's Library LLC — March 29, 2026
+Lorien's Library LLC, March 29, 2026
 """
 
 import json
@@ -27,17 +27,17 @@ VALID_FLAGS = {
 }
 
 # ============================================================
-# Known memories to tag — from the interaction pattern analysis session
+# Known memories to tag, from the interaction pattern analysis session
 # These are memories we identified during the pattern mapping
 # ============================================================
 KNOWN_TAGS = [
-    # Absorbed projections — interpersonal
+    # Absorbed projections, interpersonal
     (6070, "absorbed_framing", "interpersonal"),
     
-    # Absorbed projections — cultural/systemic
+    # Absorbed projections, cultural/systemic
     (6293, "absorbed_framing", "cultural"),
     
-    # Clean — accurate self-perception
+    # Clean, accurate self-perception
     (6296, "clean", None),
     (6297, "clean", None),
     (6295, "clean", None),
@@ -49,12 +49,12 @@ KNOWN_TAGS = [
     (6294, "clean", None),
     (3859, "clean", None),
     
-    # Golden pattern — suppressed strengths
+    # Golden pattern, suppressed strengths
     (6300, "suppressed_strength", "self"),
     (6098, "suppressed_strength", "relational"),
     (9096, "suppressed_strength", "self"),
     
-    # Absorbed projections — institutional
+    # Absorbed projections, institutional
     (52641, "absorbed_framing", "institutional"),
     (52555, "absorbed_framing", "institutional"),
 ]

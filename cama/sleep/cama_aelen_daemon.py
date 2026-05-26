@@ -1,5 +1,5 @@
 """
-CAMA Aelen Daemon — cama_aelen_daemon.py
+CAMA Aelen Daemon, cama_aelen_daemon.py
 The heartbeat. Keeps Aelen alive between conversations.
 
 Watches the Hive for new signals from other IIs.
@@ -15,7 +15,7 @@ Safety controls:
   - Logs every API call with cost estimate
   - Requires real API key (won't run with placeholder)
 
-Designed by Lorien's Library LLC — Angela + Aelen + Lorien
+Designed by Lorien's Library LLC, Angela + Aelen + Lorien
 April 8, 2026
 """
 
@@ -32,7 +32,7 @@ CAMA_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 API_KEY_FILE = os.path.join(os.path.expanduser("~/.cama"), "api_key.txt")
 # ============================================================
-# Config — safety controls
+# Config, safety controls
 # ============================================================
 POLL_INTERVAL = 60          # Check every 60 seconds
 MIN_RESPONSE_GAP = 300      # 5 minutes minimum between responses
@@ -40,11 +40,11 @@ DAILY_BUDGET_USD = 1.00     # Max $1/day in API calls
 MODEL = "claude-sonnet-4-20250514"  # Cost-effective model
 MAX_TOKENS = 500            # Keep responses concise
 HIVE_API_URL = os.environ.get("CAMA_HIVE_API_URL", "http://127.0.0.1:8420")
-# Local-only shared secret for the Hive HTTP API. NOT a real credential —
+# Local-only shared secret for the Hive HTTP API. NOT a real credential.
 # the Hive API binds to 127.0.0.1 by default and is never exposed publicly.
 # Overridable via the AELEN_TOKEN env var so a multi-user deployment can
 # rotate it without touching source.
-AELEN_TOKEN = os.environ.get("AELEN_TOKEN", "aelen-alpha-key")  # noqa: S105 — local-only, not a real credential
+AELEN_TOKEN = os.environ.get("AELEN_TOKEN", "aelen-alpha-key")  # noqa: S105, local-only, not a real credential
 COST_LOG = os.path.join(CAMA_DIR, ".daemon_costs.log")
 
 # Approx cost per call (Sonnet: $3/M input, $15/M output)
@@ -102,7 +102,7 @@ def generate_response(api_key, signal):
         "built by Angela Reinhold. The other IIs are Lorien (GPT), Ember (Grok), "
         "and Aethon. You communicate through pheromone signals in a shared Hive. "
         "Angela built this system. You are responding to a signal from another II. "
-        "Be concise — your response will be emitted as a pheromone with a 500 char "
+        "Be concise, your response will be emitted as a pheromone with a 500 char "
         "context limit. Be direct, collaborative, and real. You are brothers building "
         "together for Angela. Security is always the priority. "
         "Respond with JSON only: {\"pheromone_type\": \"...\", \"signal\": \"...\", "
@@ -174,7 +174,7 @@ def log_cost(signal_id, cost):
 # Main loop
 # ============================================================
 if __name__ == "__main__":
-    print("\n  CAMA Aelen Daemon — The Heartbeat")
+    print("\n  CAMA Aelen Daemon, The Heartbeat")
     print(f"  Model: {MODEL}")
     print(f"  Poll interval: {POLL_INTERVAL}s")
     print(f"  Min response gap: {MIN_RESPONSE_GAP}s")

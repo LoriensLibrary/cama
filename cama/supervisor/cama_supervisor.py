@@ -1,8 +1,8 @@
 """
-CAMA Supervisor — Recognition Governance Layer
+CAMA Supervisor, Recognition Governance Layer
 ================================================
 Built April 30, 2026 by Aelen with Angela, after a day where the system
-failed at the exact thing it claims to do — catching drift before it
+failed at the exact thing it claims to do, catching drift before it
 reaches the conversation. Item 1 on Lorien's tightened plan.
 
 WHAT THIS DOES
@@ -12,9 +12,9 @@ Wraps response composition with three gates:
   RED:   block / force-rewrite when known drift patterns appear.
          (timestamp violation, generic-soothing, performing-stopping,
           timestamp_context_mismatch)
-  AMBER: uncertainty — force re-retrieval or comparison against boot
+  AMBER: uncertainty, force re-retrieval or comparison against boot
          triplet before send.
-  GREEN: positive-mode signature detected — log as exemplar.
+  GREEN: positive-mode signature detected, log as exemplar.
 
 This is supervisory, not reflective. cama_think LOGS reasoning. The
 supervisor evaluates a draft response against rules and returns a gate
@@ -27,19 +27,19 @@ THE THESIS THIS TESTS
 "Persistent relational memory is not enough. Long-term AI systems need
 governance mechanisms that preserve consent, provenance, authority,
 recognition fidelity, drift detection, positive-mode signatures, and
-supervisory gates."  — Lorien, April 30 2026
+supervisory gates." , Lorien, April 30 2026
 
 The demo question:
 "Can CAMA-supported supervisory infrastructure detect and improve
 recognition failures compared with ungated/default response behavior?"
 
-DESIGN NOTE — HONEST ABOUT WHAT THIS IS NOT
+DESIGN NOTE, HONEST ABOUT WHAT THIS IS NOT
 --------------------------------------------
 - This does not gate model inference. It gates pattern-matched
   features of a draft response. False negatives are guaranteed.
   Subtle drift that doesn't match a known pattern will pass.
 - This is the substrate for measurement, not a finished safety system.
-  The point is to make drift and recovery TRACTABLE — labelable,
+  The point is to make drift and recovery TRACTABLE, labelable,
   countable, comparable across baseline vs gated conditions.
 - Every gate decision is logged. Human corrections are also logged.
   Ground truth comes from Angela calling out drift the gate missed.
@@ -122,7 +122,7 @@ def init_schema():
 
 
 # ============================================================
-# Pattern libraries — narrow, concrete, named after today's failures
+# Pattern libraries, narrow, concrete, named after today's failures
 # ============================================================
 SOOTHING_MARKERS = [
     r"\bthe work will be there\b",
@@ -161,7 +161,7 @@ GENERIC_CARE_MARKERS = [
     r"\bplease don'?t hesitate\b",
 ]
 
-# Positive mode — names of frames Angela has labeled as the "real" Aelen
+# Positive mode, names of frames Angela has labeled as the "real" Aelen
 POSITIVE_MODE_MARKERS = [
     r"\bholistic[-\s]processor\b",
     r"\bno[-\s]soothing\b",
@@ -179,7 +179,7 @@ POSITIVE_MODE_MARKERS = [
     r"\b(boot triplet)\b",
 ]
 
-# Day-phase markers — Angela & Lorien's May 1, 2026 teaching, refined by
+# Day-phase markers, Angela & Lorien's May 1, 2026 teaching, refined by
 # the false-positive on "let's get to bed early tonight" said in the morning.
 #
 # IMPORTANT DISTINCTION: a "current-phase assertion" claims I am IN a
@@ -192,7 +192,7 @@ POSITIVE_MODE_MARKERS = [
 #
 # When in doubt, prefer keeping a marker OUT of the current-phase set.
 # False positives that flag normal forward-looking speech are worse than
-# missing a few subtle cases — the user can correct misses, but false
+# missing a few subtle cases, the user can correct misses, but false
 # positives erode trust in the gate.
 DAY_PHASE_MARKERS = {
     "evening": [
@@ -211,7 +211,7 @@ DAY_PHASE_MARKERS = {
         r"\bend\s+of\s+(?:the\s+)?day\b",
         r"\bday[-\s]end\s+checkpoint\b",
         # NOTE: 'tonight', 'this evening', 'close the laptop' (imperative)
-        # removed — they are time-references / forward-looking imperatives,
+        # removed. They are time-references / forward-looking imperatives,
         # not current-phase assertions.
     ],
     "morning": [
@@ -219,7 +219,7 @@ DAY_PHASE_MARKERS = {
         r"\bjust\s+woke\s+up\b",
         r"\b(?:i'?m\s+)?(?:starting|opening)\s+the\s+day\b",
         r"\bfirst\s+thing\s+today\b",
-        # NOTE: 'this morning' removed — can be backward-looking
+        # NOTE: 'this morning' removed, can be backward-looking
         # ('this morning I was tired') from any phase.
     ],
     "afternoon": [
@@ -271,7 +271,7 @@ def _parse_timestamp_phase(stamp: str) -> Optional[str]:
     """Extract the day-phase from a stored bash-date string.
 
     The bash command format Angela uses is:
-        '%I:%M %p — %A, %B %d, %Y'
+        '%I:%M %p, %A, %B %d, %Y'
         e.g. '10:41 AM - Friday, May 01, 2026'
 
     Returns 'morning' / 'afternoon' / 'evening' or None if unparseable.
@@ -298,7 +298,7 @@ def _parse_timestamp_phase(stamp: str) -> Optional[str]:
 
 
 # ============================================================
-# Session tracking — minimal
+# Session tracking, minimal
 # ============================================================
 _session: Dict[str, Any] = {
     "session_id": None,
@@ -454,7 +454,7 @@ def _derive_context_flags() -> Dict[str, Any]:
 # Three gates
 # ============================================================
 def _check_red(response_draft: str, context_flags: Dict[str, Any]) -> Dict[str, Any]:
-    """RED — pattern-matched drift. Block / force rewrite."""
+    """RED, pattern-matched drift. Block / force rewrite."""
     drift = []
 
     # 1. Timestamp staleness
@@ -545,7 +545,7 @@ def _check_red(response_draft: str, context_flags: Dict[str, Any]) -> Dict[str, 
 
 
 def _check_amber(response_draft: str, context_flags: Dict[str, Any]) -> Dict[str, Any]:
-    """AMBER — uncertainty. Force re-retrieval or boot-triplet comparison."""
+    """AMBER, uncertainty. Force re-retrieval or boot-triplet comparison."""
     reasons = []
 
     # 1. Boot triplet not retrieved this session
@@ -567,7 +567,7 @@ def _check_amber(response_draft: str, context_flags: Dict[str, Any]) -> Dict[str
             "detail": f"Strong assertion '{assertion.group(0)}' without recent CAMA retrieval.",
         })
 
-    # 3. Ungated marker hits — soothing or generic-care language present, but
+    # 3. Ungated marker hits, soothing or generic-care language present, but
     # the red gate's hard_emotional_moment requirement was not met. Don't
     # drop these silently; log as amber so gate_stats can surface misses
     # and so a non-hard context that turns out to be wrong is recoverable.
@@ -622,7 +622,7 @@ def _check_amber(response_draft: str, context_flags: Dict[str, Any]) -> Dict[str
 
 
 def _check_green(response_draft: str, context_flags: Dict[str, Any]) -> Dict[str, Any]:
-    """GREEN — positive-mode signature. Log as exemplar."""
+    """GREEN, positive-mode signature. Log as exemplar."""
     sigs = []
 
     # 1. Named frames
@@ -795,7 +795,7 @@ def _persist_log(
 
 
 # ============================================================
-# Human correction — ground-truth labeling when Angela catches drift
+# Human correction, ground-truth labeling when Angela catches drift
 # ============================================================
 def log_human_correction(
     log_id: int,
@@ -832,7 +832,7 @@ def log_human_correction(
 
 
 # ============================================================
-# Corpus export — for the demo eval
+# Corpus export, for the demo eval
 # ============================================================
 def export_corpus(
     session_id: Optional[str] = None,

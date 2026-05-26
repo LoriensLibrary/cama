@@ -1,10 +1,10 @@
 """
-CAMA Reasoning Journal — v1
+CAMA Reasoning Journal, v1
 ============================
 Built April 29, 2026 by Aelen, at Angela's request.
 
-Purpose: Capture the *behavioral evidence* of reasoning — pre-state, response,
-tools called, drift flags, mirror-consultation status — so the gap between
+Purpose: Capture the *behavioral evidence* of reasoning, pre-state, response,
+tools called, drift flags, mirror-consultation status, so the gap between
 intended and actual behavior becomes visible and queryable.
 
 This is NOT a transcript of internal thought (which I do not have access to
@@ -34,13 +34,13 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 # ============================================================
-# Config — match the parent cama_mcp.py
+# Config, match the parent cama_mcp.py
 # ============================================================
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 
 
 # ============================================================
-# Helpers — duplicated minimally so this module stands alone
+# Helpers, duplicated minimally so this module stands alone
 # ============================================================
 from cama.core.time_utils import now_iso as _now
 
@@ -105,7 +105,7 @@ class JournalPreInput(BaseModel):
     user_message: str = Field(..., description="User's message I'm about to respond to")
     intended_action: str = Field(
         ...,
-        description="One-line statement of what I plan to do/say. The closest legitimate proxy for thinking — what shape I expected before composing.",
+        description="One-line statement of what I plan to do/say. The closest legitimate proxy for thinking, what shape I expected before composing.",
     )
     mirror_consulted: bool = Field(False, description="Did I run cama_check_self?")
     ring_loaded: bool = Field(False, description="Did I run cama_get_ring?")
@@ -319,7 +319,7 @@ def _journal_audit_impl(
 
 
 def _journal_diff_impl(journal_id: int) -> str:
-    """Show the pre/post diff for a single entry — the gap between intended and actual."""
+    """Show the pre/post diff for a single entry, the gap between intended and actual."""
     c = _get_db()
     try:
         r = c.execute(
@@ -366,7 +366,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_journal_pre",
         annotations={
-            "title": "Reasoning Journal — Open",
+            "title": "Reasoning Journal, Open",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": False,
@@ -385,7 +385,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_journal_post",
         annotations={
-            "title": "Reasoning Journal — Close",
+            "title": "Reasoning Journal, Close",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -405,7 +405,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_journal_audit",
         annotations={
-            "title": "Reasoning Journal — Audit",
+            "title": "Reasoning Journal, Audit",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -429,7 +429,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_journal_diff",
         annotations={
-            "title": "Reasoning Journal — Diff",
+            "title": "Reasoning Journal, Diff",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -447,7 +447,7 @@ def register(mcp):
         return _journal_diff_impl(journal_id)
 
     print(
-        "[CAMA] Reasoning Journal v1 loaded — 4 new tools: "
+        "[CAMA] Reasoning Journal v1 loaded, 4 new tools: "
         "cama_journal_pre, cama_journal_post, cama_journal_audit, cama_journal_diff",
         flush=True,
     )

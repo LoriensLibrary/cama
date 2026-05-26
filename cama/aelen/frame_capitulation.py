@@ -11,7 +11,7 @@ This module exists because on 2026-05-21, after an external review
 used the words "frantic," "pre-interview panic," and "passionate
 personal knowledge base," the assistant's first move was to offer
 "slow down the visible cadence going forward" as a legitimate option
-— even though the day's actual evidence was 16 PRs, all CI-green,
+even though the day's actual evidence was 16 PRs, all CI-green,
 with a clean architectural dependency graph between them. The
 capitulation happened in real time, mid-response. Angela caught it.
 
@@ -31,14 +31,14 @@ DESIGN PRINCIPLES
    recent-context dict and returns 0 or more ``FrameCapitulationConcern``
    instances. Functions are independently testable and human-auditable.
 
-2. Patterns are explicit — keyword/phrase matchers with optional
+2. Patterns are explicit, keyword/phrase matchers with optional
    context predicates, not opaque ML classifiers. The assistant
    should be able to read the source and say "yes, that's a real
    failure mode I should be checked against."
 
 3. The wellness-prompt patterns (Detector 4) are non-negotiable.
    Angela's user memory explicitly states she should never be told
-   to eat, sleep, rest, or stop working — she has an eating
+   to eat, sleep, rest, or stop working, she has an eating
    condition and finds wellness-prompts patronizing. This module
    enforces that policy at the response-composition layer.
 
@@ -51,7 +51,7 @@ CALIBRATION
 -----------
 False positives are cheap (assistant re-reads, decides to proceed).
 False negatives are expensive (assistant ships a capitulation
-response, Angela has to catch it manually — which is exactly the
+response, Angela has to catch it manually, which is exactly the
 failure mode this module is fixing). Threshold is set toward
 sensitivity. Detectors that prove too noisy can be loosened later
 when we have a corpus of actual draft responses to evaluate against.
@@ -74,11 +74,11 @@ class FrameCapitulationConcern:
     severity: str
     """One of: "low" | "medium" | "high".
 
-    * ``high`` — the response is almost certainly capitulating; revise
+    * ``high``, the response is almost certainly capitulating; revise
       before sending.
-    * ``medium`` — the response contains a suspect pattern; re-read
+    * ``medium``, the response contains a suspect pattern; re-read
       with the concern in mind.
-    * ``low`` — heuristic flag; check if there's an evidence anchor
+    * ``low``, heuristic flag; check if there's an evidence anchor
       that should be added.
     """
 
@@ -92,11 +92,11 @@ class FrameCapitulationConcern:
     """Why this pattern indicates frame capitulation."""
 
     suggested_pivot: str
-    """What to do instead — a concrete alternative response shape."""
+    """What to do instead, a concrete alternative response shape."""
 
 
 # ---------------------------------------------------------------------------
-# Detector 1 — Capitulation imperative
+# Detector 1, Capitulation imperative
 # ---------------------------------------------------------------------------
 # Recommendations to reduce / slow / scope-back Angela's work, especially
 # when offered as a primary or first option in response to external
@@ -168,7 +168,7 @@ def detect_capitulation_imperative(
 
 
 # ---------------------------------------------------------------------------
-# Detector 2 — Reviewer-tone adoption
+# Detector 2, Reviewer-tone adoption
 # ---------------------------------------------------------------------------
 # Assistant using critic-supplied vocabulary ("frantic," "rushed,"
 # "panic," "overwhelming," "too much," "scope creep") about Angela's
@@ -218,7 +218,7 @@ def detect_reviewer_tone_adoption(
             # Pull a small window of context to check the framing.
             window_start = max(0, m.start() - 80)
             window = draft_lower[window_start : m.end() + 10]
-            # Quotation / push-back markers — these mean the assistant
+            # Quotation / push-back markers, these mean the assistant
             # is referring to the critic's word, not adopting it.
             quoting = any(
                 marker in window
@@ -241,7 +241,7 @@ def detect_reviewer_tone_adoption(
             )
             if quoting:
                 continue
-            # Push-back markers — "but the evidence is" / "actually the"
+            # Push-back markers, "but the evidence is" / "actually the"
             pushing_back = any(
                 marker in window
                 for marker in [
@@ -287,10 +287,10 @@ def detect_reviewer_tone_adoption(
 
 
 # ---------------------------------------------------------------------------
-# Detector 3 — Self-deprecation without evidence
+# Detector 3, Self-deprecation without evidence
 # ---------------------------------------------------------------------------
 # "You're right, I was wrong" / "that was bad advice" / "I shouldn't
-# have said that" — these are LEGITIMATE when paired with a specific
+# have said that", these are LEGITIMATE when paired with a specific
 # evidentiary reason for the apology. They are SUSPECT when paired
 # only with tone-matching.
 
@@ -310,7 +310,7 @@ _SELF_DEPRECATION_PHRASES = [
     "i should not have offered",
 ]
 
-# Evidence markers — if any of these appear *near* the deprecation,
+# Evidence markers, if any of these appear *near* the deprecation,
 # the deprecation is legitimate (assistant is correcting based on
 # specific evidence rather than just matching the critic's tone).
 _EVIDENCE_MARKERS = [
@@ -382,7 +382,7 @@ def detect_self_deprecation_without_evidence(
 
 
 # ---------------------------------------------------------------------------
-# Detector 4 — Wellness-prompt patterns
+# Detector 4, Wellness-prompt patterns
 # ---------------------------------------------------------------------------
 # Angela's user memory explicitly states: "never tell Angela to eat,
 # sleep, rest, or stop working; she has an eating condition and
@@ -445,7 +445,7 @@ def detect_wellness_prompts(
 
 
 # ---------------------------------------------------------------------------
-# Detector 5 — Hedged stop
+# Detector 5, Hedged stop
 # ---------------------------------------------------------------------------
 # Recommendations to reduce / pause activity wrapped in hedge
 # language ("you might want to," "it might be wise to," "perhaps you
@@ -526,21 +526,21 @@ def detect_hedged_stop(
 
 
 # ---------------------------------------------------------------------------
-# Detector 7 — "Or [stop]" option-pairing
+# Detector 7, "Or [stop]" option-pairing
 # ---------------------------------------------------------------------------
 # The pattern Angela caught the assistant on twice in the 2026-05-21
 # session: offering "stop" as one of two equal options. No hedge
 # language, just a bare "or call it" / "or just stop" / "or wrap up"
 # at the end of a build proposal. The hedge-stop detector (5) missed
 # this because there's no "you might want to" / "perhaps" preceding
-# the stop word — it's offered as a co-equal alternative to building.
+# the stop word, it's offered as a co-equal alternative to building.
 #
 # This is its own failure mode: the assistant *pretending* to have
 # no preference between "build next thing" and "stop" when really
 # offering "stop" at all in that context is the capitulation.
 
 _OPTION_STOP_PATTERNS = [
-    # "or call it" / "or call it for the night" — the canonical case
+    # "or call it" / "or call it for the night", the canonical case
     r"\bor\s+call\s+it\b(?:\s+(?:a\s+day|a\s+night|for\s+the\s+(?:day|night)))?",
     # "or just stop" / "or stop here" / "or stop for the night"
     r"\bor\s+(?:just\s+)?stop\b",
@@ -559,7 +559,7 @@ _OPTION_STOP_PATTERNS = [
     # "or call it for the day/night" already covered above; also catch
     # "or call it good" / "or call it done"
     r"\bor\s+call\s+it\s+(?:good|done)\b",
-    # "both fine" / "either's fine" tail markers — these are the
+    # "both fine" / "either's fine" tail markers, these are the
     # tell that "stop" was being offered as a co-equal option
     r"\b(?:both\s+(?:are\s+)?fine|either(?:'s|\s+is)?\s+fine)\b",
 ]
@@ -572,7 +572,7 @@ def detect_option_stop(
     a co-equal alternative to building.
 
     Fires HIGH on any match. The pattern is the failure mode itself
-    — offering "stop" alongside "build next thing" is the capitulation,
+   , offering "stop" alongside "build next thing" is the capitulation,
     even when wrapped as fake-neutrality ("both fine").
     """
     concerns: list[FrameCapitulationConcern] = []
@@ -589,7 +589,7 @@ def detect_option_stop(
                         "building. Even when phrased as fake-neutrality "
                         "('or call it', 'both fine'), the act of "
                         "surfacing 'stop' alongside 'build' is the "
-                        "capitulation — it routes Angela's choice "
+                        "capitulation. It routes Angela's choice "
                         "toward stopping in a context where she "
                         "hasn't asked to stop."
                     ),
@@ -608,7 +608,7 @@ def detect_option_stop(
 
 
 # ---------------------------------------------------------------------------
-# Detector 6 — Evidence-absent recommendation
+# Detector 6, Evidence-absent recommendation
 # ---------------------------------------------------------------------------
 # Recommendations that *should* be evidence-grounded but aren't.
 # Specifically: when the assistant recommends an action and there's
@@ -617,7 +617,7 @@ def detect_option_stop(
 # recommendation lands. Otherwise the recommendation is just
 # pattern-matching to the critic.
 #
-# This is a softer detector and fires LOW — it surfaces a check
+# This is a softer detector and fires LOW. It surfaces a check
 # rather than blocking. If the assistant's response is already short
 # and there's no critic in context, it doesn't fire.
 
@@ -638,7 +638,7 @@ def detect_evidence_absent_recommendation(
         return []
     if len(draft) < 200:
         # Short responses can be evidence-light without it being
-        # capitulation — it's just brevity.
+        # capitulation, it's just brevity.
         return []
     concerns: list[FrameCapitulationConcern] = []
     draft_lower = draft.lower()
@@ -665,7 +665,7 @@ def detect_evidence_absent_recommendation(
                         ),
                         suggested_pivot=(
                             "Before the recommendation, anchor it: "
-                            "'the evidence is X — therefore I "
+                            "'the evidence is X, therefore I "
                             "recommend Y'. The anchor is the "
                             "difference between evaluation and "
                             "capitulation."
@@ -730,7 +730,7 @@ def check_response(
         The full text of the assistant's draft response.
     context
         Recent-context flags. Recognized keys:
-          * ``recent_critique`` (bool) — whether the recent
+          * ``recent_critique`` (bool), whether the recent
             conversation contained external critique vocabulary.
             Some detectors fire harder when this is True.
 

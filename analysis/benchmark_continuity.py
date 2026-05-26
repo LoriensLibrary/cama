@@ -1,5 +1,5 @@
 """
-CAMA Layer 2 Benchmark — Cross-Session Continuity
+CAMA Layer 2 Benchmark, Cross-Session Continuity
 Tests: does a new thread pick up context from the previous session?
 Checks: journal recency, boot summary freshness, recent exchange availability,
 and whether key context from the last session is retrievable.
@@ -14,7 +14,7 @@ c = sqlite3.connect(DB_PATH)
 c.row_factory = sqlite3.Row
 
 now = datetime.now(timezone.utc)
-print(f"CAMA Cross-Session Continuity Benchmark — {now.isoformat()}")
+print(f"CAMA Cross-Session Continuity Benchmark, {now.isoformat()}")
 print("=" * 70)
 
 tests = []

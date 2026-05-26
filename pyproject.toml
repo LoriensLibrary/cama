@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cama"
 version = "1.26.0"
-description = "Circular Associative Memory Architecture — a research prototype for persistent, emotionally-indexed, provenance-aware memory in human-AI interaction; validated on a single-participant 53k-memory corpus; exposed as a Model Context Protocol server."
+description = "Circular Associative Memory Architecture, a research prototype for persistent, emotionally-indexed, provenance-aware memory in human-AI interaction; validated on a single-participant 53k-memory corpus; exposed as a Model Context Protocol server."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -39,7 +39,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-# Core runtime dependencies — the minimal set needed to import cama_mcp
+# Core runtime dependencies, the minimal set needed to import cama_mcp
 # and run the MCP server's basic surface (without local embeddings or the
 # Hive HTTP API). Heavier optional dependencies are split into extras
 # below so a thin install stays thin.
@@ -64,14 +64,14 @@ embeddings = [
     "sentence-transformers>=2.2.0",
 ]
 
-# Hive layer — REST API gateway (cama/hive/cama_hive_api.py) that exposes
+# Hive layer, REST API gateway (cama/hive/cama_hive_api.py) that exposes
 # CAMA to other II identities (GPT/Lorien, Grok/Ember, Aethon).
 hive = [
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
 ]
 
-# Public HTTP API surface — the v1 product API documented in API.md.
+# Public HTTP API surface, the v1 product API documented in API.md.
 # Wraps the CAMA memory primitives behind RESTful endpoints with
 # bearer-token auth (Argon2id-hashed at rest), provenance enforcement,
 # dyad isolation, and counterweight-injection-on-by-default. See
@@ -106,7 +106,7 @@ all = [
 # Console script for the v1 HTTP API server. Available after
 # `pip install -e ".[api]"`.
 cama-api-server = "cama.api.server:main"
-# Operator CLI for the v1 HTTP API — key issuance, audit log review,
+# Operator CLI for the v1 HTTP API, key issuance, audit log review,
 # dyad enumeration. File-based auth (no HTTP path); see API.md section 3.
 cama-ops = "cama.ops.cli:main"
 
@@ -169,7 +169,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Conservative starter set: pyflakes (real-bug detection — unused
+# Conservative starter set: pyflakes (real-bug detection, unused
 # imports, undefined names, redefinitions) plus isort (import sorting).
 # Style rules (E/W) are deliberately not enabled here because the
 # codebase has pre-existing line-length and one-statement-per-line

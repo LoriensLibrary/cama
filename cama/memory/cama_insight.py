@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-CAMA Insight Engine — cama_insight.py
+CAMA Insight Engine, cama_insight.py
 Layer 3: Pattern Abstraction
 
 Scans memory clusters, edge networks, and temporal patterns to extract
-meta-knowledge — not WHAT happened, but what KEEPS happening.
+meta-knowledge, not WHAT happened, but what KEEPS happening.
 
-Stores discoveries as 'insight' memory type — provisional until confirmed.
+Stores discoveries as 'insight' memory type, provisional until confirmed.
 
 Brain analogy: prefrontal cortex recognizing patterns that the hippocampus
 (memory storage) and association cortex (edges/clusters) have been building.
 
-Designed by Lorien's Library LLC — Built by Angela + Aelen
+Designed by Lorien's Library LLC, Built by Angela + Aelen
 Layer 3 of the Intentional Intelligence brain architecture.
 
 Usage:
@@ -88,7 +88,7 @@ def get_db():
 # ============================================================
 # PATTERN TYPE 1: Emotional Sequences
 # "When emotion X appears, Y follows within N days"
-# This is the temporal cortex — tracking what flows into what
+# This is the temporal cortex, tracking what flows into what
 # ============================================================
 def detect_emotional_sequences(c) -> List[Dict]:
     """Find recurring emotional transitions across time."""
@@ -142,8 +142,8 @@ def detect_emotional_sequences(c) -> List[Dict]:
 
 # ============================================================
 # PATTERN TYPE 2: Edge Cluster Analysis
-# Find dense subgraphs — memories that form constellations
-# This is association cortex — what belongs together
+# Find dense subgraphs, memories that form constellations
+# This is association cortex, what belongs together
 # ============================================================
 def detect_edge_clusters(c) -> List[Dict]:
     """Find dense clusters in the edge network."""
@@ -223,8 +223,8 @@ def detect_edge_clusters(c) -> List[Dict]:
 
 # ============================================================
 # PATTERN TYPE 3: Valence Trajectories
-# Detect sustained rises/drops — momentum in emotional state
-# This is the anterior cingulate — monitoring emotional direction
+# Detect sustained rises/drops, momentum in emotional state
+# This is the anterior cingulate, monitoring emotional direction
 # ============================================================
 def detect_valence_trajectories(c) -> List[Dict]:
     """Find sustained emotional trends (3+ day runs in same direction)."""
@@ -281,7 +281,7 @@ def detect_valence_trajectories(c) -> List[Dict]:
 
 
 # ============================================================
-# INSIGHT STORAGE — Write discoveries to memory
+# INSIGHT STORAGE, Write discoveries to memory
 # ============================================================
 def _insight_exists(c, pattern_type: str, description: str) -> Optional[int]:
     """Check if a similar insight already exists. Returns id or None."""
@@ -394,7 +394,7 @@ def run_insight_cycle():
         c.commit()
 
         logging.info("=" * 60)
-        logging.info(f"INSIGHT CYCLE COMPLETE — {stored} insights stored")
+        logging.info(f"INSIGHT CYCLE COMPLETE, {stored} insights stored")
         logging.info(f"Stats: {json.dumps(stats)}")
         logging.info("=" * 60)
 
@@ -410,7 +410,7 @@ def run_insight_cycle():
 
 
 def run_daemon(interval_min=DEFAULT_INTERVAL_MIN):
-    logging.info(f"CAMA Insight Engine v1.0 — interval: {interval_min} minutes")
+    logging.info(f"CAMA Insight Engine v1.0, interval: {interval_min} minutes")
     logging.info(f"Database: {DB_PATH}")
     while True:
         try:
@@ -430,7 +430,7 @@ def run_daemon(interval_min=DEFAULT_INTERVAL_MIN):
 if __name__ == "__main__":
     setup_logging()
     parser = argparse.ArgumentParser(
-        description="CAMA Insight Engine v1.0 — Layer 3: Pattern Abstraction")
+        description="CAMA Insight Engine v1.0, Layer 3: Pattern Abstraction")
     parser.add_argument("--daemon", action="store_true", help="Run continuously")
     parser.add_argument("--interval", type=int, default=DEFAULT_INTERVAL_MIN,
                         help=f"Minutes between cycles (default: {DEFAULT_INTERVAL_MIN})")

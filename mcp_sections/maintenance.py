@@ -21,7 +21,7 @@ async def cama_backfill_embeddings(batch_size: int = 50) -> str:
         return json.dumps({"error":"No EMBEDDING_API_KEY set and provider is 'api'","backfilled":0})
     # For auto/local, check if local model loads
     if EMBEDDING_PROVIDER in ("auto", "local") and _load_local_model() is None and not EMBEDDING_API_KEY:
-        return json.dumps({"error":"No local model and no API key — install sentence-transformers: pip install sentence-transformers","backfilled":0})
+        return json.dumps({"error":"No local model and no API key, install sentence-transformers: pip install sentence-transformers","backfilled":0})
     c = get_db()
     try:
         rows = c.execute("SELECT m.id, m.raw_text FROM memories m LEFT JOIN memory_embeddings e ON m.id=e.memory_id WHERE e.memory_id IS NULL LIMIT ?", (batch_size,)).fetchall()

@@ -1,5 +1,5 @@
 """
-Deeper regression analysis — check what's NOT being captured.
+Deeper regression analysis, check what's NOT being captured.
 Count ALL memories by type, check for untagged exchanges, 
 look at what's missing from affect data.
 """
@@ -44,7 +44,7 @@ by_source = c.execute("""
     GROUP BY source_type ORDER BY n DESC
 """, (START, END)).fetchall()
 
-# Exchanges specifically — how many are auto-recorded vs manual
+# Exchanges specifically, how many are auto-recorded vs manual
 exchange_count = c.execute("SELECT COUNT(*) as n FROM memories WHERE memory_type='exchange' AND created_at >= ? AND created_at < ? AND status='durable'", (START, END)).fetchone()["n"]
 auto_exchanges = c.execute("SELECT COUNT(*) as n FROM memories WHERE memory_type='exchange' AND raw_text LIKE '%AUTO-RECORDED%' AND created_at >= ? AND created_at < ? AND status='durable'", (START, END)).fetchone()["n"]
 heartbeat_exchanges = c.execute("SELECT COUNT(*) as n FROM memories WHERE memory_type='exchange' AND raw_text LIKE '%HEARTBEAT%' AND created_at >= ? AND created_at < ? AND status='durable'", (START, END)).fetchone()["n"]

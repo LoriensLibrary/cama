@@ -1,4 +1,4 @@
-"""Dyad surface — GET / export / delete.
+"""Dyad surface, GET / export / delete.
 
 Endpoints:
 
@@ -11,7 +11,7 @@ Endpoints:
 The double-confirm guard on DELETE prevents accidents: the request
 must carry both ``X-Confirm: <dyad_id>`` AND
 ``X-Confirm-Again: I-understand-this-is-permanent``. This pairs with
-THREAT_MODEL.md row #12 — the response never leaks the deleted IDs
+THREAT_MODEL.md row #12, the response never leaks the deleted IDs
 themselves, only a Merkle root so an auditor can verify what was
 removed without giving an attacker a list of valid IDs to probe.
 """
@@ -40,7 +40,7 @@ def get_dyad(
     ctx: AuthContext = Depends(require_auth),
 ) -> DyadResponse:
     # In v1 single-tenant mode, only the authenticated dyad is
-    # visible. Cross-dyad reads return 404 (not 403 — does not
+    # visible. Cross-dyad reads return 404 (not 403, does not
     # leak existence).
     if dyad_id != ctx.dyad_id:
         raise CamaAPIError(404, CamaContract.DYAD_SCOPE)

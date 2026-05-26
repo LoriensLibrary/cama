@@ -60,7 +60,7 @@ def test_memory_delete_cascades_to_embedding(fresh_db):
         "SELECT memory_id FROM memory_embeddings WHERE memory_id = ?", (mid,)
     ).fetchone()
     assert post is None, (
-        f"embedding row for memory_id={mid} survived memory deletion — "
+        f"embedding row for memory_id={mid} survived memory deletion, "
         "cascade is broken (check PRAGMA foreign_keys and FK declaration on memory_embeddings)"
     )
 
@@ -84,4 +84,4 @@ def test_memory_delete_cascades_to_edges(fresh_db):
     survivors = conn.execute(
         "SELECT id FROM edges WHERE from_id = ? OR to_id = ?", (a, a)
     ).fetchall()
-    assert len(survivors) == 0, "edges referencing deleted memory survived — cascade broken"
+    assert len(survivors) == 0, "edges referencing deleted memory survived, cascade broken"

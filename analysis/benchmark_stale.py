@@ -1,5 +1,5 @@
 """
-CAMA Layer 2 Benchmark — Stale Memory Detection
+CAMA Layer 2 Benchmark, Stale Memory Detection
 Checks for old unconfirmed provisionals, orphaned data, and memory hygiene.
 """
 import sqlite3, os, json
@@ -10,7 +10,7 @@ DB_PATH = os.path.expanduser("~/.cama/memory.db")
 c = sqlite3.connect(DB_PATH)
 c.row_factory = sqlite3.Row
 
-print(f"CAMA Stale Memory Detection — {datetime.now().isoformat()}")
+print(f"CAMA Stale Memory Detection, {datetime.now().isoformat()}")
 print(f"Database: {DB_PATH}")
 print("=" * 70)
 

@@ -7,7 +7,7 @@ Design notes:
 * Resource namespaces (``client.memories``, ``client.search``,
   ``client.threads``, ``client.dyads``) keep the public surface readable.
 * Every non-2xx response is converted to a typed exception via
-  ``cama.sdk.errors.error_for_response`` — callers can branch on
+  ``cama.sdk.errors.error_for_response``, callers can branch on
   ``except CamaProvenanceError`` rather than inspecting status codes.
 * The client accepts either a real HTTP endpoint (production) or an
   ``httpx.Client`` that's been pointed at a FastAPI TestClient (for
@@ -61,7 +61,7 @@ class MemoriesResource:
 
         For ``provenance=Provenance.inference(by="assistant")`` the
         returned ``Memory.status`` will be ``"provisional"`` and
-        ``Memory.review_after`` will be set — per the API contract
+        ``Memory.review_after`` will be set, per the API contract
         that "AI cannot self-promote teachings."
         """
         body: dict[str, Any] = {
@@ -162,7 +162,7 @@ class CAMA:
                      uses ``fastapi.testclient.TestClient(app)`` here
                      so requests hit the FastAPI app in-process.
                      If you pass this, ``endpoint`` and ``timeout`` are
-                     ignored — they belong on the client you built.
+                     ignored. They belong on the client you built.
         user_agent: optional User-Agent override.
 
     Example::
@@ -240,7 +240,7 @@ class CAMA:
         """``POST /v1/search``. Returns a SearchResponse iterable.
 
         Per the API contract, counterweight injection runs automatically
-        for queries with strongly-negative affect — the response will
+        for queries with strongly-negative affect, the response will
         include ``counterweights_injected > 0`` and individual results
         are flagged with ``is_counterweight``.
         """

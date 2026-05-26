@@ -1,4 +1,4 @@
-"""CAMA Python SDK — the typed client that wraps the v1 HTTP API.
+"""CAMA Python SDK, the typed client that wraps the v1 HTTP API.
 
 Quick start::
 

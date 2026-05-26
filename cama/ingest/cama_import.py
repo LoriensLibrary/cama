@@ -1,5 +1,5 @@
 """
-CAMA Conversation Importer — Smart Extraction
+CAMA Conversation Importer, Smart Extraction
 Reads Claude conversation exports and extracts meaningful memories with emotional signatures.
 
 Designed for Lorien's Library LLC
@@ -276,7 +276,7 @@ def write_to_cama(memories: List[Dict], db_path: str, dry_run: bool = False):
         from cama_mcp import _init
         _init(conn)
     except ImportError:
-        print("[WARN] Could not import cama_mcp._init — tables must already exist")
+        print("[WARN] Could not import cama_mcp._init, tables must already exist")
     
     stored = 0
     songs_stored = 0

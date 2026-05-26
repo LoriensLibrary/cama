@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CAMA Research Journal — research_journal.py
+CAMA Research Journal, research_journal.py
 Persistent log of all diagnostics, findings, and code changes.
 
 Usage:
@@ -68,7 +68,7 @@ def _session_id():
 
 
 # ============================================================
-# Public API — call these from code
+# Public API, call these from code
 # ============================================================
 
 def log_entry(title: str, description: str = "", entry_type: str = "note",
@@ -88,7 +88,7 @@ def log_entry(title: str, description: str = "", entry_type: str = "note",
 
 def log_finding(title: str, description: str = "", evidence: str = "",
                 tags: list = None) -> int:
-    """Log a research finding — something we learned."""
+    """Log a research finding, something we learned."""
     c = _get_db()
     ts = _now()
     cur = c.execute("""INSERT INTO research_journal 
@@ -103,7 +103,7 @@ def log_finding(title: str, description: str = "", evidence: str = "",
 
 def log_code_change(file_changed: str, title: str, description: str = "",
                     code_diff: str = "", tags: list = None) -> int:
-    """Log a code change — what file changed, what we did, why."""
+    """Log a code change, what file changed, what we did, why."""
     c = _get_db()
     ts = _now()
     cur = c.execute("""INSERT INTO research_journal 
@@ -118,7 +118,7 @@ def log_code_change(file_changed: str, title: str, description: str = "",
 
 def log_diagnostic(title: str, metrics: Dict[str, Any], description: str = "",
                    tags: list = None) -> int:
-    """Log a diagnostic run — test name + measured values."""
+    """Log a diagnostic run, test name + measured values."""
     c = _get_db()
     ts = _now()
     cur = c.execute("""INSERT INTO research_journal 

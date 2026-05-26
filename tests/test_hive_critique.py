@@ -1,7 +1,7 @@
 """Tests for ``cama.hive.cama_hive_critique``.
 
 These functions previously lived in ``cama.core.cama_v2`` and had
-no dedicated test coverage — they ran only via the ``self_test``
+no dedicated test coverage. They ran only via the ``self_test``
 path which exercises them against the live memory DB. Moving them
 into ``cama.hive.cama_hive_critique`` is a good opportunity to pin
 the contract:
@@ -177,13 +177,13 @@ class TestEndToEndFlow:
         # Peek without marking
         inbox = critique_db.hive_get_pending_critiques(mark_read=False)
         assert inbox["unread_count"] == 1
-        # Read again — should still be there
+        # Read again, should still be there
         inbox2 = critique_db.hive_get_pending_critiques(mark_read=False)
         assert inbox2["unread_count"] == 1
 
 
 class TestReExport:
-    """Pin the backward-compat surface — old call sites that import
+    """Pin the backward-compat surface, old call sites that import
     these names from ``cama.core.cama_v2`` must continue to work."""
 
     def test_names_still_importable_from_cama_v2(self):

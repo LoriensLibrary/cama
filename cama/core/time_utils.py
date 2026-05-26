@@ -1,4 +1,4 @@
-"""Time utilities — the canonical UTC-aware ``now()`` helpers.
+"""Time utilities, the canonical UTC-aware ``now()`` helpers.
 
 Before this module existed, 28 separate modules carried their own copy
 of a 2-line ``_now()`` helper:
@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 def now_utc() -> datetime:
     """Return the current UTC-aware ``datetime`` (timezone-attached).
 
-    Use this when downstream code needs the datetime object — e.g.,
+    Use this when downstream code needs the datetime object, e.g.,
     arithmetic, comparison, or further formatting.
     """
     return datetime.now(timezone.utc)

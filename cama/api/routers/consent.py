@@ -2,17 +2,17 @@
 
 The two-step user-authored consent flow:
 
-  1. ``/v1/consent/challenge`` — server returns a challenge payload
+  1. ``/v1/consent/challenge``, server returns a challenge payload
      describing the proposed action. The application server uses this
      to render a hosted page for the user to acknowledge.
-  2. ``/v1/consent/grant``     — once the user acknowledges, the
+  2. ``/v1/consent/grant``    , once the user acknowledges, the
      server mints a one-shot HMAC-signed consent token bound to
      ``(dyad_id, memory_id, action)``. The token has a 5-minute TTL,
      a nonce tracked in ``consent_consumed`` to reject replay, and is
      the only credential that lets a provisional inference promote to
      durable (via ``PATCH /v1/memories/{id}/confirm``).
 
-This split — challenge vs grant — keeps the human-authored consent
+This split, challenge vs grant, keeps the human-authored consent
 step (the user clicks "yes" in their browser) cleanly separated from
 the machine credential (the token the application server uses on the
 next API call). The two-step shape is what makes the consent flow

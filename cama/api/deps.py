@@ -4,11 +4,11 @@ This module is the single source of truth for the things every router
 needs: the auth dependency, the memory-DB connection opener, the
 idempotent dyad-column migration, and the safety predicate that fires
 counterweight injection. Moving them here lets each router stay
-narrowly focused on its own endpoint family — and keeps the app
+narrowly focused on its own endpoint family, and keeps the app
 factory in ``server.py`` short enough to read in one screen.
 
 Naming convention: public names in this module do NOT carry a leading
-underscore — they are explicitly part of the cross-router contract.
+underscore. They are explicitly part of the cross-router contract.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from cama.api.errors import CamaAPIError, CamaContract
 from cama.api.schemas import Affect, MemoryResponse
 
 # ---------------------------------------------------------------------------
-# Constants — shared across routers
+# Constants, shared across routers
 # ---------------------------------------------------------------------------
 API_VERSION = "1.26.0"
 DEFAULT_DYAD_ID = "default"
@@ -133,7 +133,7 @@ def require_auth(
 
 
 # ---------------------------------------------------------------------------
-# Safety predicate — counterweight-injection gate
+# Safety predicate, counterweight-injection gate
 # ---------------------------------------------------------------------------
 def is_negative_affect(affect: Affect | None) -> bool:
     """Reproduce the CAMA anti-spiral predicate at the API boundary so

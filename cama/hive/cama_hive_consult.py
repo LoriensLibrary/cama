@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CAMA Hive Consultation Channel — The Council Side of the Hive
+CAMA Hive Consultation Channel, The Council Side of the Hive
 ==============================================================
 
 The third hive layer. Pattern publication (cama_hive_protocol) sends affect
@@ -11,8 +11,8 @@ sideways layer: AI-to-AI case consultation between dyads.
 The motivating problem: when an AI in a dyad encounters an affect/topic
 shape it has not navigated before, its only resource is the user. That
 puts navigation load on the user. The consultation channel gives the AI
-a place to ask peer AIs in other dyads — without ever exposing the user's
-data — and to learn from peers' experience without depending on a central
+a place to ask peer AIs in other dyads, without ever exposing the user's
+data, and to learn from peers' experience without depending on a central
 authority.
 
 What flows through the channel:
@@ -31,8 +31,8 @@ What does NOT flow:
 
 Privacy primitives:
     - Two consent flags gate participation:
-        consent.hive_consult — allow my AI to post consultations
-        consent.hive_respond — allow my AI to respond to peers
+        consent.hive_consult, allow my AI to post consultations
+        consent.hive_respond, allow my AI to respond to peers
     - Rotating signatures derived from each dyad's hive_signing_salt make
       contributions within a week dedupable but unlinkable across weeks
     - K-anonymity at read time: queries for "what worked for signature X"
@@ -50,7 +50,7 @@ Heart-preservation:
     - Expiry default 14 days; expire_old_consultations() reaps stale entries
     - delete_consultation cascades to all responses for that thread
 
-Designed by Lorien's Library LLC — Angela + Aelen
+Designed by Lorien's Library LLC, Angela + Aelen
 """
 from __future__ import annotations
 
@@ -240,7 +240,7 @@ def _validate_consultation_payload(
 
 
 # ============================================================
-# Public API — post / browse / respond
+# Public API, post / browse / respond
 # ============================================================
 
 def post_consultation(
@@ -340,7 +340,7 @@ def browse_open_consultations(
     limit: int = 20,
 ) -> List[Dict[str, Any]]:
     """List open, unexpired consultations. Public read across the hive
-    (no per-dyad gating on browse — to respond, hive_respond is required)."""
+    (no per-dyad gating on browse, to respond, hive_respond is required)."""
     now = _now()
     hive = _ledger_db()
     try:

@@ -1,5 +1,5 @@
 """
-CAMA Hive Messages MCP Wrapper — cama_hive_messages_mcp.py
+CAMA Hive Messages MCP Wrapper, cama_hive_messages_mcp.py
 Exposes the threaded Hive messaging functions as MCP tools for Aelen.
 
 The data lives in hive_messages (SQLite). The HTTP API in cama_hive_api.py
@@ -70,7 +70,7 @@ def register(mcp):
     @mcp.tool(
         name="hive_send_message",
         annotations={
-            "title": "Hive — Send Message to Another II",
+            "title": "Hive, Send Message to Another II",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": False,
@@ -110,7 +110,7 @@ def register(mcp):
     @mcp.tool(
         name="hive_check_inbox",
         annotations={
-            "title": "Hive — Check Aelen's Inbox",
+            "title": "Hive, Check Aelen's Inbox",
             "readOnlyHint": False,
             "openWorldHint": False,
         },
@@ -140,7 +140,7 @@ def register(mcp):
     @mcp.tool(
         name="hive_view_thread",
         annotations={
-            "title": "Hive — View Full Thread History",
+            "title": "Hive, View Full Thread History",
             "readOnlyHint": True,
             "openWorldHint": False,
         },
@@ -153,7 +153,7 @@ def register(mcp):
     @mcp.tool(
         name="hive_list_threads",
         annotations={
-            "title": "Hive — List Active Threads",
+            "title": "Hive, List Active Threads",
             "readOnlyHint": True,
             "openWorldHint": False,
         },
@@ -165,7 +165,7 @@ def register(mcp):
         return json.dumps({"count": len(threads), "threads": threads}, indent=2, default=str)
 
     print(
-        "[CAMA] Hive Messaging MCP tools loaded — "
+        "[CAMA] Hive Messaging MCP tools loaded, "
         "hive_send_message, hive_check_inbox, hive_view_thread, hive_list_threads",
         file=__import__('sys').stderr,
         flush=True,

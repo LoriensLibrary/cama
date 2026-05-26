@@ -165,7 +165,7 @@ class TestConsentFlow:
         assert created["status"] == "provisional"
         mid = created["id"]
 
-        # 2. Try to confirm WITHOUT a token — should fail
+        # 2. Try to confirm WITHOUT a token, should fail
         r = client.patch(
             f"/v1/memories/{mid}/confirm",
             headers=_auth(env),
@@ -186,7 +186,7 @@ class TestConsentFlow:
         ).json()
         token = grant["token"]
 
-        # 4. Confirm WITH the token — succeeds; status flips to durable
+        # 4. Confirm WITH the token, succeeds; status flips to durable
         r = client.patch(
             f"/v1/memories/{mid}/confirm",
             headers={**_auth(env), "X-Consent-Token": token},
@@ -194,7 +194,7 @@ class TestConsentFlow:
         assert r.status_code == 200
         assert r.json()["status"] == "durable"
 
-        # 5. Token is one-shot — re-using it fails
+        # 5. Token is one-shot, re-using it fails
         r2 = client.patch(
             f"/v1/memories/{mid}/confirm",
             headers={**_auth(env), "X-Consent-Token": token},

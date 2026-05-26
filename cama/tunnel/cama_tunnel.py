@@ -1,5 +1,5 @@
 """
-CAMA Hive Tunnel + Watcher — cama_tunnel.py
+CAMA Hive Tunnel + Watcher, cama_tunnel.py
 One script that does everything:
   1. Starts the Hive API
   2. Opens the ngrok tunnel
@@ -94,10 +94,10 @@ def watch_signals(last_id):
         except Exception as e:
             print(f"  Watcher error: {e}")
 # ============================================================
-# Main — Start everything
+# Main, Start everything
 # ============================================================
 if __name__ == "__main__":
-    print("\n  CAMA Hive — Starting API + Tunnel + Watcher...")
+    print("\n  CAMA Hive, Starting API + Tunnel + Watcher...")
 
     # Start API in background
     api_thread = threading.Thread(target=start_api_server, daemon=True)

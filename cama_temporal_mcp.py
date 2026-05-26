@@ -1,17 +1,17 @@
 """
-CAMA Temporal — MCP wrapper
+CAMA Temporal, MCP wrapper
 ============================
 Exposes the felt-time perception layer as MCP tools so the assistant
 can read load signals at boot and on demand, and so session bracketing
 (start / mark_turn / end) updates baselines durably.
 
 Tools:
-  cama_temporal_readout         — full readout: clock + stopwatch + felt
-  cama_temporal_session_start   — open a new session, advance streak
-  cama_temporal_mark_turn       — bump turn counter for current session
-  cama_temporal_session_end     — close session, update baselines
-  cama_temporal_set_timezone    — set the IANA tz used for local frame
-  cama_temporal_state           — raw singleton row (debug / inspection)
+  cama_temporal_readout        , full readout: clock + stopwatch + felt
+  cama_temporal_session_start  , open a new session, advance streak
+  cama_temporal_mark_turn      , bump turn counter for current session
+  cama_temporal_session_end    , close session, update baselines
+  cama_temporal_set_timezone   , set the IANA tz used for local frame
+  cama_temporal_state          , raw singleton row (debug / inspection)
 """
 
 from typing import Any, Dict
@@ -59,7 +59,7 @@ def register(mcp):
         per category plus stacked_pressure and an optional summary_line).
 
         Felt signals are suppressed until at least 5 sessions have been
-        recorded — before that the categorizer is just comparing against
+        recorded, before that the categorizer is just comparing against
         an empty prior.
 
         Use this at boot and any time you want to check load. Reading
@@ -88,7 +88,7 @@ def register(mcp):
         """Increment the turn counter for the current session.
 
         Call this on every assistant turn (or on every user message,
-        consistently — pick one and stick with it). Used by the
+        consistently, pick one and stick with it). Used by the
         readout's stopwatch layer and as the implicit-end timestamp if
         the next session has to close this one without an explicit
         end call.
@@ -131,7 +131,7 @@ def register(mcp):
 
         Useful for inspecting baseline accumulation, histogram shapes,
         and current-session state. Prefer cama_temporal_readout for
-        normal use — this is for when something looks wrong and you
+        normal use. This is for when something looks wrong and you
         want to see the underlying numbers.
         """
         return tmp.get_state()

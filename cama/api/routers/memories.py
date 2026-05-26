@@ -9,15 +9,15 @@ This router owns:
   PATCH  /v1/memories/{id}/confirm
                                  (one-shot consent token required;
                                   promotes provisional inferences to
-                                  durable — the only place that's
+                                  durable, the only place that's
                                   allowed to happen)
 
 The four architectural commitments enforced here (per API.md § 2):
 
   1. Provenance NOT NULL at the API boundary.
-  2. AI cannot self-promote inferences — assistant+inference is
+  2. AI cannot self-promote inferences, assistant+inference is
      forced to provisional with a 30-day TTL.
-  3. Dyad scope leaks nothing — cross-dyad reads return 404 (not 403).
+  3. Dyad scope leaks nothing, cross-dyad reads return 404 (not 403).
   4. Destructive endpoints require explicit X-Confirm match.
 
 Webhook delivery (``memory.created``, ``memory.deleted``) is
@@ -152,7 +152,7 @@ def get_memory(
     finally:
         c.close()
     if row is None:
-        # Return 404 — not 403 — to avoid leaking the existence of
+        # Return 404, not 403, to avoid leaking the existence of
         # IDs in other dyads. (THREAT_MODEL.md row #2)
         raise CamaAPIError(404, CamaContract.DYAD_SCOPE)
     return row_to_memory(row, ctx.dyad_id)

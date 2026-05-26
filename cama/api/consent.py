@@ -5,11 +5,11 @@ self-promote teachings." A caller that wants to promote a
 provisional assistant-inference memory to durable must obtain a
 consent token via the two-step flow:
 
-  1. POST /v1/consent/challenge — application server requests a
+  1. POST /v1/consent/challenge, application server requests a
      challenge for (dyad_id, memory_id, action). Server returns a
      URL the end-user's browser visits.
   2. (user sees the proposed inference and clicks Accept)
-     POST /v1/consent/grant — server validates the challenge,
+     POST /v1/consent/grant, server validates the challenge,
      returns a one-shot HMAC-signed token.
   3. The application server attaches the token in
      PATCH /v1/memories/{id}/confirm to actually promote the row.
@@ -20,7 +20,7 @@ payload is the canonical JSON of
 and signature is HMAC-SHA256(payload) keyed on the operator's
 ``CAMA_CONSENT_SECRET`` env var.
 
-For MVP the consent UI itself is out of scope — the operator hosts
+For MVP the consent UI itself is out of scope, the operator hosts
 the user-facing acceptance page. This module only handles
 mint/verify.
 """
@@ -46,7 +46,7 @@ CONSENT_ACTIONS = ("promote_to_durable", "delete_memory", "delete_dyad")
 def _secret() -> bytes:
     """Read the HMAC secret from env. In production this is set once
     at deploy time and rotated infrequently. For dev / test the
-    fallback is a process-local random — fine because consent
+    fallback is a process-local random, fine because consent
     tokens are short-TTL anyway."""
     s = os.environ.get("CAMA_CONSENT_SECRET")
     if s:

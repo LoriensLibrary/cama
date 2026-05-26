@@ -9,7 +9,7 @@ Convention:
   - Study mode (CAMA_PARTICIPANT_ID=P03):        ~/.cama/participant_P03/
 
 Per-participant loaders look ONLY in the participant dir. They do NOT fall
-back to ~/.cama/ — that fallback would let one participant read another
+back to ~/.cama/, that fallback would let one participant read another
 participant's calibration (or the operator's), which is exactly what
 per-DB isolation is supposed to prevent. Isolation by construction.
 

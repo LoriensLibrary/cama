@@ -13,7 +13,7 @@ tests verify:
   5. The convenience ``gather_and_format`` ties detector + gather +
      format together.
 
-Most tests don't depend on the actual subprocess output — they use
+Most tests don't depend on the actual subprocess output. They use
 the data classes directly or mock the repo_root to a path that
 won't have git history. The smoke test at the end runs against the
 real repo to verify integration.
@@ -68,7 +68,7 @@ class TestCounterweightBundle:
         )
         b = CounterweightBundle(anchors=[a1, a2, a3])
 
-        # No filter — returns all
+        # No filter, returns all
         assert b.filter_relevant([]) == [a1, a2, a3]
         # Single match
         out = b.filter_relevant(["capitulation_imperative"])
@@ -96,7 +96,7 @@ class TestCounterweightBundle:
 
 class TestGatherAnchors:
     def test_returns_bundle_even_on_bad_path(self, tmp_path):
-        # tmp_path is a fresh directory — no git, no tests, no
+        # tmp_path is a fresh directory, no git, no tests, no
         # EVIDENCE.md. Should return an empty bundle gracefully.
         bundle = gather_anchors(repo_root=tmp_path)
         assert isinstance(bundle, CounterweightBundle)
@@ -146,7 +146,7 @@ class TestFormatAnchors:
 
     def test_filter_by_check_result(self):
         # Anchor relevant to detector A, check_result fired
-        # detector B — anchor should NOT appear
+        # detector B, anchor should NOT appear
         a = CounterweightAnchor(
             "x", "1", "s", ["capitulation_imperative"], "strong"
         )
@@ -167,7 +167,7 @@ class TestFormatAnchors:
                 )
             ]
         )
-        # No relevance overlap — output should be empty
+        # No relevance overlap, output should be empty
         out = format_anchors_for_inline_response(b, result)
         assert out == ""
 
@@ -201,6 +201,6 @@ class TestGatherAndFormat:
         pattern_names = {c.pattern_name for c in result.concerns}
         assert "capitulation_imperative" in pattern_names
         # The rendered block should not be empty (there should be at
-        # least one anchor relevant to capitulation_imperative — the
+        # least one anchor relevant to capitulation_imperative, the
         # git-history anchors are relevant to it)
         assert rendered != ""

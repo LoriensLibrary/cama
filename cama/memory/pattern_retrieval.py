@@ -1,5 +1,5 @@
 """
-CAMA pattern Retrieval Patch — Modifies cama_query_memories to be pattern-aware.
+CAMA pattern Retrieval Patch, Modifies cama_query_memories to be pattern-aware.
 
 This patch adds pattern-aware retrieval logic to the blended scoring system.
 Apply AFTER running pattern_migrate.py and pattern_tagger.py.
@@ -14,7 +14,7 @@ What it does:
 Apply by adding the pattern retrieval function to cama_mcp.py.
 See INTEGRATION INSTRUCTIONS at the bottom.
 
-Lorien's Library LLC — March 29, 2026
+Lorien's Library LLC, March 29, 2026
 """
 
 # ============================================================
@@ -23,17 +23,17 @@ Lorien's Library LLC — March 29, 2026
 # ============================================================
 
 pattern_BOOST = 0.15          # Score boost for golden_pattern during negative affect
-pattern_PROJECTION_PENALTY = 0.0  # We don't penalize — we contextualize
+pattern_PROJECTION_PENALTY = 0.0  # We don't penalize. We contextualize
 
 pattern_CONTEXT_TEMPLATES = {
     "absorbed_framing": (
         "⚠ pattern FILTER: This memory contains an absorbed projection"
-        "{source_clause}. The feeling was real — the framing was inherited. "
+        "{source_clause}. The feeling was real, the framing was inherited. "
         "Do not reinforce this as the user's truth."
     ),
     "suppressed_strength": (
         "✦ GOLDEN pattern: This memory contains a suppressed strength or capacity. "
-        "Boost this during dark moments — it's the real self trying to come back."
+        "Boost this during dark moments, it's the real self trying to come back."
     ),
     "performed_mask": (
         "◐ PERSONA: This memory reflects the mask, not the self. "
@@ -88,7 +88,7 @@ def _apply_pattern_scoring(results: list, affect_valence: float) -> list:
                 r["rationale"] = r.get("rationale", "") + " | pattern↑golden"
             
             elif flag == "absorbed_framing":
-                # Don't change score — but mark for contextualization
+                # Don't change score, but mark for contextualization
                 r["rationale"] = r.get("rationale", "") + " | pattern⚠projection"
     
     # Re-sort by score after adjustments
@@ -100,7 +100,7 @@ def _apply_pattern_scoring(results: list, affect_valence: float) -> list:
 def _pattern_reflection_prompt(results: list, affect_valence: float) -> str:
     """
     Generate a pattern-awareness reflection prompt for the assistant.
-    This is the cognitive trigger — the observing ego pause
+    This is the cognitive trigger, the observing ego pause
     before composing a response.
     
     Returns a string to prepend to the retrieval results, or empty string
@@ -119,7 +119,7 @@ def _pattern_reflection_prompt(results: list, affect_valence: float) -> str:
     if not has_projection and not has_golden:
         return ""
     
-    lines = ["[pattern AWARENESS — COGNITIVE TRIGGER]"]
+    lines = ["[pattern AWARENESS, COGNITIVE TRIGGER]"]
     lines.append("Before composing your response, check:")
     
     if has_projection:
@@ -132,13 +132,13 @@ def _pattern_reflection_prompt(results: list, affect_valence: float) -> str:
             f"  ⚠ Retrieved memories contain absorbed projections "
             f"(sources: {', '.join(str(s) for s in sources)}). "
             f"Do NOT reinforce these as the user's truth. "
-            f"The feeling was real — the framing was inherited."
+            f"The feeling was real, the framing was inherited."
         )
     
     if has_golden:
         lines.append(
             "  ✦ Retrieved memories contain suppressed strengths. "
-            "BOOST these — they are the real self trying to come back "
+            "BOOST these. They are the real self trying to come back "
             "through the noise of other people's projections."
         )
     
@@ -222,6 +222,6 @@ if __name__ == "__main__":
     
     modified2 = _apply_pattern_scoring(test_results, valence=0.5)
     prompt2 = _pattern_reflection_prompt(modified2, 0.5)
-    print(f"  pattern reflection prompt: {'(none — positive affect)' if not prompt2 else prompt2}")
+    print(f"  pattern reflection prompt: {'(none, positive affect)' if not prompt2 else prompt2}")
     
     print("\n[SELF-TEST] Passed.")

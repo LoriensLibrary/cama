@@ -1,5 +1,5 @@
 """
-CAMA Layer 2 Benchmark — Counterweight Timing
+CAMA Layer 2 Benchmark, Counterweight Timing
 Tests that counterweights fire on distress signals and DON'T fire on mild negativity.
 Directly queries the database using the same logic as cama_query_memories.
 """
@@ -54,7 +54,7 @@ scenarios = [
 ]
 
 # --- RUN ---
-print(f"CAMA Counterweight Timing Benchmark — {datetime.now().isoformat()}")
+print(f"CAMA Counterweight Timing Benchmark, {datetime.now().isoformat()}")
 print(f"Database: {DB_PATH}")
 
 # Check counterweight inventory

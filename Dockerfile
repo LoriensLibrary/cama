@@ -1,9 +1,9 @@
-# CAMA demo container — dashboard-only quickstart.
+# CAMA demo container, dashboard-only quickstart.
 #
 # This image runs `cama_dashboard.py` against a synthetic demo database
 # populated by `seed_demo.py` on first start. It does NOT run the MCP
 # server (cama_mcp.py), because MCP integration is stdio-based and meant
-# to be wired into Claude Desktop on the host — see the README's
+# to be wired into Claude Desktop on the host. See the README's
 # "Connecting the MCP server to Claude Desktop" section for that path.
 #
 # Reviewer purpose served by this image: clone the repo, run

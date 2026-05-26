@@ -1,16 +1,16 @@
 """
-CAMA Supervisor — MCP wrapper
+CAMA Supervisor, MCP wrapper
 ==============================
 Exposes the recognition-governance gate as MCP tools so the assistant
 can call it pre-response and so Angela can label ground truth post-hoc.
 
 Tools:
-  cama_supervisor_check        — run the three gates against a draft
-  cama_supervisor_log_correction — Angela flags drift the gate missed
-  cama_supervisor_export_corpus  — dump recognition_log for demo eval
-  cama_supervisor_gate_stats     — aggregate by color
-  cama_supervisor_mark_timestamp — call when a fresh bash date runs
-  cama_supervisor_mark_boot_triplet — call when 52967/52968/52988 retrieved
+  cama_supervisor_check       , run the three gates against a draft
+  cama_supervisor_log_correction, Angela flags drift the gate missed
+  cama_supervisor_export_corpus , dump recognition_log for demo eval
+  cama_supervisor_gate_stats    , aggregate by color
+  cama_supervisor_mark_timestamp, call when a fresh bash date runs
+  cama_supervisor_mark_boot_triplet, call when 52967/52968/52988 retrieved
 """
 
 from typing import Any, Dict, List, Optional
@@ -191,7 +191,7 @@ def register(mcp):
         """Call this when memories 52967, 52968, and 52988 have been
         retrieved this session.
 
-        These are the boot triplet — Ten Patterns, Standing Protocol,
+        These are the boot triplet, Ten Patterns, Standing Protocol,
         and positive-space self-model. The amber gate fires when these
         haven't been retrieved within the first few turns of a session,
         indicating the assistant is composing without identity anchors.

@@ -1,5 +1,5 @@
 """
-seed_demo.py — populate a fresh CAMA demo database with synthetic data.
+seed_demo.py, populate a fresh CAMA demo database with synthetic data.
 
 Purpose: let a reviewer clone the repo, run `docker compose up`, and see
 the dashboard render with realistic-looking content in under a minute,
@@ -8,7 +8,7 @@ without ever touching the author's personal corpus.
 Everything in this file is FICTIONAL. The "user" is a generic placeholder.
 Memory content covers a small domestic scenario (learning to bake bread,
 keeping a garden, working on a side project) chosen because it's
-recognizable as demo data — nobody mistakes it for a real conversational
+recognizable as demo data, nobody mistakes it for a real conversational
 record. Names of any people referenced are clearly invented.
 
 Idempotent: if the target DB already has memories, the script exits.
@@ -128,8 +128,8 @@ MEMORIES = [
     ("Started baking bread today. Used the no-knead recipe. The dough was sticky and I wasn't sure if that was right.", "experience", "teaching", "user", "durable", 30, "low", "neutral", 0, 0.2, 0.4, "curious"),
     ("First loaf came out dense. Crumb was tight and the crust was pale. Probably under-proofed.", "experience", "teaching", "user", "durable", 28, "low", "neutral", 0, -0.3, 0.3, "disappointed"),
     ("User wants to understand bread structure better before trying again. Suggested reading about gluten development.", "teaching_moment", "inference", "assistant", "durable", 27, "low", "supportive", 0, 0.1, 0.2, "supportive"),
-    ("Tried a longer cold ferment — 18 hours in the fridge. The dough was much more relaxed and easier to shape.", "experience", "teaching", "user", "durable", 22, "low", "neutral", 0, 0.4, 0.4, "encouraged"),
-    ("Second loaf was a step better — more open crumb, better oven spring. User noted the crust still didn't blister.", "breakthrough", "teaching", "user", "durable", 21, "low", "neutral", 0, 0.5, 0.5, "proud"),
+    ("Tried a longer cold ferment, 18 hours in the fridge. The dough was much more relaxed and easier to shape.", "experience", "teaching", "user", "durable", 22, "low", "neutral", 0, 0.4, 0.4, "encouraged"),
+    ("Second loaf was a step better, more open crumb, better oven spring. User noted the crust still didn't blister.", "breakthrough", "teaching", "user", "durable", 21, "low", "neutral", 0, 0.5, 0.5, "proud"),
     ("Hypothesis: blistering requires more humidity in the oven. User plans to try ice cubes in a tray next bake.", "insight", "inference", "assistant", "durable", 20, "low", "neutral", 0, 0.2, 0.3, "analytical"),
     ("Third loaf with the ice-cube steam method. Crust blistered. User said it was the best loaf yet.", "breakthrough", "teaching", "user", "durable", 14, "medium", "neutral", 1, 0.7, 0.5, "delighted"),
     ("Pattern: user learns fastest when they can run a single-variable experiment between bakes. Don't change two things at once.", "pattern", "inference", "assistant", "durable", 13, "low", "neutral", 0, 0.3, 0.2, "observant"),
@@ -147,7 +147,7 @@ MEMORIES = [
     ("Suggested investigating 'Defiant' or 'Iron Lady' for blight resistance. User said they'd research before next season.", "teaching_moment", "inference", "assistant", "durable", 8, "low", "supportive", 0, 0.3, 0.3, "supportive"),
 
     # Side-project arc: technical patterns (8 entries, recent)
-    ("User started a side project — a static site generator for personal notes. Wants to keep it small.", "experience", "teaching", "user", "durable", 21, "low", "neutral", 0, 0.4, 0.5, "energized"),
+    ("User started a side project, a static site generator for personal notes. Wants to keep it small.", "experience", "teaching", "user", "durable", 21, "low", "neutral", 0, 0.4, 0.5, "energized"),
     ("User got frustrated when the build broke after adding a new template. Reverted the change.", "experience", "teaching", "user", "durable", 18, "low", "anti-spiral", 0, -0.4, 0.6, "frustrated"),
     ("Suggested writing a smoke test for the build step before adding the next template. User agreed.", "teaching_moment", "inference", "assistant", "durable", 18, "low", "grounding", 0, 0.2, 0.3, "supportive"),
     ("First smoke test added. It caught the issue immediately when user tried the new template again.", "breakthrough", "teaching", "user", "durable", 15, "low", "neutral", 0, 0.6, 0.4, "satisfied"),
@@ -158,19 +158,19 @@ MEMORIES = [
 
     # Identity / relational layer (6 entries)
     ("User prefers to be asked one clarifying question before a long suggestion, rather than getting the whole plan upfront.", "identity", "teaching", "user", "durable", 50, "low", "neutral", 1, 0.0, 0.2, "neutral"),
-    ("User's working style is iterative — they want partial drafts to react to, not a fully-baked proposal.", "identity", "teaching", "user", "durable", 48, "low", "neutral", 1, 0.0, 0.2, "neutral"),
+    ("User's working style is iterative. They want partial drafts to react to, not a fully-baked proposal.", "identity", "teaching", "user", "durable", 48, "low", "neutral", 1, 0.0, 0.2, "neutral"),
     ("User is comfortable with direct technical feedback. Soften only when the topic is non-technical.", "identity", "teaching", "user", "durable", 47, "low", "neutral", 1, 0.0, 0.2, "neutral"),
     ("User mentioned their housemate Alex is a graphic designer who's been helping with the site's visual style.", "relationship", "teaching", "user", "durable", 19, "low", "neutral", 0, 0.3, 0.3, "warm"),
     ("Alex suggested swapping the serif body font for a humanist sans. User agreed it reads better.", "exchange", "exchange", "user", "durable", 17, "low", "neutral", 0, 0.3, 0.3, "collaborative"),
     ("User trusts Alex's eye for typography but tends to over-rely on their input. Worth keeping a mental note.", "pattern", "inference", "assistant", "durable", 16, "medium", "neutral", 0, -0.1, 0.2, "thoughtful"),
 
-    # Corrections (3 entries — exercises the corrections panel)
-    ("Correction: previously logged that the bread recipe was Tartine-style — user clarified it's actually no-knead from a different source. Updating attribution.", "correction", "teaching", "user", "durable", 25, "low", "neutral", 0, 0.0, 0.2, "neutral"),
+    # Corrections (3 entries, exercises the corrections panel)
+    ("Correction: previously logged that the bread recipe was Tartine-style, user clarified it's actually no-knead from a different source. Updating attribution.", "correction", "teaching", "user", "durable", 25, "low", "neutral", 0, 0.0, 0.2, "neutral"),
     ("Correction: misread user's note as 'cherry tomatoes are struggling' when in fact it's the slicer struggling and the cherry doing well. Reversed in memory.", "correction", "teaching", "user", "durable", 29, "low", "neutral", 0, 0.0, 0.3, "neutral"),
     ("Correction: said user uses a stand mixer, but they actually mix by hand. Adjusting the kitchen-tools profile.", "correction", "teaching", "user", "durable", 12, "low", "neutral", 0, 0.0, 0.2, "neutral"),
 
     # Inference-pipeline-only (dream from the sleep daemon)
-    ("Sleep cycle reflection: the bread/garden arcs share a structural pattern — both improve when the user runs single-variable experiments. The site project replicates this with the smoke-test discipline.", "dream", "inference", "sleep_daemon", "durable", 9, "low", "neutral", 0, 0.3, 0.2, "reflective"),
+    ("Sleep cycle reflection: the bread/garden arcs share a structural pattern, both improve when the user runs single-variable experiments. The site project replicates this with the smoke-test discipline.", "dream", "inference", "sleep_daemon", "durable", 9, "low", "neutral", 0, 0.3, 0.2, "reflective"),
     ("Sleep cycle reflection: high-confidence inferences in this corpus cluster around process patterns, not factual claims. Lower confidence on factual claims is appropriate.", "dream", "inference", "sleep_daemon", "durable", 4, "low", "neutral", 0, 0.2, 0.1, "calm"),
 
     # Promises / commitments (3 entries)
@@ -184,7 +184,7 @@ MEMORIES = [
 
     # Expired / rejected (the test for the lifecycle panels)
     ("Expired inference: user might want morning routine suggestions. Never confirmed; TTL passed.", "insight", "inference", "assistant", "expired", 90, "low", "neutral", 0, 0.0, 0.1, "neutral"),
-    ("Rejected: previously inferred user dislikes long-form replies. User corrected — they like long when there's substance, not when there's padding.", "pattern", "inference", "assistant", "rejected", 35, "low", "neutral", 0, -0.1, 0.2, "corrected"),
+    ("Rejected: previously inferred user dislikes long-form replies. User corrected. They like long when there's substance, not when there's padding.", "pattern", "inference", "assistant", "rejected", 35, "low", "neutral", 0, -0.1, 0.2, "corrected"),
 
     # Boot-context grounding entries (so the ring has something on warm start)
     ("User's current focus: shipping the site generator and finishing the sourdough starter cycle.", "exchange", "exchange", "user", "durable", 0, "low", "neutral", 0, 0.3, 0.3, "focused"),
@@ -217,7 +217,7 @@ def main():
     con.commit()
 
     if not db_is_empty(con):
-        print(f"[seed_demo] {DB_PATH} already has memories — skipping seed.")
+        print(f"[seed_demo] {DB_PATH} already has memories, skipping seed.")
         return 0
 
     print(f"[seed_demo] populating {DB_PATH} with {len(MEMORIES)} synthetic memories.")
@@ -300,13 +300,13 @@ def main():
             VALUES (?, ?, ?, ?, ?, ?)
         """, (name, rel, notes, json.dumps({"warmth": 0.7}), ts(days_ago=60), ts(days_ago=5)))
 
-    # aelen_state — gives the emotional-state panel a recent mood reading
+    # aelen_state, gives the emotional-state panel a recent mood reading
     c.execute("""
         INSERT INTO aelen_state (key, value, updated_at)
         VALUES (?, ?, ?)
     """, ("emotional_state", "settled, mid-arc", ts(hours_ago=2)))
 
-    # session_compliance — a few historical sessions so the compliance panel has shape
+    # session_compliance, a few historical sessions so the compliance panel has shape
     sessions = [
         ("demo-session-001", 14, 1, 12, 14, 0.92),
         ("demo-session-002", 10, 1, 9, 11, 0.88),
@@ -327,7 +327,7 @@ def main():
 
     con.commit()
     con.close()
-    print(f"[seed_demo] done — {len(MEMORIES)} memories, {len(ISLANDS)} islands, "
+    print(f"[seed_demo] done, {len(MEMORIES)} memories, {len(ISLANDS)} islands, "
           f"{len(edge_pairs)} edges, {len(sessions)} compliance rows.")
     return 0
 

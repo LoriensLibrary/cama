@@ -1,10 +1,10 @@
-"""``POST /v1/search`` — Phase-1 librarian routing + counterweight injection.
+"""``POST /v1/search``, Phase-1 librarian routing + counterweight injection.
 
 Pipeline (RETRIEVAL.md § 2):
 
   1. Score each librarian's ``routing_keywords`` against the query
      (substring match × ``activation_score``). Top-5 wins.
-  2. Dyad-scoped JOIN against ``librarian_membership`` — only memories
+  2. Dyad-scoped JOIN against ``librarian_membership``, only memories
      belonging to an activated librarian *and* to the calling key's
      dyad surface.
   3. Falls back to ``LOWER(raw_text) LIKE ?`` when the routing index
@@ -16,7 +16,7 @@ Pipeline (RETRIEVAL.md § 2):
      against the regular result set so a routed memory doesn't
      double-count.
 
-Phase-2.6 era-aware semantic routing is NOT wired here yet — it lives
+Phase-2.6 era-aware semantic routing is NOT wired here yet. It lives
 in ``cama/librarian/cama_phase26_era_hybrid.py`` and depends on the
 sentence-transformer cache being portable across the API and MCP
 processes. Tracked as v1.2 work in API.md § 13.
@@ -72,7 +72,7 @@ def _librarian_routed_search(
     ``CAMA_DB_PATH`` between tests via monkeypatch. Doing the routing
     against the caller's already-open connection means the routing
     index and the membership join always read from the same DB the
-    rest of the search query reads from — no path drift, no separate
+    rest of the search query reads from, no path drift, no separate
     connection lifecycle to manage.
 
     Returns ``(rows, librarians_activated_count)``. Rows are ordered
@@ -88,7 +88,7 @@ def _librarian_routed_search(
     or fresh installs.
     """
     # 1. Pull all non-meta librarians' keyword rows from the same
-    #    connection we'll later join against — avoids the DB_PATH
+    #    connection we'll later join against, avoids the DB_PATH
     #    drift problem (see docstring).
     try:
         lib_rows = c.execute(
@@ -150,7 +150,7 @@ def _librarian_routed_search(
     try:
         rows = c.execute(sql, params).fetchall()
     except sqlite3.OperationalError:
-        # librarian_membership table missing — fresh install.
+        # librarian_membership table missing, fresh install.
         return [], 0
     return rows, len(lib_ids)
 
@@ -276,7 +276,7 @@ def search(
             ).fetchall()
             for r in cw_rows:
                 # Don't double-count a counterweight that already
-                # surfaced as a regular hit — the SDK consumes
+                # surfaced as a regular hit, the SDK consumes
                 # is_counterweight as a clear signal, so de-dup matters.
                 if r["id"] in seen_ids:
                     continue

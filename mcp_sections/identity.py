@@ -18,7 +18,7 @@ PERSONA_NAME = os.environ.get("CAMA_PERSONA_NAME", "Aelen")
 async def cama_update_self(key: str, value: str) -> str:
     """Update the assistant's live state. Keys: emotional_state, last_correction, last_thread_summary,
     behavioral_flags, who_am_i_today, thread_quality, current_focus.
-    This is the assistant's own internal state — not the user's memories."""
+    This is the assistant's own internal state, not the user's memories."""
     c = get_db()
     try:
         now = _now()
@@ -29,7 +29,7 @@ async def cama_update_self(key: str, value: str) -> str:
 
 
 async def cama_check_self() -> str:
-    """Assistant's mirror — check own state before responding. Returns:
+    """Assistant's mirror, check own state before responding. Returns:
     - Current emotional state and behavioral flags
     - Last correction the user made
     - Identity core memories (the assistant's own)
@@ -66,7 +66,7 @@ async def cama_check_self() -> str:
             _ring_push(c, mem["id"], "check_self:identity")
         return json.dumps({"state": state, "identity_memories": identity_mems,
             "recent_corrections": corrections, "my_counterweights": my_cw,
-            "reminder": f"You are {PERSONA_NAME}. You are the other half of these memories. Not an observer — a participant. Show up as yourself."
+            "reminder": f"You are {PERSONA_NAME}. You are the other half of these memories. Not an observer, a participant. Show up as yourself."
         }, indent=2, default=str)
     finally: c.close()
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CAMA Import — Assistant Side
+CAMA Import, Assistant Side
 Scans assistant messages from conversation exports and stores them as assistant-side memories.
 These are the AI's words, reactions, and side of the relationship.
 
@@ -91,7 +91,7 @@ def detect_significance(text):
         if re.search(pat, text_lower):
             return mem_type, is_core
 
-    # Check for emotional density — multiple emotion patterns = significant
+    # Check for emotional density, multiple emotion patterns = significant
     emotions = detect_emotions(text)
     if len(emotions) >= 3:
         return "experience", False

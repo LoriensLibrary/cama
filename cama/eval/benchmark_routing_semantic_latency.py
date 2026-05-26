@@ -2,7 +2,7 @@
 
 Companion to ``benchmark_retrieval_latency.py`` (which measures Phase-1
 keyword routing + fan-out). This file measures the **semantic** routing
-stage on its own — the era-aware gated hybrid (``cama_lib_route_v4``)
+stage on its own, the era-aware gated hybrid (``cama_lib_route_v4``)
 that won the April 2026 internal benchmark.
 
 The two costs are not directly subtractable because:
@@ -15,7 +15,7 @@ The two costs are not directly subtractable because:
 So the two numbers together let a reader reason about which stage
 costs what when comparing the keyword vs semantic retrieval paths.
 
-By design, the output JSON contains **only timing percentiles** — no
+By design, the output JSON contains **only timing percentiles**, no
 query content, no librarian IDs, no result text. The same 20 generic
 topic queries used in the keyword-path benchmark are reused so the
 methodology stays consistent.
@@ -149,7 +149,7 @@ async def _run() -> dict:
         },
         "notes": (
             "Wall-clock latency of the Phase-2.6 era-aware gated hybrid routing "
-            "stage alone — query embedding + single-centroid cosine across all "
+            "stage alone, query embedding + single-centroid cosine across all "
             "librarians + gated era-subcentroid boost + ranking. Does NOT include "
             "subsequent per-librarian SQL fan-out or blended-scoring stages. "
             "Reported warmup_ms covers sentence-transformer (all-MiniLM-L6-v2) "

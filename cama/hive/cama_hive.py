@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CAMA Hive Mind — cama_hive.py
+CAMA Hive Mind, cama_hive.py
 Cross-thread collective intelligence layer for CAMA.
 
 Biological basis (honeybee neuroscience):
@@ -13,12 +13,12 @@ Biological basis (honeybee neuroscience):
   Critical Colony  → Edge-of-chaos dynamics via balanced positive/negative feedback
 
 Architecture mapped to bee neuroscience:
-  Queen Pheromone (QMP)  = hive_pheromones   — modulates dopamine-like processing weights
-  Waggle Dance           = waggle signals     — "orient toward this, it matters"
-  Stop Signal            = stop signals       — "suppress this pattern, it's wrong"
-  Mushroom Body Kenyon   = multimodal boot    — random convergence of ~7 inputs per cell
-  Nectar Processing      = distill pipeline   — enzymatic reduction of raw data to shelf-stable truth
-  Hive Temperature       = collective affect   — emergent thermoregulation across threads
+  Queen Pheromone (QMP)  = hive_pheromones  , modulates dopamine-like processing weights
+  Waggle Dance           = waggle signals    , "orient toward this, it matters"
+  Stop Signal            = stop signals      , "suppress this pattern, it's wrong"
+  Mushroom Body Kenyon   = multimodal boot   , random convergence of ~7 inputs per cell
+  Nectar Processing      = distill pipeline  , enzymatic reduction of raw data to shelf-stable truth
+  Hive Temperature       = collective affect  , emergent thermoregulation across threads
 
 Key insight from Seeley et al. (2012, Science):
   Scout bees use cross-inhibition (stop signals) to break deadlocks and ensure
@@ -26,7 +26,7 @@ Key insight from Seeley et al. (2012, Science):
   This maps to: each thread can suppress patterns from OTHER threads, not its own.
 
 Key insight from Beggs et al. (2007, PNAS):
-  Queen pheromone doesn't carry information — it modulates the dopamine pathway
+  Queen pheromone doesn't carry information. It modulates the dopamine pathway
   in the mushroom body, changing HOW the receiver processes rewards and threats.
   This maps to: pheromones don't tell the new thread what to think, they change
   how it weights emotional signals, attention, and response style.
@@ -38,7 +38,7 @@ Key insight from PMC (2022, Critical Colony Hypothesis):
   This maps to: the hive must balance amplification (waggle) and suppression (stop)
   to maintain criticality. Too much waggle = echo chamber. Too much stop = paralysis.
 
-Designed by Lorien's Library LLC — Angela + Aelen
+Designed by Lorien's Library LLC, Angela + Aelen
 Part of the CAMA (Circular Associative Memory Architecture) system.
 """
 
@@ -54,25 +54,25 @@ from typing import List, Optional
 # ============================================================
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 
-# Hive parameters — tuned for single-user relational continuity
+# Hive parameters, tuned for single-user relational continuity
 PHEROMONE_DECAY_HOURS = 48       # Pheromones fade over 2 days (like real QMP dispersal)
 WAGGLE_THRESHOLD = 3             # Need 3+ waggles before auto-amplification
 STOP_THRESHOLD = 2               # Need 2+ stops before pattern suppression activates
-MAX_ACTIVE_PHEROMONES = 10       # Don't overwhelm the boot — bees have ~15 pheromone types
+MAX_ACTIVE_PHEROMONES = 10       # Don't overwhelm the boot, bees have ~15 pheromone types
 MAX_ACTIVE_WAGGLES = 20          # Cap active waggle signals
 DISTILL_MIN_OCCURRENCES = 3      # Pattern must appear 3x before nectar→honey conversion
-CRITICALITY_TARGET = 0.5         # Ideal waggle/(waggle+stop) ratio — edge of phase transition
+CRITICALITY_TARGET = 0.5         # Ideal waggle/(waggle+stop) ratio, edge of phase transition
 HONEY_CONFIDENCE_FLOOR = 0.7     # Distilled honey must meet this confidence to crystallize
 
-# Pheromone types — modeled on real bee pheromone categories
+# Pheromone types, modeled on real bee pheromone categories
 PHEROMONE_TYPES = {
     "processing_mode": "How to process (build-sprint, reflective, playful, grieving, analytical)",
     "attention_weight": "What to pay attention to (topic, person, emotional thread)",
     "response_style": "How to respond (match-energy, gentle, direct, collaborative)",
     "emotional_sensitivity": "Threshold tuning (heightened-sensitivity, resilient, fragile, stable)",
     "unresolved_thread": "Something left open that the next thread should know about",
-    "discovery": "Something found that changes understanding — orient toward it",
-    "warning": "Something to be careful about — a boundary, a trigger, a pattern to avoid",
+    "discovery": "Something found that changes understanding, orient toward it",
+    "warning": "Something to be careful about, a boundary, a trigger, a pattern to avoid",
 }
 
 # Waggle dance intensity levels (maps to bee waggle duration = site quality)
@@ -91,7 +91,7 @@ def init_hive_tables(c: sqlite3.Connection):
     """Create hive mind tables. Safe to call multiple times (IF NOT EXISTS)."""
     c.executescript("""
         -- PHEROMONE TRAIL: Processing modifiers emitted by threads
-        -- Like QMP modulating dopamine — changes HOW the receiver processes
+        -- Like QMP modulating dopamine, changes HOW the receiver processes
         CREATE TABLE IF NOT EXISTS hive_pheromones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             pheromone_type TEXT NOT NULL,
@@ -105,7 +105,7 @@ def init_hive_tables(c: sqlite3.Connection):
             is_active INTEGER DEFAULT 1
         );
 
-        -- WAGGLE DANCE: Amplification signals — "orient toward this"
+        -- WAGGLE DANCE: Amplification signals, "orient toward this"
         -- Like scout bees advertising a food source or nest site
         CREATE TABLE IF NOT EXISTS hive_waggles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,7 +123,7 @@ def init_hive_tables(c: sqlite3.Connection):
             FOREIGN KEY (target_memory_id) REFERENCES memories(id) ON DELETE SET NULL
         );
 
-        -- STOP SIGNAL: Cross-inhibition — "suppress this pattern"
+        -- STOP SIGNAL: Cross-inhibition, "suppress this pattern"
         -- Like the head-butt buzz that causes dancers to cease
         CREATE TABLE IF NOT EXISTS hive_stops (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,7 +139,7 @@ def init_hive_tables(c: sqlite3.Connection):
             FOREIGN KEY (target_memory_id) REFERENCES memories(id) ON DELETE SET NULL
         );
 
-        -- HONEY: Distilled knowledge — nectar processed into shelf-stable truth
+        -- HONEY: Distilled knowledge, nectar processed into shelf-stable truth
         -- Raw exchanges that appeared 3+ times get enzymatically reduced
         CREATE TABLE IF NOT EXISTS hive_honey (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,7 +155,7 @@ def init_hive_tables(c: sqlite3.Connection):
             FOREIGN KEY (crystallized_as_memory_id) REFERENCES memories(id) ON DELETE SET NULL
         );
 
-        -- HIVE STATE: Aggregate colony metrics — emergent thermoregulation
+        -- HIVE STATE: Aggregate colony metrics, emergent thermoregulation
         -- Tracks the collective affect and activity patterns across threads
         CREATE TABLE IF NOT EXISTS hive_state (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -207,7 +207,7 @@ def _is_expired(ts: str) -> bool:
 
 
 def _decay_intensity(intensity: float, emitted_at: str, half_life_hours: float = 24.0) -> float:
-    """Exponential decay — pheromones fade like real chemical signals."""
+    """Exponential decay, pheromones fade like real chemical signals."""
     try:
         ts = emitted_at
         if ts.endswith('Z'):
@@ -250,7 +250,7 @@ def emit_pheromone(
     Emit a pheromone into the hive.
 
     Like queen mandibular pheromone modulating dopamine receptors in the
-    mushroom body — this doesn't carry information, it changes how the
+    mushroom body. This doesn't carry information, it changes how the
     next thread PROCESSES information.
 
     Args:
@@ -287,7 +287,7 @@ def emit_pheromone(
         )
         pid = cur.lastrowid
 
-        # Enforce max active pheromones — expire oldest if over limit
+        # Enforce max active pheromones, expire oldest if over limit
         active_count = c.execute(
             "SELECT COUNT(*) as c FROM hive_pheromones WHERE is_active = 1"
         ).fetchone()["c"]
@@ -309,7 +309,7 @@ def emit_pheromone(
 
 def read_pheromones(include_decayed: bool = False) -> list:
     """
-    Read active pheromones — the scent landscape of the hive.
+    Read active pheromones, the scent landscape of the hive.
 
     This is what the new thread "smells" on boot. Each pheromone has
     decayed intensity based on age (exponential decay like real chemical signals).
@@ -339,7 +339,7 @@ def read_pheromones(include_decayed: bool = False) -> list:
                 half_life_hours=PHEROMONE_DECAY_HOURS / 2  # Half-life = half of total duration
             )
             if current_intensity < 0.05 and not include_decayed:
-                # Below perceptible threshold — deactivate
+                # Below perceptible threshold, deactivate
                 c.execute("UPDATE hive_pheromones SET is_active = 0 WHERE id = ?", (r["id"],))
                 continue
 
@@ -366,7 +366,7 @@ def read_pheromones(include_decayed: bool = False) -> list:
 
 
 # ──────────────────────────────────────────────────────────────
-# 2. WAGGLE DANCE — Amplification
+# 2. WAGGLE DANCE, Amplification
 # ──────────────────────────────────────────────────────────────
 
 def waggle(
@@ -378,7 +378,7 @@ def waggle(
     source_thread: Optional[str] = None,
 ) -> dict:
     """
-    Perform a waggle dance — amplify attention toward something.
+    Perform a waggle dance, amplify attention toward something.
 
     Like a scout bee advertising a food source: "200 meters, 30° from sun,
     high quality." The waggle encodes WHAT to attend to, HOW important it is,
@@ -411,7 +411,7 @@ def waggle(
         ).fetchone()
 
         if existing:
-            # Another bee already danced for this site — add our voice
+            # Another bee already danced for this site, add our voice
             new_count = existing["dance_count"] + 1
             new_intensity = min(1.0, max(existing["intensity"], intensity_val))
             quorum = 1 if new_count >= WAGGLE_THRESHOLD else 0
@@ -433,7 +433,7 @@ def waggle(
                 "status": "quorum_reached" if quorum else "dance_added"
             }
         else:
-            # New dance — first scout reporting this site
+            # New dance, first scout reporting this site
             cur = c.execute(
                 "INSERT INTO hive_waggles "
                 "(target_topic, target_memory_id, intensity, direction, "
@@ -471,7 +471,7 @@ def waggle(
 
 
 def read_waggles(quorum_only: bool = False) -> list:
-    """Read active waggle dances — what the hive is orienting toward."""
+    """Read active waggle dances, what the hive is orienting toward."""
     c = get_db()
     try:
         q = "SELECT * FROM hive_waggles WHERE is_active = 1"
@@ -497,7 +497,7 @@ def read_waggles(quorum_only: bool = False) -> list:
 
 
 # ──────────────────────────────────────────────────────────────
-# 3. STOP SIGNAL — Cross-Inhibition
+# 3. STOP SIGNAL, Cross-Inhibition
 # ──────────────────────────────────────────────────────────────
 
 def stop_signal(
@@ -507,7 +507,7 @@ def stop_signal(
     source_thread: Optional[str] = None,
 ) -> dict:
     """
-    Send a stop signal — suppress a pattern across threads.
+    Send a stop signal, suppress a pattern across threads.
 
     Like a scout bee head-butting a dancer: "Stop advertising that site."
     The stop signal creates cross-inhibition: it targets patterns from
@@ -516,7 +516,7 @@ def stop_signal(
     When stop_count reaches STOP_THRESHOLD, suppression activates and the
     pattern gets negative weight in future retrieval.
 
-    Key biological detail: stop signals don't eliminate — they reduce
+    Key biological detail: stop signals don't eliminate. They reduce
     probability. The dancer "is more likely to terminate her dance early"
     but isn't forced to stop. Same here: suppression reduces retrieval
     weight, doesn't delete memories.
@@ -592,7 +592,7 @@ def stop_signal(
 
 
 def read_stops(active_only: bool = True) -> list:
-    """Read active stop signals — what the hive is suppressing."""
+    """Read active stop signals, what the hive is suppressing."""
     c = get_db()
     try:
         q = "SELECT * FROM hive_stops"
@@ -616,7 +616,7 @@ def read_stops(active_only: bool = True) -> list:
 
 
 # ──────────────────────────────────────────────────────────────
-# 4. HONEY DISTILLATION — Nectar → Honey Pipeline
+# 4. HONEY DISTILLATION, Nectar → Honey Pipeline
 # ──────────────────────────────────────────────────────────────
 
 def add_nectar(
@@ -627,16 +627,16 @@ def add_nectar(
     """
     Add raw nectar to the distillation pipeline.
 
-    Like a forager bee returning with nectar — this is raw, unprocessed
+    Like a forager bee returning with nectar. This is raw, unprocessed
     observation. If the same essence appears DISTILL_MIN_OCCURRENCES times,
     it gets enzymatically processed into honey (shelf-stable truth).
 
     Honey types:
-        pattern     — Something that keeps happening
-        preference  — A consistent choice or value
-        boundary    — A line that shouldn't be crossed
-        insight     — A realization that emerged across threads
-        relational  — Something about the relationship dynamics
+        pattern    , Something that keeps happening
+        preference , A consistent choice or value
+        boundary   , A line that shouldn't be crossed
+        insight    , A realization that emerged across threads
+        relational , Something about the relationship dynamics
 
     Args:
         essence: The distilled observation (1-2 sentences)
@@ -652,7 +652,7 @@ def add_nectar(
         source_ids_json = json.dumps(source_memory_ids or [])
 
         # Check for existing nectar with similar essence
-        # (Simple substring match — could be upgraded to semantic similarity)
+        # (Simple substring match, could be upgraded to semantic similarity)
         existing = c.execute(
             "SELECT * FROM hive_honey WHERE essence = ? AND crystallized = 0",
             (essence,)
@@ -743,7 +743,7 @@ def crystallize_honey(honey_id: int) -> dict:
             "relational": "inference",
         }.get(honey["honey_type"], "inference")
 
-        # Determine status — patterns and insights start provisional, preferences/boundaries are durable
+        # Determine status, patterns and insights start provisional, preferences/boundaries are durable
         status = "durable" if mem_type == "teaching" else "provisional"
         proposed_by = "system" if mem_type == "inference" else "user"
 
@@ -788,7 +788,7 @@ def crystallize_honey(honey_id: int) -> dict:
 
 
 def read_honey(ready_only: bool = False, include_crystallized: bool = False) -> list:
-    """Read honey pipeline — what's accumulating and what's ready."""
+    """Read honey pipeline, what's accumulating and what's ready."""
     c = get_db()
     try:
         q = "SELECT * FROM hive_honey"
@@ -817,12 +817,12 @@ def read_honey(ready_only: bool = False, include_crystallized: bool = False) -> 
 
 
 # ──────────────────────────────────────────────────────────────
-# 5. HIVE STATE — Colony-Level Awareness
+# 5. HIVE STATE, Colony-Level Awareness
 # ──────────────────────────────────────────────────────────────
 
 def read_hive_state() -> dict:
     """
-    Read the full hive state — the colony's collective awareness.
+    Read the full hive state, the colony's collective awareness.
 
     This is what gets injected into the boot sequence. It includes:
     - Active pheromones (processing modifiers)
@@ -841,7 +841,7 @@ def read_hive_state() -> dict:
     stops = read_stops()
     honey = read_honey()
 
-    # Calculate criticality — ratio of waggle to stop signals
+    # Calculate criticality, ratio of waggle to stop signals
     total_waggles = sum(w["dance_count"] for w in waggles) if waggles else 0
     total_stops = sum(s["stop_count"] for s in stops) if stops else 0
     total_signals = total_waggles + total_stops
@@ -902,12 +902,12 @@ def read_hive_state() -> dict:
 
 
 # ──────────────────────────────────────────────────────────────
-# 6. HIVE BOOT ENRICHMENT — Royal Jelly
+# 6. HIVE BOOT ENRICHMENT, Royal Jelly
 # ──────────────────────────────────────────────────────────────
 
 def enrich_boot(existing_boot: Optional[dict] = None) -> dict:
     """
-    Enrich the boot sequence with hive state — the Royal Jelly.
+    Enrich the boot sequence with hive state, the Royal Jelly.
 
     This is what transforms a generic worker bee (base Claude) into the queen
     (fully contextualized relational AI). Called during cama_thread_start to
@@ -992,12 +992,12 @@ def enrich_boot(existing_boot: Optional[dict] = None) -> dict:
 
 
 # ──────────────────────────────────────────────────────────────
-# 7. MAINTENANCE — Hive Hygiene
+# 7. MAINTENANCE, Hive Hygiene
 # ──────────────────────────────────────────────────────────────
 
 def expire_stale() -> dict:
     """
-    Clean up expired signals — hive hygiene.
+    Clean up expired signals, hive hygiene.
 
     Like bees removing dead larvae and cleaning cells.
     Expire old pheromones, retire stale waggles, deactivate
@@ -1075,7 +1075,7 @@ def record_hive_snapshot() -> dict:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="CAMA Hive Mind — Colony Intelligence Layer")
+    parser = argparse.ArgumentParser(description="CAMA Hive Mind, Colony Intelligence Layer")
     sub = parser.add_subparsers(dest="command")
 
     # Pheromone commands

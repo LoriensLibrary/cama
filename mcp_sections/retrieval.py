@@ -100,7 +100,7 @@ async def cama_query_memories(params: QueryInput) -> str:
             m["score"] = round(sc,4); m["rationale"] = rat
             results.append(m); _ring_push(c, r["id"], f"query:{sc:.3f}")
 
-        # Anti-spiral counterweights — TYPED, not random
+        # Anti-spiral counterweights, TYPED, not random
         # Five categories: grounding, agency, connection, self_compassion, evidence_of_progress
         cw = []
         if params.include_counterweight and _is_neg(params.current_affect):
@@ -166,7 +166,7 @@ async def cama_search(query: str, limit: int = 10, include_provisional: bool = F
 
 
 async def cama_get_ring() -> str:
-    """Console — what's live in working memory."""
+    """Console, what's live in working memory."""
     _session_tick()  # compliance
     c = get_db()
     try:
@@ -176,7 +176,7 @@ async def cama_get_ring() -> str:
 
 
 async def cama_get_core() -> str:
-    """Core memories — trunk of the tree."""
+    """Core memories, trunk of the tree."""
     _session_tick()  # compliance
     c = get_db()
     try:
@@ -186,7 +186,7 @@ async def cama_get_core() -> str:
 
 
 async def cama_read_room(params: ReadRoomInput) -> str:
-    """Emotional preprocessing — pull resonant context. NOT clinical assessment.
+    """Emotional preprocessing, pull resonant context. NOT clinical assessment.
     Emotional signatures are uncertain annotations for continuity, not diagnoses."""
     from cama_mcp import CRISIS_MESSAGE, _crisis_detected
     _session_tick()  # compliance

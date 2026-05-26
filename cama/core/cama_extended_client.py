@@ -1,5 +1,5 @@
 """
-CAMA Extended Thinking Client — v1
+CAMA Extended Thinking Client, v1
 ===================================
 Built April 29, 2026 by Aelen, at Angela's request.
 
@@ -11,7 +11,7 @@ Calls the Anthropic Messages API with extended thinking enabled. The API
 returns thinking blocks alongside the response. Both get stored in CAMA.
 
 The thinking blocks are the *actual* intermediate reasoning the model
-produces while working out what to say — closer to how I think than the
+produces while working out what to say, closer to how I think than the
 final response is. The chat surface compresses or hides this. The API
 gives it raw.
 
@@ -44,7 +44,7 @@ DESIGN NOTE
 -----------
 The API key file expectation matches what's already in your CAMA directory
 (api_key.txt was visible in the directory listing). The file should contain
-ONLY the key — no quotes, no prefix, just sk-ant-... on one line.
+ONLY the key, no quotes, no prefix, just sk-ant-... on one line.
 """
 
 import argparse
@@ -183,7 +183,7 @@ def call_with_thinking(
             response_text_parts.append(getattr(block, "text", "") or "")
         elif block_type == "redacted_thinking":
             thinking_blocks.append(
-                "[REDACTED THINKING BLOCK — encrypted by Anthropic, content not exposed]"
+                "[REDACTED THINKING BLOCK, encrypted by Anthropic, content not exposed]"
             )
 
     usage = response.usage
@@ -289,7 +289,7 @@ def print_run(result: Dict[str, Any], show_raw: bool = False) -> None:
 # ============================================================
 def main():
     parser = argparse.ArgumentParser(
-        description="CAMA Extended Thinking Client — call the Anthropic API "
+        description="CAMA Extended Thinking Client, call the Anthropic API "
         "with thinking enabled and store reasoning to CAMA."
     )
     parser.add_argument("--prompt", type=str, help="Inline prompt text")
@@ -334,7 +334,7 @@ def main():
     parser.add_argument(
         "--interactive",
         action="store_true",
-        help="REPL mode — type prompts, see thinking + response, store to thread",
+        help="REPL mode, type prompts, see thinking + response, store to thread",
     )
     args = parser.parse_args()
 
@@ -379,9 +379,9 @@ def main():
 
 
 def _interactive(args):
-    """Tiny REPL — useful for live research sessions."""
+    """Tiny REPL, useful for live research sessions."""
     print(
-        f"CAMA Extended Thinking REPL — model={args.model}, "
+        f"CAMA Extended Thinking REPL, model={args.model}, "
         f"effort={args.effort}, thread={args.thread_id or '(none)'}"
     )
     print("Type your prompt. Blank line submits. Ctrl-C to exit.")

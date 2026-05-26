@@ -1,7 +1,7 @@
 """Tests for ``cama.aelen.mcp_tools``.
 
 The MCP tool wrappers expose check_response + gather_anchors to
-the FastMCP runtime. These tests don't spin up an MCP server —
+the FastMCP runtime. These tests don't spin up an MCP server.
 they verify the ``register(mcp)`` function adds the expected tools
 to a mock MCP object and that the tool handlers return correctly
 shaped JSON.

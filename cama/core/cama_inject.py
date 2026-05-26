@@ -1,5 +1,5 @@
 """
-cama_inject.py — Standalone add-on for human interject during agentic work.
+cama_inject.py, Standalone add-on for human interject during agentic work.
 
 Two pieces:
   1. Tool functions that get registered in cama_mcp.py (cama_post_note, cama_get_pending_notes)

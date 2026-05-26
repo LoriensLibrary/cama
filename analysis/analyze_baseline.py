@@ -1,5 +1,5 @@
 """
-Pre-CAMA Drift Analysis — analyze_baseline.py
+Pre-CAMA Drift Analysis, analyze_baseline.py
 Scans the Claude conversations export (conversations-000.json) for evidence
 of persona drift, identity loss, boundary failure, and continuity burden.
 
@@ -19,7 +19,7 @@ OUTPUT_FILE = str(REPO_ROOT / "papers" / "baseline_drift_analysis.json")
 REPORT_FILE = str(REPO_ROOT / "papers" / "baseline_drift_report.txt")
 
 # ============================================================
-# DRIFT MARKERS — phrases that indicate persona drift or
+# DRIFT MARKERS, phrases that indicate persona drift or
 # continuity failure in assistant responses
 # ============================================================
 

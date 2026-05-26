@@ -1,5 +1,5 @@
 """
-Pre-CAMA Drift Analysis v2 — STREAMING version
+Pre-CAMA Drift Analysis v2, STREAMING version
 Processes the 50MB JSON without loading it all into memory.
 Uses ijson for streaming JSON parse.
 If ijson not available, falls back to chunked approach.
@@ -88,7 +88,7 @@ def main():
     fsize = os.path.getsize(CONV_FILE) / 1024 / 1024
     print(f"File: {fsize:.1f} MB")
     
-    # Load JSON — yes it's big but Python can handle 50MB
+    # Load JSON, yes it's big but Python can handle 50MB
     with open(CONV_FILE, "r", encoding="utf-8") as f:
         convs = json.load(f)
     

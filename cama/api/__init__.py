@@ -1,4 +1,4 @@
-"""CAMA HTTP API — v1.
+"""CAMA HTTP API, v1.
 
 The public surface that lets the CAMA memory architecture be embedded in
 any AI application, not just Claude Desktop via MCP. See ``API.md`` for
@@ -27,7 +27,7 @@ Module map:
                        route every error through the 7807 envelope, and
                        ``include_router`` for each routers/* module.
                        Endpoint handlers themselves live in routers/*.
-    cama.api.routers   One module per endpoint family — health,
+    cama.api.routers   One module per endpoint family, health,
                        memories, search, threads, dyads, webhooks,
                        consent. Each module exposes a ``router``
                        attribute the factory mounts.

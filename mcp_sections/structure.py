@@ -27,7 +27,7 @@ async def cama_link_memories(params: LinkInput) -> str:
 
 
 async def cama_create_island(name: str, description: str, centroid_affect: Dict[str,float] = {}, strength: float = 0.5) -> str:
-    """Create personality island — identity structure formed through interaction."""
+    """Create personality island, identity structure formed through interaction."""
     c = get_db()
     try:
         now = _now()
@@ -80,7 +80,7 @@ async def cama_delete_person(name: str) -> str:
 
 
 async def cama_upsert_song(title: str, artist: Optional[str]=None, affect_hint: Optional[Dict[str,float]]=None, meaning: Optional[str]=None, linked_person: Optional[str]=None) -> str:
-    """Store/update song — Haven methodology. FIXED: true upsert on (title,artist)."""
+    """Store/update song, Haven methodology. FIXED: true upsert on (title,artist)."""
     c = get_db()
     try:
         now = _now()

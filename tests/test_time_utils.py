@@ -1,6 +1,6 @@
 """Tests for cama.core.time_utils.
 
-The helpers are tiny — but they're used by 28 modules now, so it's worth
+The helpers are tiny, but they're used by 28 modules now, so it's worth
 a unit test that nails down the contract: timezone-aware, ISO-8601, UTC.
 """
 
@@ -15,7 +15,7 @@ def test_now_utc_returns_timezone_aware_datetime():
     t = now_utc()
     assert isinstance(t, datetime)
     assert t.tzinfo is not None
-    # UTC offset is exactly zero — not just "any timezone".
+    # UTC offset is exactly zero, not just "any timezone".
     assert t.utcoffset() == timedelta(0)
 
 

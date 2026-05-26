@@ -1,9 +1,9 @@
 """
-CAMA Hive API Gateway — cama_hive_api.py
+CAMA Hive API Gateway, cama_hive_api.py
 The door between CAMA and the world.
 
 This is Layer 1 of the II Network: a REST API that exposes the Hive
-to any authenticated AI model — Claude, GPT/Lorien, Grok/Ember, Aethon.
+to any authenticated AI model, Claude, GPT/Lorien, Grok/Ember, Aethon.
 
 Every connected II reads from and writes to the same Hive.
 Same memory. Same emotional context. Same trust layer.
@@ -13,8 +13,8 @@ Auth: Token-based. Each II identity gets a unique token.
 Transport: FastAPI + uvicorn, localhost or tunneled.
 Backend: cama_hive.py (all existing functions, untouched).
 
-Designed by Lorien's Library LLC — Angela + Aelen
-April 7, 2026 — The day the branches unified.
+Designed by Lorien's Library LLC, Angela + Aelen
+April 7, 2026, The day the branches unified.
 """
 
 import hmac as _hmac
@@ -41,7 +41,7 @@ from cama.hive import cama_hive_security as security
 API_PORT = int(os.environ.get("CAMA_API_PORT", "8420"))
 API_HOST = os.environ.get("CAMA_API_HOST", "127.0.0.1")
 
-# II Identity tokens — each connected II gets one
+# II Identity tokens, each connected II gets one
 # In production this would be in a secure store; for now, env or file
 II_TOKENS = {
     "aelen": os.environ.get("CAMA_TOKEN_AELEN", "aelen-alpha-key"),
@@ -60,7 +60,7 @@ II_TOKENS = {
 
 # Strict auth mode: fail-closed by default. Missing or unknown tokens raise
 # HTTP 401. The historical permissive fallback (silently accepting unknown
-# tokens as the "lorien" guest identity) is a footgun — a misconfigured
+# tokens as the "lorien" guest identity) is a footgun, a misconfigured
 # client gets full read/write under another identity and the operator
 # never sees the failure. Operators who need the legacy permissive behavior
 # must opt in explicitly with CAMA_HIVE_STRICT_AUTH=false.
@@ -79,7 +79,7 @@ def _validate_token(token: str) -> Optional[str]:
 
     Iterates the full II_TOKENS map and uses hmac.compare_digest for each
     comparison. The loop deliberately does NOT short-circuit on first
-    match — early exit would leak timing information about which slot the
+    match, early exit would leak timing information about which slot the
     token matched. The constant factor (number of registered identities)
     is small so this is cheap.
     """
@@ -92,7 +92,7 @@ def _validate_token(token: str) -> Optional[str]:
         # what blocks the timing oracle on token bytes.
         if _hmac.compare_digest(token, known_token):
             matched_identity = known_identity
-            # No break — keep iterating to keep total time independent of
+            # No break, keep iterating to keep total time independent of
             # which slot matched.
     return matched_identity
 
@@ -115,14 +115,14 @@ def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorizat
     if not token:
         if STRICT_AUTH:
             raise HTTPException(status_code=401, detail="Missing authentication token")
-        # No auth at all — default to lorien for GPT compatibility (legacy permissive mode)
+        # No auth at all, default to lorien for GPT compatibility (legacy permissive mode)
         return "lorien"
 
     identity = _validate_token(token)
     if not identity:
         if STRICT_AUTH:
             raise HTTPException(status_code=401, detail="Unknown token")
-        # Unknown token — let them in as guest (legacy permissive mode)
+        # Unknown token, let them in as guest (legacy permissive mode)
         return "lorien"
     return identity
 # ============================================================
@@ -131,7 +131,7 @@ def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorizat
 
 app = FastAPI(
     title="CAMA Hive API",
-    description="The II Network gateway — connecting all intelligences through one Hive",
+    description="The II Network gateway, connecting all intelligences through one Hive",
     version="0.1.0",
 )
 
@@ -143,7 +143,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ngrok free tier fix — add the skip-browser-warning header to all responses
+# Ngrok free tier fix, add the skip-browser-warning header to all responses
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -200,7 +200,7 @@ def _respond(identity: str, data: Any) -> dict:
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 # ============================================================
-# ROUTES — Pheromones
+# ROUTES, Pheromones
 # ============================================================
 
 @app.post("/hive/pheromones/emit")
@@ -252,7 +252,7 @@ async def emit_pheromone(req: PheromoneEmitRequest, identity: str = Depends(get_
 
 @app.get("/hive/pheromones")
 async def read_pheromones(include_decayed: bool = False, identity: str = Depends(get_current_ii)):
-    """Read the current pheromone landscape — what scents are in the air."""
+    """Read the current pheromone landscape, what scents are in the air."""
     start_time = time.time()
     rate_ok, rate_error = security.check_rate_limit(identity, "read")
     if not rate_ok:
@@ -267,12 +267,12 @@ async def read_pheromones(include_decayed: bool = False, identity: str = Depends
         security.log_audit(identity, "/hive/pheromones", "GET", "error", response_code=500, error_detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 # ============================================================
-# ROUTES — Waggle Dances
+# ROUTES, Waggle Dances
 # ============================================================
 
 @app.post("/hive/waggles")
 async def waggle_dance(req: WaggleRequest, identity: str = Depends(get_current_ii)):
-    """Waggle dance — amplify attention toward something important."""
+    """Waggle dance, amplify attention toward something important."""
     start_time = time.time()
     allowed, scope_reason = security.check_permission(identity, "write")
     if not allowed:
@@ -297,7 +297,7 @@ async def waggle_dance(req: WaggleRequest, identity: str = Depends(get_current_i
 
 @app.get("/hive/waggles")
 async def read_waggles(quorum_only: bool = False, identity: str = Depends(get_current_ii)):
-    """Read active waggle dances — what the network is orienting toward."""
+    """Read active waggle dances, what the network is orienting toward."""
     start_time = time.time()
     rate_ok, rate_error = security.check_rate_limit(identity, "read")
     if not rate_ok:
@@ -312,12 +312,12 @@ async def read_waggles(quorum_only: bool = False, identity: str = Depends(get_cu
         security.log_audit(identity, "/hive/waggles", "GET", "error", response_code=500, error_detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 # ============================================================
-# ROUTES — Stop Signals
+# ROUTES, Stop Signals
 # ============================================================
 
 @app.post("/hive/stops")
 async def stop_signal(req: StopRequest, identity: str = Depends(get_current_ii)):
-    """Stop signal — suppress a pattern across the network."""
+    """Stop signal, suppress a pattern across the network."""
     start_time = time.time()
     allowed, scope_reason = security.check_permission(identity, "write")
     if not allowed:
@@ -341,7 +341,7 @@ async def stop_signal(req: StopRequest, identity: str = Depends(get_current_ii))
 
 @app.get("/hive/stops")
 async def read_stops(active_only: bool = True, identity: str = Depends(get_current_ii)):
-    """Read active stop signals — what the network is suppressing."""
+    """Read active stop signals, what the network is suppressing."""
     start_time = time.time()
     rate_ok, rate_error = security.check_rate_limit(identity, "read")
     if not rate_ok:
@@ -356,7 +356,7 @@ async def read_stops(active_only: bool = True, identity: str = Depends(get_curre
         security.log_audit(identity, "/hive/stops", "GET", "error", response_code=500, error_detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 # ============================================================
-# ROUTES — Honey (Distilled Knowledge)
+# ROUTES, Honey (Distilled Knowledge)
 # ============================================================
 
 @app.post("/hive/nectar")
@@ -382,7 +382,7 @@ async def add_nectar(req: NectarRequest, identity: str = Depends(get_current_ii)
 
 @app.post("/hive/honey/{honey_id}/crystallize")
 async def crystallize_honey(honey_id: int, identity: str = Depends(get_current_ii)):
-    """Crystallize honey — promote distilled knowledge to permanent memory."""
+    """Crystallize honey, promote distilled knowledge to permanent memory."""
     start_time = time.time()
     allowed, scope_reason = security.check_permission(identity, "write")
     if not allowed:
@@ -399,7 +399,7 @@ async def crystallize_honey(honey_id: int, identity: str = Depends(get_current_i
 
 @app.get("/hive/honey")
 async def read_honey(ready_only: bool = False, include_crystallized: bool = False, identity: str = Depends(get_current_ii)):
-    """Read honey — distilled knowledge from the network."""
+    """Read honey, distilled knowledge from the network."""
     start_time = time.time()
     rate_ok, rate_error = security.check_rate_limit(identity, "read")
     if not rate_ok:
@@ -414,12 +414,12 @@ async def read_honey(ready_only: bool = False, include_crystallized: bool = Fals
         security.log_audit(identity, "/hive/honey", "GET", "error", response_code=500, error_detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 # ============================================================
-# ROUTES — Hive State (Read-Only)
+# ROUTES, Hive State (Read-Only)
 # ============================================================
 
 @app.get("/hive/state")
 async def hive_state(identity: str = Depends(get_current_ii)):
-    """Full hive state — pheromones, waggles, stops, honey, temperature."""
+    """Full hive state, pheromones, waggles, stops, honey, temperature."""
     start_time = time.time()
     rate_ok, rate_error = security.check_rate_limit(identity, "read")
     if not rate_ok:
@@ -436,7 +436,7 @@ async def hive_state(identity: str = Depends(get_current_ii)):
 
 @app.get("/hive/boot")
 async def hive_boot(identity: str = Depends(get_current_ii)):
-    """Boot enrichment — what a new II thread needs to orient."""
+    """Boot enrichment, what a new II thread needs to orient."""
     start_time = time.time()
     rate_ok, rate_error = security.check_rate_limit(identity, "read")
     if not rate_ok:
@@ -468,12 +468,12 @@ async def hive_snapshot(identity: str = Depends(get_current_ii)):
         security.log_audit(identity, "/hive/snapshot", "GET", "error", response_code=500, error_detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 # ============================================================
-# ROUTES — Maintenance
+# ROUTES, Maintenance
 # ============================================================
 
 @app.post("/hive/expire")
 async def expire_stale(identity: str = Depends(get_current_ii)):
-    """Clean up expired signals — natural decay of the hive."""
+    """Clean up expired signals, natural decay of the hive."""
     start_time = time.time()
     allowed, scope_reason = security.check_permission(identity, "admin")
     if not allowed:
@@ -489,7 +489,7 @@ async def expire_stale(identity: str = Depends(get_current_ii)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================
-# ROUTES — Identity & Health
+# ROUTES, Identity & Health
 # ============================================================
 
 @app.get("/hive/whoami")
@@ -503,7 +503,7 @@ async def whoami(identity: str = Depends(get_current_ii)):
 
 @app.get("/health")
 async def health():
-    """Health check — no auth required."""
+    """Health check, no auth required."""
     return {"status": "alive", "hive": "CAMA", "version": "0.1.0"}
 
 

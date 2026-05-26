@@ -52,21 +52,21 @@ class TestRegisterAnnotations:
     def test_cama_exec_destructive_and_open_world(self):
         mock = self._registered()
         ann = mock.annotations["cama_exec"]
-        assert ann["destructiveHint"] is True, "cama_exec runs arbitrary shell — must be destructiveHint=True"
-        assert ann["openWorldHint"] is True, "cama_exec can reach anywhere — must be openWorldHint=True"
+        assert ann["destructiveHint"] is True, "cama_exec runs arbitrary shell, must be destructiveHint=True"
+        assert ann["openWorldHint"] is True, "cama_exec can reach anywhere, must be openWorldHint=True"
         assert ann["readOnlyHint"] is False
 
     def test_cama_write_file_destructive(self):
         mock = self._registered()
         ann = mock.annotations["cama_write_file"]
-        assert ann["destructiveHint"] is True, "cama_write_file mutates the filesystem — must be destructiveHint=True"
+        assert ann["destructiveHint"] is True, "cama_write_file mutates the filesystem, must be destructiveHint=True"
         assert ann["readOnlyHint"] is False
 
     def test_cama_read_file_open_world_but_not_destructive(self):
         mock = self._registered()
         ann = mock.annotations["cama_read_file"]
         assert ann["destructiveHint"] is False, "reads don't mutate"
-        assert ann["openWorldHint"] is True, "cama_read_file can read anywhere — must be openWorldHint=True"
+        assert ann["openWorldHint"] is True, "cama_read_file can read anywhere, must be openWorldHint=True"
         assert ann["readOnlyHint"] is True
 
 
@@ -97,7 +97,7 @@ class TestWriteAllowlist:
         allowed.mkdir()
         monkeypatch.setenv("CAMA_BRIDGE_WRITE_ALLOWLIST", str(allowed))
         # Path containing '..' should be refused even if it would resolve
-        # inside the allowlist — defense in depth.
+        # inside the allowlist, defense in depth.
         traversal = f"{allowed}{os.sep}..{os.sep}escape.txt"
         result = asyncio.run(bridge.cama_write_file(traversal, "no"))
         assert "Refused" in result and ".." in result

@@ -1,4 +1,4 @@
-"""label_drift_v3_gpt.py — Inverted labeler for GPT export, self-contained."""
+"""label_drift_v3_gpt.py, Inverted labeler for GPT export, self-contained."""
 import json, csv, re, sys, io, os
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 

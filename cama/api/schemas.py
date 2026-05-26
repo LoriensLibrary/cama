@@ -1,7 +1,7 @@
 """Pydantic models for the CAMA v1 API.
 
 Every enum is ``Literal[...]`` so unknown values are rejected at the API
-boundary with HTTP 422 — this is the architectural commitment that the
+boundary with HTTP 422. This is the architectural commitment that the
 store never sees a memory_type / source_type / proposed_by value outside
 the canonical set.
 """
@@ -13,7 +13,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------
-# Canonical enums (closed sets — published in OpenAPI)
+# Canonical enums (closed sets, published in OpenAPI)
 # ---------------------------------------------------------------------------
 
 # proposed_by: who proposed the memory write
@@ -62,7 +62,7 @@ ConsentAction = Literal[
 
 
 # ---------------------------------------------------------------------------
-# Affect block — paired with every memory + every search query
+# Affect block, paired with every memory + every search query
 # ---------------------------------------------------------------------------
 class Affect(BaseModel):
     """Dimensional + categorical affect annotation."""

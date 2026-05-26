@@ -17,7 +17,7 @@ What this MVP deliberately does NOT do:
   * No queue, no exponential backoff, no idempotency key. Failures are
     logged but not retried. Production deployments should put a real
     queue in front. Documented in API.md as v1.2.
-  * No HMAC over headers, only body — keeps the signature scheme
+  * No HMAC over headers, only body, keeps the signature scheme
     portable across HTTP clients with header-handling quirks.
 """
 
@@ -90,7 +90,7 @@ def create_webhook(
 ) -> tuple[int, str]:
     """Mint a new webhook subscription. Returns (webhook_id, secret).
     The plaintext secret is shown ONCE; the row stores only its hash
-    (SHA-256 — webhook secrets are not Argon2 candidates because the
+    (SHA-256, webhook secrets are not Argon2 candidates because the
     recipient needs to validate fast on every delivery)."""
     init_webhooks_schema()
     secret = secrets.token_urlsafe(32)
@@ -237,7 +237,7 @@ def notify(
                 status_code = resp.status_code
                 if not (200 <= status_code < 300):
                     error = f"non-2xx: {status_code}"
-            except Exception as e:  # noqa: BLE001 — delivery is best-effort
+            except Exception as e:  # noqa: BLE001, delivery is best-effort
                 error = type(e).__name__
             _log_delivery(
                 webhook_id=r["id"],

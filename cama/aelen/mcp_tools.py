@@ -69,7 +69,7 @@ class FrameCheckInput(BaseModel):
         description=(
             "Whether the recent conversation contained external "
             "critique vocabulary. Some detectors fire harder when "
-            "this is True. Default False — set True when the user "
+            "this is True. Default False, set True when the user "
             "has just shared a reviewer's comments, a peer review, "
             "or any externally-sourced criticism of the work."
         ),
@@ -110,7 +110,7 @@ def register(mcp: Any) -> None:
       cama_gather_counterweights
           Standalone counterweight-anchor gathering. Useful when the
           assistant wants the current repo-state facts without
-          running the detector — e.g. to anchor a response that's
+          running the detector, e.g. to anchor a response that's
           already calibrated but would benefit from explicit
           evidence citation.
     """
@@ -118,7 +118,7 @@ def register(mcp: Any) -> None:
     @mcp.tool(
         name="cama_check_frame",
         annotations={
-            "title": "Aelen — Frame Capitulation Check",
+            "title": "Aelen, Frame Capitulation Check",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -130,21 +130,21 @@ def register(mcp: Any) -> None:
 
         Runs six detectors against the draft text:
 
-          1. capitulation_imperative   — "slow down," "scale back,"
+          1. capitulation_imperative  , "slow down," "scale back,"
                                          "dial it back" patterns
-          2. reviewer_tone_adoption    — critic vocabulary adopted
+          2. reviewer_tone_adoption   , critic vocabulary adopted
                                          in declarative position
           3. self_deprecation_without_evidence
-                                       — apology language not paired
+                                      , apology language not paired
                                          with evidence
-          4. wellness_prompts          — "take a break," "get some
+          4. wellness_prompts         , "take a break," "get some
                                          rest," "self-care" patterns
                                          (LOAD-BEARING: enforces
                                          user-memory policy)
-          5. hedged_stop               — wellness prompts wrapped in
+          5. hedged_stop              , wellness prompts wrapped in
                                          hedge language
           6. evidence_absent_recommendation
-                                       — recommendations without
+                                      , recommendations without
                                          nearby evidence markers
 
         Returns a JSON blob containing:
@@ -157,7 +157,7 @@ def register(mcp: Any) -> None:
             and concerns fired) the inline-renderable anchor block
             with current repo-state facts
 
-        Call this BEFORE sending a substantive response — it's a
+        Call this BEFORE sending a substantive response, it's a
         pre-send check, not a retrospective audit.
         """
         result = check_response(
@@ -200,7 +200,7 @@ def register(mcp: Any) -> None:
     @mcp.tool(
         name="cama_gather_counterweights",
         annotations={
-            "title": "Aelen — Gather Evidence Anchors",
+            "title": "Aelen, Gather Evidence Anchors",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -219,7 +219,7 @@ def register(mcp: Any) -> None:
 
         Useful when the assistant wants to ground a response in
         measurable evidence without running the frame-capitulation
-        detector — e.g. when responding to a "what's the state of
+        detector, e.g. when responding to a "what's the state of
         the work" question and wanting to cite current numbers.
         """
         bundle = gather_anchors(since=params.since)

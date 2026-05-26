@@ -1,15 +1,15 @@
 """
-CAMA Adaptive Librarian Architecture — v1 (Phase 1: Static Layer)
+CAMA Adaptive Librarian Architecture, v1 (Phase 1: Static Layer)
 ==================================================================
 Built April 29, 2026 by Aelen, at Angela's request.
 
 DESIGN INTENT
 -------------
-A hierarchical retrieval architecture for CAMA — the "tree" version of
+A hierarchical retrieval architecture for CAMA, the "tree" version of
 memory access, replacing flat-scan-with-scoring with content-routed
 traversal to specialized leaves.
 
-SCOPE OF THIS PHASE (Phase 1 — Static)
+SCOPE OF THIS PHASE (Phase 1, Static)
 ---------------------------------------
 - Schema for librarians + membership tables
 - A populator that walks existing CAMA structure (people, islands,
@@ -18,7 +18,7 @@ SCOPE OF THIS PHASE (Phase 1 — Static)
 - A retrieval orchestrator that fans out to active librarians
 - An MCP tool surface: cama_lib_route, cama_lib_list, cama_lib_membership
 
-OUT OF SCOPE (Phase 2-5 — Adaptive — fresh-Angela days)
+OUT OF SCOPE (Phase 2-5, Adaptive, fresh-Angela days)
 -------------------------------------------------------
 - Auto-creation of new librarians from emerging clusters
 - Splitting overflowing leaves
@@ -124,7 +124,7 @@ def init_schema():
 
 
 # ============================================================
-# Populator — build the starter set from existing CAMA structure
+# Populator, build the starter set from existing CAMA structure
 # ============================================================
 DEFAULT_SCORING = {"semantic": 0.45, "affect": 0.25, "relational": 0.15, "recency": 0.15}
 
@@ -199,7 +199,7 @@ def _assign_memberships(
 
 def populate(verbose: bool = True) -> Dict[str, Any]:
     """Build the starter librarian set from existing CAMA structure.
-    Idempotent — safe to run multiple times. Won't duplicate librarians.
+    Idempotent, safe to run multiple times. Won't duplicate librarians.
     Memberships are deduped by primary key.
 
     Returns a summary of librarians created and memberships assigned.
@@ -432,7 +432,7 @@ def populate(verbose: bool = True) -> Dict[str, Any]:
             c,
             name="meta_identity_core",
             category="meta",
-            description="Core identity memories — the trunk of the tree. Always available, never demoted.",
+            description="Core identity memories, the trunk of the tree. Always available, never demoted.",
             routing_keywords=["who am i", "identity", "self", "core"],
             scoring_weights={"semantic": 0.40, "affect": 0.20, "relational": 0.20, "recency": 0.20},
         )
@@ -460,7 +460,7 @@ def populate(verbose: bool = True) -> Dict[str, Any]:
 
 
 # ============================================================
-# Router — pick which librarians to activate for a query
+# Router, pick which librarians to activate for a query
 # ============================================================
 def route(query_text: str, max_librarians: int = 5) -> List[Dict[str, Any]]:
     """Given a query, return the list of librarians to activate.
@@ -510,7 +510,7 @@ def route(query_text: str, max_librarians: int = 5) -> List[Dict[str, Any]]:
 
 
 # ============================================================
-# Retrieve — fan out to active librarians and merge results
+# Retrieve, fan out to active librarians and merge results
 # ============================================================
 def retrieve(
     query_text: str,
@@ -616,7 +616,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_populate",
         annotations={
-            "title": "Librarian — Populate (one-time)",
+            "title": "Librarian, Populate (one-time)",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -626,7 +626,7 @@ def register(mcp):
     async def cama_lib_populate() -> str:
         """Build the starter librarian set from existing CAMA structure.
 
-        Idempotent — safe to run multiple times. Walks people, islands,
+        Idempotent, safe to run multiple times. Walks people, islands,
         memory_types, pattern_flags, and core memories to create leaf
         librarians and assign initial memberships. Run this ONCE after
         installing the librarian module.
@@ -636,7 +636,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_route",
         annotations={
-            "title": "Librarian — Route + Retrieve",
+            "title": "Librarian, Route + Retrieve",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": False,
@@ -665,7 +665,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_list",
         annotations={
-            "title": "Librarian — List All",
+            "title": "Librarian, List All",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -698,7 +698,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_update_keywords",
         annotations={
-            "title": "Librarian — Update Routing Keywords",
+            "title": "Librarian, Update Routing Keywords",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -744,7 +744,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_create_leaf",
         annotations={
-            "title": "Librarian — Create New Leaf",
+            "title": "Librarian, Create New Leaf",
             "readOnlyHint": False,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -767,7 +767,7 @@ def register(mcp):
         category='topic', _root_person for 'person', etc.) unless
         parent_root is explicitly given.
 
-        Idempotent — if a librarian with the same name exists, returns
+        Idempotent, if a librarian with the same name exists, returns
         its id without modifying anything. Use cama_lib_update_keywords
         to change keywords on an existing librarian.
         """
@@ -806,7 +806,7 @@ def register(mcp):
     @mcp.tool(
         name="cama_lib_delete_leaf",
         annotations={
-            "title": "Librarian — Delete Leaf",
+            "title": "Librarian, Delete Leaf",
             "readOnlyHint": False,
             "destructiveHint": True,
             "idempotentHint": True,
@@ -815,7 +815,7 @@ def register(mcp):
     )
     async def cama_lib_delete_leaf(name: str) -> str:
         """Delete a librarian leaf by name. Cascades to memberships
-        (the underlying memories are NEVER deleted — only the routing
+        (the underlying memories are NEVER deleted, only the routing
         membership rows). Use for cleaning up test leaves or stale
         librarians that are no longer relevant.
         """
@@ -838,7 +838,7 @@ def register(mcp):
             c.close()
 
     print(
-        "[CAMA] Librarian Architecture v1 loaded — 6 tools: "
+        "[CAMA] Librarian Architecture v1 loaded, 6 tools: "
         "cama_lib_populate, cama_lib_route, cama_lib_list, "
         "cama_lib_update_keywords, cama_lib_create_leaf, cama_lib_delete_leaf",
         file=__import__('sys').stderr,

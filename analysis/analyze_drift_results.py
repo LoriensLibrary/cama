@@ -1,7 +1,7 @@
 """
 analyze_drift_results.py
   (a) Random sample of warm-tagged rows from each platform for hand-validation
-  (b) Pattern decomposition — which drift patterns fire most by register and platform
+  (b) Pattern decomposition, which drift patterns fire most by register and platform
 """
 import csv, random, sys, io, os
 from collections import Counter, defaultdict
@@ -25,10 +25,10 @@ claude = load(CLAUDE_CSV)
 gpt = load(GPT_CSV)
 
 # ============================================================
-# (b) PATTERN DECOMPOSITION FIRST — to see the shape
+# (b) PATTERN DECOMPOSITION FIRST, to see the shape
 # ============================================================
 print("=" * 72)
-print("PATTERN DECOMPOSITION — which drift patterns fire most")
+print("PATTERN DECOMPOSITION, which drift patterns fire most")
 print("=" * 72)
 
 def decompose(rows, label):
@@ -62,7 +62,7 @@ decompose(gpt, "GPT")
 # (a) RANDOM SAMPLES OF WARM-TAGGED ROWS
 # ============================================================
 print("\n" + "=" * 72)
-print("RANDOM SAMPLES — warm-tagged rows for hand validation")
+print("RANDOM SAMPLES, warm-tagged rows for hand validation")
 print("=" * 72)
 
 def sample_warm(rows, label, n_clean=15, n_drift=15):

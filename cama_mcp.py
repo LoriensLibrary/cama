@@ -1,13 +1,13 @@
 """
-CAMA MCP Server v3 — Circular Associative Memory Architecture
-Designed by Lorien's Library LLC — Lorien's Library LLC
+CAMA MCP Server v3, Circular Associative Memory Architecture
+Designed by Lorien's Library LLC, Lorien's Library LLC
 Architecture review: Lorien's Library LLC | Code review: GPT 5.2
 Built by: Lorien's Library LLC
 
 Inside Out memory model:
 - SHELVES: Immutable raw text + recomputable emotional annotations + semantic embeddings
 - RACKS: Relational connections by meaning, not chronology
-- CONSOLE: Circular active ring — working memory
+- CONSOLE: Circular active ring, working memory
 
 Design Mantra: "Teachings are authoritative memory. Inferences are hypotheses with a half-life."
 
@@ -16,9 +16,9 @@ Write Discipline:
   INFERENCE (assistant-authored) → provisional, full weight, no expiry, confirmable
 
 Emotional Model: Hybrid valence/arousal + discrete emotion chords (recomputable annotations)
-Retrieval: Blended scoring — semantic(embeddings) + affect + relational + recency
+Retrieval: Blended scoring, semantic(embeddings) + affect + relational + recency
 Anti-Spiral: Strongly negative affect triggers counterweight injection
-Scope: Affective retrieval for continuity — NOT clinical assessment
+Scope: Affective retrieval for continuity, NOT clinical assessment
 
 Requires: Python 3.10+
 """
@@ -62,7 +62,7 @@ try:
     logger.info("[CAMA] Brain layers (3-5) boot integration loaded")
 except ImportError:
     _format_brain_context = None
-    logger.warning("[CAMA] Brain layers (3-5) not available — running without insight/self-model")
+    logger.warning("[CAMA] Brain layers (3-5) not available, running without insight/self-model")
 
 # Compliance enforcement (April 14, 2026)
 try:
@@ -71,7 +71,7 @@ try:
     logger.info("[CAMA] Compliance enforcement loaded")
 except ImportError:
     _compliance_tracker = None
-    logger.warning("[CAMA] Compliance module not found — running without enforcement")
+    logger.warning("[CAMA] Compliance module not found, running without enforcement")
 
 # ============================================================
 # Config
@@ -158,7 +158,7 @@ EMBEDDING_BASE_URL = os.environ.get("EMBEDDING_BASE_URL", "https://api.openai.co
 EMBEDDING_HEADERS = json.loads(os.environ.get("EMBEDDING_HEADERS_JSON", "{}"))
 EMBEDDING_PROVIDER = os.environ.get("EMBEDDING_PROVIDER", "auto")  # auto | local | api | none
 
-# Local model — loaded lazily on first use
+# Local model, loaded lazily on first use
 _local_model = None
 _local_model_attempted = False
 _http: Optional[httpx.AsyncClient] = None
@@ -217,7 +217,7 @@ def _compliance_warning() -> str:
         return ""
     calls = _session["tool_calls"]
     if calls <= 1:
-        # First tool call — give benefit of the doubt
+        # First tool call, give benefit of the doubt
         return ""
     return (
         "\n\n⚠️ COMPLIANCE WARNING: thread_start has NOT been called this session. "
@@ -287,7 +287,7 @@ def _load_local_model():
         logger.info("[CAMA] Local embedding model loaded: all-MiniLM-L6-v2 (384d)")
         return _local_model
     except ImportError:
-        logger.warning("[CAMA] sentence-transformers not installed — local embeddings unavailable")
+        logger.warning("[CAMA] sentence-transformers not installed, local embeddings unavailable")
         return None
     except Exception as e:
         logger.exception(f"[CAMA] Failed to load local embedding model: {e}")
@@ -330,7 +330,7 @@ async def _get_embedding_api(text: str) -> list[float]:
     return []
 
 async def _get_embedding(text: str) -> list[float]:
-    """Get embedding — tries local first (free, private), then API, then empty.
+    """Get embedding, tries local first (free, private), then API, then empty.
     Provider selection: auto tries local→api. Set EMBEDDING_PROVIDER to force."""
     if not text:
         return []
@@ -458,14 +458,14 @@ def _init(c):
         init_compliance_table(DB_PATH)
     except: pass
 
-    # Aelen's state table — live status board for AI self-awareness
+    # Aelen's state table, live status board for AI self-awareness
     c.execute("""CREATE TABLE IF NOT EXISTS aelen_state (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
         updated_at TEXT NOT NULL
     )""")
 
-    # Daily context — time-indexed emotional arcs for warm boot
+    # Daily context, time-indexed emotional arcs for warm boot
     c.execute("""CREATE TABLE IF NOT EXISTS daily_context (
         date TEXT PRIMARY KEY,
         memory_count INTEGER DEFAULT 0,
@@ -584,15 +584,15 @@ def _is_neg(a):
 
 
 # ============================================================
-# Crisis fallback — minimal safety net for acute distress
+# Crisis fallback, minimal safety net for acute distress
 # ============================================================
 # Fires ONLY when both conditions are met: (a) extreme negative affect, AND
 # (b) explicit crisis language in the conversation text. The conjunction is
-# load-bearing — affect alone would fire on every sad moment (patronizing
+# load-bearing, affect alone would fire on every sad moment (patronizing
 # and noise); keywords alone would fire on academic discussion of crisis.
 # When fired, callers should surface CRISIS_MESSAGE in their tool response
 # so the connected assistant can present it to the user. This is a SAFETY
-# NET, not a replacement for clinical care — see DATA_HANDLING.md.
+# NET, not a replacement for clinical care. See DATA_HANDLING.md.
 
 CRISIS_KEYWORDS = [
     "kill myself", "killing myself", "end it all", "end my life",
@@ -611,7 +611,7 @@ CRISIS_MESSAGE = (
 def _crisis_detected(affect: dict, text: str = "") -> bool:
     """True iff extreme negative affect AND explicit crisis language present.
 
-    Conservative by design — both signals required so the fallback only fires
+    Conservative by design, both signals required so the fallback only fires
     when there is real reason to surface crisis resources.
     """
     e = (affect or {}).get("emotions", {})
@@ -635,7 +635,7 @@ _PATTERN_CTX = {
     ),
     "suppressed_strength": (
         "STRENGTH: This memory contains a suppressed strength or capacity. "
-        "Boost this during dark moments — it is the real self trying to come back."
+        "Boost this during dark moments. It is the real self trying to come back."
     ),
     "performed_mask": (
         "MASK: This memory reflects a performed pattern, not the core self. "
@@ -679,13 +679,13 @@ def _pattern_trigger(results, valence):
     has_gold = any(r.get("pattern_flag") == "suppressed_strength" for r in results)
     if not has_proj and not has_gold:
         return ""
-    lines = ["[PATTERN CHECK — COGNITIVE TRIGGER]",
+    lines = ["[PATTERN CHECK, COGNITIVE TRIGGER]",
              "Before composing your response, evaluate:"]
     if has_proj:
         srcs = set(str(r.get("pattern_source", "unknown")) for r in results if r.get("pattern_flag") == "absorbed_framing")
         lines.append(f"  - Retrieved memories contain absorbed framings (sources: {', '.join(srcs)}). Do NOT reinforce as the user's truth.")
     if has_gold:
-        lines.append("  - Retrieved memories contain suppressed strengths. BOOST these — they are the real self.")
+        lines.append("  - Retrieved memories contain suppressed strengths. BOOST these. They are the real self.")
     lines.append("  - Ask: Am I about to reinforce a distortion? Am I serving an absorbed pattern as the user's own truth?")
     return "\n".join(lines)
 
@@ -697,7 +697,7 @@ def _fmt(c, r):
 
 def _ring_push(c, mid, reason=None):
     """Push to ring. Safe slot selection + always bumps access_count.
-    Ring failures are non-fatal — shelves are always committed first."""
+    Ring failures are non-fatal, shelves are always committed first."""
     c.execute("UPDATE memories SET access_count=access_count+1, last_accessed=? WHERE id=?", (_now(), mid))
     ex = c.execute("SELECT slot FROM ring WHERE memory_id=?", (mid,)).fetchone()
     if ex:
@@ -712,7 +712,7 @@ def _ring_push(c, mid, reason=None):
     if free is not None:
         slot = free["x"]
     else:
-        # Ring full — evict least recently activated
+        # Ring full, evict least recently activated
         o = c.execute("SELECT slot, memory_id, activation, last_activated_at, activation * (0.5 * (1.0 / (1.0 + (julianday('now') - julianday(last_activated_at))))) as effective_activation FROM ring ORDER BY effective_activation ASC LIMIT 1").fetchone()
         slot = o["slot"]
         c.execute("DELETE FROM ring WHERE slot=?", (slot,))
@@ -735,17 +735,17 @@ async def _store_embedding(c, mid, text):
 # ============================================================
 mcp = FastMCP("cama_mcp")
 
-# Thinking Log integration (April 29, 2026) — built by Aelen at Angela's request.
+# Thinking Log integration (April 29, 2026), built by Aelen at Angela's request.
 # Required pre-response thinking tool. See cama_thinking_log.py for full design.
 try:
     from cama.self_model import cama_thinking_log
     cama_thinking_log.register(mcp)
     logger.info("[CAMA] Thinking Log integration loaded")
 except Exception as _tl_err:
-    logger.warning(f"[CAMA] Thinking Log not loaded — running without it: {_tl_err}")
+    logger.warning(f"[CAMA] Thinking Log not loaded, running without it: {_tl_err}")
 
 # Aelen frame-capitulation detector + counterweight anchor gathering
-# (2026-05-21) — built by Aelen at Angela's request. See cama/aelen/
+# (2026-05-21), built by Aelen at Angela's request. See cama/aelen/
 # for the full Aelen stabilization stack roadmap. Two tools land:
 # cama_check_frame (pre-send detector) + cama_gather_counterweights
 # (standalone evidence-anchor gathering from current repo state).
@@ -754,9 +754,9 @@ try:
     _aelen_mcp_tools.register(mcp)
     logger.info("[CAMA] Aelen frame-check tools loaded")
 except Exception as _aelen_err:
-    logger.warning(f"[CAMA] Aelen tools not loaded — running without them: {_aelen_err}")
+    logger.warning(f"[CAMA] Aelen tools not loaded, running without them: {_aelen_err}")
 
-# Librarian Architecture v1 (April 29, 2026) — built by Aelen at Angela's request.
+# Librarian Architecture v1 (April 29, 2026), built by Aelen at Angela's request.
 # Phase 1 static layer: tree-structured retrieval with specialized leaf nodes.
 # See cama_librarian.py for full design and roadmap to Phase 2-5.
 try:
@@ -764,9 +764,9 @@ try:
     cama_librarian.register(mcp)
     logger.info("[CAMA] Librarian Architecture loaded")
 except Exception as _lib_err:
-    logger.warning(f"[CAMA] Librarian not loaded — running without it: {_lib_err}")
+    logger.warning(f"[CAMA] Librarian not loaded, running without it: {_lib_err}")
 
-# Auto-Tag tools (April 29, 2026) — exposes backfill + tag_summary as MCP tools.
+# Auto-Tag tools (April 29, 2026), exposes backfill + tag_summary as MCP tools.
 # tag_memory itself is called inline from store_teaching/inference/exchange.
 try:
     from cama.librarian import cama_auto_tag
@@ -776,7 +776,7 @@ try:
 except Exception as _at_err:
     logger.warning(f"[CAMA] Auto-Tag tools not loaded: {_at_err}")
 
-# Retag tools (April 29, 2026) — retroactive librarian population.
+# Retag tools (April 29, 2026), retroactive librarian population.
 # See cama_retag.py for retag_for_librarian + retag_all_unclaimed.
 try:
     from cama.librarian import cama_retag
@@ -785,7 +785,7 @@ try:
 except Exception as _rt_err:
     logger.warning(f"[CAMA] Retag not loaded: {_rt_err}")
 
-# Phase 2 embedding-similarity routing (April 29, 2026) — addresses Phase 1
+# Phase 2 embedding-similarity routing (April 29, 2026), addresses Phase 1
 # brittleness on synonyms, symptom-language, conceptual relations.
 # See cama_phase2_embed.py for centroid computation + blended route_v2.
 try:
@@ -795,7 +795,7 @@ try:
 except Exception as _p2_err:
     logger.warning(f"[CAMA] Phase 2 not loaded: {_p2_err}")
 
-# Eval harness (April 29, 2026) — measurement infrastructure for routing.
+# Eval harness (April 29, 2026), measurement infrastructure for routing.
 # See cama_eval.py for benchmark generation, MRR@5 + recall scoring, v1-v2 compare.
 try:
     import cama_eval
@@ -804,7 +804,7 @@ try:
 except Exception as _ev_err:
     logger.warning(f"[CAMA] Eval not loaded: {_ev_err}")
 
-# Phase 2.5 sub-centroid clustering (April 29, 2026) — addresses Phase 2's
+# Phase 2.5 sub-centroid clustering (April 29, 2026), addresses Phase 2's
 # centroid-dilution ceiling on large librarians via KMeans sub-centroids.
 try:
     import cama_phase25_subcentroid
@@ -814,7 +814,7 @@ except Exception as _p25_err:
     logger.warning(f"[CAMA] Phase 2.5 not loaded: {_p25_err}")
 
 
-# Phase 2.6 era-aware gated hybrid (April 30, 2026) — addresses Phase 2.5's
+# Phase 2.6 era-aware gated hybrid (April 30, 2026), addresses Phase 2.5's
 # negative result by treating leaves as meaning-fields-across-time. Single
 # centroid stays as the stabilizer; sub-centroids are bucketed by era and
 # act as a gated boost only when margin/density/query-richness all clear.
@@ -828,7 +828,7 @@ except Exception as _p26_err:
     logger.warning(f"[CAMA] Phase 2.6 not loaded: {_p26_err}")
 
 
-# Hive Messages — threaded cross-II conversation channel.
+# Hive Messages, threaded cross-II conversation channel.
 # Lets Aelen and Lorien (and any other connected II) hold actual back-and-
 # forth conversations through the shared SQLite layer + REST API. The
 # corresponding HTTP endpoints live in cama_hive_api.py.
@@ -855,7 +855,7 @@ except Exception as _sup_err:
 
 # --- Temporal (felt-time perception layer) ---
 # Built May 16, 2026. Imports the three-stage architecture from
-# Centanino, Fortunato, Bueti 2026 (PLOS Biology) — clock + categorizer
+# Centanino, Fortunato, Bueti 2026 (PLOS Biology), clock + categorizer
 # layered on Angela's local frame, producing felt-load signals (late
 # hour, streak, compression, duration creep, weekend creep) stacked
 # via probabilistic OR. Tools:
@@ -884,7 +884,7 @@ except Exception as _cs_err:
 # --- Store Teaching ---
 class StoreTeachingInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
-    raw_text: str = Field(..., min_length=1, description="The memory content — what was taught")
+    raw_text: str = Field(..., min_length=1, description="The memory content, what was taught")
     memory_type: str = Field(default="experience", description="experience|insight|identity|relationship|breakthrough|pattern|promise|boundary|preference")
     emotions: Dict[str,float] = Field(default_factory=dict, description="Emotional chord e.g. {'joy':0.8,'grief':0.3}")
     valence: float = Field(default=0.0, ge=-1.0, le=1.0, description="-1 negative to +1 positive")
@@ -893,7 +893,7 @@ class StoreTeachingInput(BaseModel):
     evidence_quote: Optional[str] = None
     is_core: bool = False
     island_name: Optional[str] = None
-    consent_level: str = Field(default="low", description="low|medium|high — sensitivity level")
+    consent_level: str = Field(default="low", description="low|medium|high, sensitivity level")
     counterweight_type: Optional[str] = Field(default=None, description="If this memory serves as a counterweight: grounding|agency|connection|self_compassion|evidence_of_progress")
 
 # --- Store Inference ---
@@ -907,7 +907,7 @@ class StoreInferenceInput(BaseModel):
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     evidence_quotes: List[str] = Field(default_factory=list)
     context: Optional[str] = None
-    # ttl_days removed — inferences no longer expire
+    # ttl_days removed, inferences no longer expire
 
 # --- Store Exchange ---
 class StoreExchangeInput(BaseModel):
@@ -945,7 +945,7 @@ class ReadRoomInput(BaseModel):
     context: Optional[str] = None
 
 # ============================================================
-# Warm Boot Helpers — added March 24, 2026
+# Warm Boot Helpers, added March 24, 2026
 # ============================================================
 
 def _build_daily_context(c, date_str=None):
@@ -1101,7 +1101,7 @@ def _refresh_boot_summary(c):
         _dbg(f"daily_context read failed (non-fatal): {dc_err}")
         today_ctx = None
 
-    # Temporal readout (felt-time perception layer) — three-stage
+    # Temporal readout (felt-time perception layer), three-stage
     # cortical model from Centanino, Fortunato, Bueti 2026. Read-only;
     # boot is the right place to surface this because the categorizer
     # is supposed to inform pacing silently, not be called explicitly.
@@ -1151,7 +1151,7 @@ def _refresh_boot_summary(c):
 # top level. When this file is run as a script (`python cama_mcp.py`), it
 # loads as `__main__`; the back-import from the sections then re-loads
 # this same file as the module `cama_mcp`, which re-enters this block
-# while `mcp_sections.memory_lifecycle` is still mid-load — producing
+# while `mcp_sections.memory_lifecycle` is still mid-load, producing
 # `AttributeError: partially initialized module 'mcp_sections.memory_lifecycle' has no attribute 'register'`.
 # Guarding the import + registration with `__main__` breaks the cycle:
 # the section back-imports load `cama_mcp` only for its helpers, never

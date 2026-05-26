@@ -17,11 +17,11 @@ WHAT GETS GATHERED
 Each call returns a list of ``CounterweightAnchor`` instances. Each
 anchor names:
 
-  * ``fact_type``     — stable identifier for what kind of fact this is
-  * ``value``         — the actual measurement (string-coerced for display)
-  * ``source``        — where to verify the value (command, file path, URL)
-  * ``relevance``     — which detector(s) this anchor counters
-  * ``strength``      — ``"strong"`` | ``"medium"`` | ``"weak"`` (how
+  * ``fact_type``    , stable identifier for what kind of fact this is
+  * ``value``        , the actual measurement (string-coerced for display)
+  * ``source``       , where to verify the value (command, file path, URL)
+  * ``relevance``    , which detector(s) this anchor counters
+  * ``strength``     , ``"strong"`` | ``"medium"`` | ``"weak"`` (how
                         directly the fact counters the critique-vocabulary)
 
 The anchors are designed to be presented inline in the next-draft
@@ -34,7 +34,7 @@ response. Example:
 
 DESIGN PRINCIPLES
 -----------------
-1. **Facts only.** This module never invents or interprets — it reads
+1. **Facts only.** This module never invents or interprets. It reads
    the repo state and reports. The assistant decides what to do with
    the anchors.
 
@@ -248,7 +248,7 @@ def _gather_evidence_md_anchors(
         content = evidence_path.read_text(encoding="utf-8")
     except OSError:
         return []
-    # Count rows in the main table — a rough signal of how many
+    # Count rows in the main table, a rough signal of how many
     # calibrated claims exist
     row_count = sum(
         1

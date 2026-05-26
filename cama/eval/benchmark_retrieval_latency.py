@@ -6,8 +6,8 @@ Answers the question external reviewers asked of CAMA v1.26.0:
 Measures wall-clock latency of the librarian-based retrieval path
 (``cama.librarian.cama_librarian.retrieve``) against the local corpus.
 
-By design, the output JSON contains **timing percentiles only** —
-no query content, no memory IDs, no result text — so the file is
+By design, the output JSON contains **timing percentiles only**.
+no query content, no memory IDs, no result text, so the file is
 safe to publish even though the benchmark runs against the private
 ``~/.cama/memory.db`` (53k single-participant memories). The queries
 used are listed in this source file (generic topic words) so the
@@ -36,7 +36,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # 20 generic topic queries spread across three lengths. Deliberately no
 # personal names, no proper nouns from Angela's life, no project-specific
-# jargon — these are the kind of one-to-three-word probes a new user
+# jargon, these are the kind of one-to-three-word probes a new user
 # would issue, intended to surface broad recall behavior rather than
 # verbatim hits.
 QUERIES: tuple[str, ...] = (
@@ -90,7 +90,7 @@ def main() -> int:
             librarian_counts.append(len(result.get("librarians_activated", [])))
             memory_counts.append(len(result.get("memories", [])))
 
-    # Corpus size for context (count only — no row content)
+    # Corpus size for context (count only, no row content)
     db_path = os.path.expanduser("~/.cama/memory.db")
     c = sqlite3.connect(db_path)
     try:
@@ -143,7 +143,7 @@ def main() -> int:
             "Wall-clock latency of the Phase-1 librarian retrieval path "
             "(keyword-based routing + per-librarian SQL fan-out). Does not "
             "include the semantic-embedding routing variants (Phase 2.x, "
-            "registered separately as cama_lib_route_v2 / v3 / v4) — those "
+            "registered separately as cama_lib_route_v2 / v3 / v4), those "
             "warrant their own benchmark because they have a different "
             "cost profile (sentence-transformer embedding compute) and "
             "different correctness contract."

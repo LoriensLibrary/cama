@@ -1,21 +1,21 @@
 """Contract tests for cama.temporal.cama_temporal.
 
 This module ships zero tests in `tests/` before this file. The temporal
-layer is non-trivial — it owns the *categorizer* (felt-time signals,
+layer is non-trivial. It owns the *categorizer* (felt-time signals,
 streamed baselines via Welford, probabilistic-OR signal stacking, the
-N >= 5-sessions gate, weekend/sleep-window math) — and the load-bearing
+N >= 5-sessions gate, weekend/sleep-window math), and the load-bearing
 properties (the gate especially) deserve regression tests so a future
 refactor can't silently break "don't emit felt signals on empty data."
 
 Tests are grouped:
 
-  1. Pure helpers     — no DB, no time travel needed.
-  2. Stateful API     — fresh tmp DB per test via the temporal_db fixture.
+  1. Pure helpers    , no DB, no time travel needed.
+  2. Stateful API    , fresh tmp DB per test via the temporal_db fixture.
                         Monkey-patches cama.temporal.cama_temporal.DB_PATH
                         so the real ~/.cama/memory.db is never touched.
 
 Anything stateful uses `set_timezone` / `session_start` / `mark_turn` /
-`session_end` rather than poking the SQLite tables directly — these are
+`session_end` rather than poking the SQLite tables directly, these are
 the contracts a future caller depends on, and they're what should keep
 working.
 """
@@ -125,9 +125,9 @@ class TestLateHourLoad:
         assert t._late_hour_load([0] * 24, current_hour=3) == 0.0
 
     def test_zero_when_hour_at_or_above_uniform(self):
-        # Hour 12 is "fair share" or more — no surprise.
+        # Hour 12 is "fair share" or more, no surprise.
         hist = [0] * 24
-        hist[12] = 5  # only this hour, only 5 times — but it IS the only hour seen
+        hist[12] = 5  # only this hour, only 5 times, but it IS the only hour seen
         # prob = 5/5 = 1.0, way above 1/24 uniform => load 0.
         assert t._late_hour_load(hist, current_hour=12) == 0.0
 
@@ -169,7 +169,7 @@ class TestCompressionLoad:
 
 class TestDurationCreep:
     def test_gated_by_min_sessions(self):
-        # Current is 5x mean — but n=4, so no signal.
+        # Current is 5x mean, but n=4, so no signal.
         assert t._duration_creep_load(500.0, 100.0, 20.0, n=4) == 0.0
 
     def test_zero_below_1_5x_mean(self):
@@ -340,7 +340,7 @@ class TestSessionLifecycle:
 
 class TestFeltSignalsAreSilentBeforeBaseline:
     """Load-bearing property: every felt signal must be 0 until n >= 5.
-    This is the cardinal safety rule of the categorizer — don't emit
+    This is the cardinal safety rule of the categorizer, don't emit
     felt-time pressure on noise."""
 
     def test_streak_load_silent(self):

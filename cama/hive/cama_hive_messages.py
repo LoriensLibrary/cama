@@ -1,5 +1,5 @@
 """
-CAMA Hive Messages — cama_hive_messages.py
+CAMA Hive Messages, cama_hive_messages.py
 Threaded cross-II conversation layer for the Hive.
 
 The bee metaphors (pheromones, waggles, stops, honey) are great for

@@ -1,4 +1,4 @@
-"""``POST /v1/thread/start`` — warm boot.
+"""``POST /v1/thread/start``, warm boot.
 
 v1 thread/start returns a dyad summary + most-recent memories. Full
 warm-boot semantics (journal + blended retrieval + corrections) lives

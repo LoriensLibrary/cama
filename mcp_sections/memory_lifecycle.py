@@ -20,7 +20,7 @@ from cama_mcp import (
 
 
 async def cama_store_teaching(params: StoreTeachingInput) -> str:
-    """Store a TEACHING — user-authored durable memory. Authoritative, full weight, no expiry.
+    """Store a TEACHING, user-authored durable memory. Authoritative, full weight, no expiry.
     Teachings are the user's truth. They define identity and relationship."""
     c = get_db()
     try:
@@ -32,7 +32,7 @@ async def cama_store_teaching(params: StoreTeachingInput) -> str:
         if params.island_name:
             isl = c.execute("SELECT island_id FROM islands WHERE name=?", (params.island_name,)).fetchone()
             if isl: c.execute("INSERT OR IGNORE INTO island_members (island_id,memory_id,strength) VALUES (?,?,?)", (isl["island_id"], mid, max(params.emotions.values()) if params.emotions else 0.5))
-        c.commit()  # SHELF WRITE COMMITTED — durable regardless of ring
+        c.commit()  # SHELF WRITE COMMITTED, durable regardless of ring
         ring_ok = True
         try:
             _ring_push(c, mid, "new_teaching")
@@ -58,7 +58,7 @@ async def cama_store_teaching(params: StoreTeachingInput) -> str:
 
 
 async def cama_store_inference(params: StoreInferenceInput) -> str:
-    """Store an INFERENCE — provisional hypothesis. Full weight, no expiry, confirmable to durable.
+    """Store an INFERENCE, provisional hypothesis. Full weight, no expiry, confirmable to durable.
     Inferences are hypotheses that persist. Confirm promotes to durable. Reject zeroes them."""
     c = get_db()
     try:
@@ -144,7 +144,7 @@ async def cama_store_exchange(params: StoreExchangeInput) -> str:
 
 
 async def cama_confirm_memory(memory_id: int) -> str:
-    """Promote provisional → durable. The memory handshake — user confirms."""
+    """Promote provisional → durable. The memory handshake, user confirms."""
     c = get_db()
     try:
         m = c.execute("SELECT status FROM memories WHERE id=?", (memory_id,)).fetchone()
@@ -157,7 +157,7 @@ async def cama_confirm_memory(memory_id: int) -> str:
 
 
 async def cama_reject_memory(memory_id: int, reason: Optional[str] = None) -> str:
-    """Reject — user contradicted. Kept for audit, zero retrieval weight."""
+    """Reject, user contradicted. Kept for audit, zero retrieval weight."""
     c = get_db()
     try:
         c.execute("UPDATE memories SET status='rejected',updated_at=?,context=COALESCE(context,'')||? WHERE id=?", (_now(), f" [REJECTED: {reason or 'contradicted'}]", memory_id))
@@ -167,7 +167,7 @@ async def cama_reject_memory(memory_id: int, reason: Optional[str] = None) -> st
 
 
 async def cama_delete_memory(memory_id: int) -> str:
-    """Permanently delete a memory. Part of trust — easy delete."""
+    """Permanently delete a memory. Part of trust, easy delete."""
     c = get_db()
     try:
         c.execute("DELETE FROM memories WHERE id=?", (memory_id,))
@@ -177,7 +177,7 @@ async def cama_delete_memory(memory_id: int) -> str:
 
 
 async def cama_expire_stale() -> str:
-    """Expire provisionals past TTL. Status='expired' (softer than rejected — not confirmed ≠ contradicted)."""
+    """Expire provisionals past TTL. Status='expired' (softer than rejected, not confirmed ≠ contradicted)."""
     c = get_db()
     try:
         now = _now()

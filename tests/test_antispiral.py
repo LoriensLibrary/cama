@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Quick anti-spiral verification.
 
-This is a diagnostic CLI script, not a pytest test — it connects to
+This is a diagnostic CLI script, not a pytest test. It connects to
 the live ~/.cama/memory.db and prints counterweight availability for
 the five anti-spiral categories. Body is guarded by __main__ so pytest
 can collect this file without triggering a DB connect on CI runners

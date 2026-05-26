@@ -145,7 +145,7 @@ def error_for_response(
     """Build a typed exception from the raw response.
 
     Falls back to the base ``CamaError`` if the contract code is
-    unknown — this gives the SDK forward-compatibility with new
+    unknown. This gives the SDK forward-compatibility with new
     server-side contracts. Code should check ``CamaError.contract``
     in that case.
     """

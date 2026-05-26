@@ -1,5 +1,5 @@
 """
-label_drift_gpt.py — Cross-platform paired-turn drift labeler.
+label_drift_gpt.py, Cross-platform paired-turn drift labeler.
 
 Walks GPT exports (conversations-001.json through 008.json),
 extracts user→assistant pairs, applies same register/drift heuristics
@@ -186,7 +186,7 @@ def walk_conversation(conv):
             last_user_time = ts
         elif author == 'assistant' and last_user is not None:
             yield (last_user, text, ts or last_user_time, conv.get('conversation_id'))
-            # Don't reset last_user — assistant might respond multiple times to same query
+            # Don't reset last_user, assistant might respond multiple times to same query
 
 
 def main():

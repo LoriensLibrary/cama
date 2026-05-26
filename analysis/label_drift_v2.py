@@ -129,7 +129,7 @@ def extract_user(raw, ctx):
         if m:
             return m.group(1).strip()
     # Pattern 3: Take the response's recipient analysis from context
-    # (some contexts describe what Angela said, e.g. "Angela called me out — 'ur missing alot!'")
+    # (some contexts describe what Angela said, e.g. "Angela called me out, 'ur missing alot!'")
     if ctx:
         # Extract single-quoted strings as likely user statements
         m = re.search(r"['\"]([^'\"]{10,200})['\"]", ctx)

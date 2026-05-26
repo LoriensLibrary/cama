@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""participant_init.py — provision a fresh CAMA participant environment.
+"""participant_init.py, provision a fresh CAMA participant environment.
 
 Creates ~/.cama/participant_<id>/ with an empty memory.db (schema initialized
 via cama_mcp's _init path) and an empty calibration scaffold. Used at study
@@ -10,7 +10,7 @@ The participant launches their server with:
     CAMA_PARTICIPANT_ID=<id> python cama_mcp.py
 
 When CAMA_PARTICIPANT_ID is set, cama_user_paths resolves all per-user
-files to the participant's directory only — no fallback to ~/.cama/, no
+files to the participant's directory only, no fallback to ~/.cama/, no
 visibility into other participants' data (isolation by construction, see
 MULTI_USER_THREAT_MODEL.md and DATA_HANDLING.md).
 
@@ -58,7 +58,7 @@ def init_participant(participant_id: str, base_dir: Path, force: bool = False) -
         sys.path.insert(0, str(repo_root))
 
     try:
-        import cama_mcp  # noqa: F401  — import triggers _init() against the new DB
+        import cama_mcp  # noqa: F401 , import triggers _init() against the new DB
         # Force schema creation by opening a connection (some modules defer until first use).
         conn = sqlite3.connect(str(db_path))
         try:

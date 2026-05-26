@@ -2,7 +2,7 @@
 
 These tests are end-to-end: a real FastAPI app runs in-process via
 httpx's ASGI transport, the SDK client is pointed at it, and we
-exercise the full HTTP path — including the bearer-token auth,
+exercise the full HTTP path, including the bearer-token auth,
 provenance enforcement, and counterweight injection. If these pass,
 the SDK and the API are talking the contract published in API.md.
 """
@@ -28,7 +28,7 @@ from cama.sdk import (
 
 
 # ---------------------------------------------------------------------------
-# Test fixtures — re-use the API contract-test schema setup
+# Test fixtures, re-use the API contract-test schema setup
 # ---------------------------------------------------------------------------
 def _init_memory_schema(db_path: Path) -> None:
     c = sqlite3.connect(str(db_path))
@@ -130,7 +130,7 @@ class TestHappyPath:
 
 
 # ---------------------------------------------------------------------------
-# Architectural-contract tests — same checks as test_api.py but via SDK
+# Architectural-contract tests, same checks as test_api.py but via SDK
 # ---------------------------------------------------------------------------
 class TestProvenanceContract:
     def test_inference_by_assistant_is_forced_provisional(self, sdk):
@@ -167,7 +167,7 @@ class TestEnumValidation:
 class TestDestructiveGuardrails:
     def test_delete_includes_x_confirm_automatically(self, sdk):
         """The SDK is supposed to set X-Confirm so the caller doesn't
-        have to think about it — but it must be set to the memory ID,
+        have to think about it, but it must be set to the memory ID,
         not some default."""
         client, _ = sdk
         mem = client.memories.create(
@@ -197,7 +197,7 @@ class TestCounterweightInjection:
     def test_negative_affect_search_triggers_injection(self, sdk):
         client, mem_db = sdk
         # Seed counterweight-tagged memories directly (the API doesn't
-        # currently let us tag them via POST — that's v1.1 work). The
+        # currently let us tag them via POST, that's v1.1 work). The
         # injection logic is what the SDK is exercising here.
         c = sqlite3.connect(str(mem_db))
         for cw in ["grounding", "agency", "self_compassion"]:

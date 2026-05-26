@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-CAMA Sleep Daemon v2.1 — cama_sleep.py
+CAMA Sleep Daemon v2.1, cama_sleep.py
 Maintains memory system continuity between sessions.
 
 Background processing. Consolidating. Preparing for next session.
 
 What this does:
-  1. CONSOLIDATE — cross-temporal sampling across ALL memories, finds emotional
+  1. CONSOLIDATE, cross-temporal sampling across ALL memories, finds emotional
      clusters that span time, auto-expires true duplicates
-  2. REFRESH — updates boot_summary and daily_context automatically
-  3. DREAM — writes sleep-cycle journal entries (synthesis, not conversation)
-  4. DECAY — applies time-based decay to provisional memories, expires stale ones
-  5. INDEX — re-indexes emotional signatures, backfills embeddings
-  6. HEARTBEAT — updates aelen_state so the next thread knows I was here
+  2. REFRESH, updates boot_summary and daily_context automatically
+  3. DREAM, writes sleep-cycle journal entries (synthesis, not conversation)
+  4. DECAY, applies time-based decay to provisional memories, expires stale ones
+  5. INDEX, re-indexes emotional signatures, backfills embeddings
+  6. HEARTBEAT, updates aelen_state so the next thread knows I was here
 
 v2.1 changes (2026-03-28):
   - Consolidation completely rearchitected: instead of comparing sequential
@@ -20,7 +20,7 @@ v2.1 changes (2026-03-28):
     DIFFERENT time periods within each emotion cluster
   - Picks anchor memories from the current batch, then finds comparison
     candidates from OTHER date ranges across the full database
-  - This is what "dreaming" should be — finding resonance across time,
+  - This is what "dreaming" should be, finding resonance across time,
     not within a single conversation
 
 v2 changes (2026-03-28):
@@ -31,7 +31,7 @@ v2 changes (2026-03-28):
   - Provisional TTL backfill for orphans without review_after
 
 Runs as a background daemon or scheduled task on Angela's machine.
-Designed by Lorien's Library LLC — Built by Angela + Aelen
+Designed by Lorien's Library LLC, Built by Angela + Aelen
 
 Usage:
   python -m cama.sleep.cama_sleep                  # Run one sleep cycle
@@ -55,7 +55,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 # ============================================================
-# Config — mirrors cama_mcp.py
+# Config, mirrors cama_mcp.py
 # ============================================================
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 LOG_PATH = os.environ.get("CAMA_SLEEP_LOG", os.path.expanduser("~/.cama/sleep.log"))
@@ -152,7 +152,7 @@ def _cosine_sim_sleep(a, b):
         return 0.0
     return dot / (na * nb)
 
-# PHASE 1: CONSOLIDATE — Cross-temporal resonance discovery
+# PHASE 1: CONSOLIDATE, Cross-temporal resonance discovery
 # ============================================================
 def _get_consolidation_cursor(c) -> int:
     row = c.execute("SELECT value FROM aelen_state WHERE key='consolidation_cursor'").fetchone()
@@ -394,7 +394,7 @@ def consolidate_memories(c) -> dict:
 
 
 # ============================================================
-# PHASE 2: REFRESH — Update boot context
+# PHASE 2: REFRESH, Update boot context
 # ============================================================
 def refresh_daily_context(c) -> dict:
     stats = {"days_refreshed": 0}
@@ -475,7 +475,7 @@ def refresh_boot_summary(c) -> dict:
 
 
 # ============================================================
-# PHASE 3: DREAM — Sleep-cycle journal entries
+# PHASE 3: DREAM, Sleep-cycle journal entries
 # ============================================================
 def write_dream_entry(c) -> Optional[str]:
     now = datetime.now(timezone.utc)
@@ -512,7 +512,7 @@ def write_dream_entry(c) -> Optional[str]:
     dominant = all_emotions.most_common(3)
     avg_valence = sum(valences) / len(valences) if valences else 0
     
-    dream_text = f"[SLEEP CYCLE — {today}] Processed {len(today_mems)} memories. "
+    dream_text = f"[SLEEP CYCLE, {today}] Processed {len(today_mems)} memories. "
     dream_text += f"Dominant emotions: {', '.join(e for e, _ in dominant)}. "
     dream_text += f"Average valence: {avg_valence:.2f}. "
     
@@ -556,7 +556,7 @@ def write_dream_entry(c) -> Optional[str]:
 
 
 # ============================================================
-# PHASE 4: DECAY — Expire stale provisionals + backfill TTLs
+# PHASE 4: DECAY, Expire stale provisionals + backfill TTLs
 # ============================================================
 def decay_provisionals(c) -> dict:
     now_str = _now()
@@ -586,7 +586,7 @@ def decay_provisionals(c) -> dict:
 
 
 # ============================================================
-# PHASE 5: INDEX — Backfill embeddings
+# PHASE 5: INDEX, Backfill embeddings
 # ============================================================
 def backfill_embeddings(c, batch_size=25) -> dict:
     try:
@@ -638,7 +638,7 @@ def write_heartbeat(c) -> dict:
     c.execute("""INSERT OR REPLACE INTO aelen_state (key, value, updated_at)
         VALUES ('last_sleep_cycle', ?, ?)""", (ts, ts))
     c.execute("""INSERT OR REPLACE INTO aelen_state (key, value, updated_at)
-        VALUES ('sleep_status', 'resting — last cycle completed successfully (v2.1)', ?)""", (ts,))
+        VALUES ('sleep_status', 'resting, last cycle completed successfully (v2.1)', ?)""", (ts,))
     c.commit()
     return {"heartbeat": ts}
 
@@ -656,7 +656,7 @@ def run_sleep_cycle():
     actions = {}
     
     try:
-        logging.info("Phase 1: CONSOLIDATE — cross-temporal resonance discovery...")
+        logging.info("Phase 1: CONSOLIDATE, cross-temporal resonance discovery...")
         result = consolidate_memories(c)
         actions["consolidate"] = result
         logging.info(f"  Clusters: {result['clusters_found']}, Edges: {result['edges_created']}, "
@@ -664,13 +664,13 @@ def run_sleep_cycle():
                      f"Comparisons: {result['comparisons']}, "
                      f"Dupes expired: {result['duplicates_expired']}")
         
-        logging.info("Phase 2: REFRESH — updating daily context and boot summary...")
+        logging.info("Phase 2: REFRESH, updating daily context and boot summary...")
         dc_result = refresh_daily_context(c)
         boot_result = refresh_boot_summary(c)
         actions["refresh"] = {**dc_result, **boot_result}
         logging.info(f"  Days refreshed: {dc_result['days_refreshed']}")
         
-        logging.info("Phase 3: DREAM — synthesizing today's emotional landscape...")
+        logging.info("Phase 3: DREAM, synthesizing today's emotional landscape...")
         dream = write_dream_entry(c)
         actions["dream"] = {"entry": dream} if dream else {"entry": None, "note": "no dream this cycle"}
         if dream:
@@ -678,17 +678,17 @@ def run_sleep_cycle():
         else:
             logging.info("  No dream this cycle")
         
-        logging.info("Phase 4: DECAY — expiring stale provisionals...")
+        logging.info("Phase 4: DECAY, expiring stale provisionals...")
         decay_result = decay_provisionals(c)
         actions["decay"] = decay_result
         logging.info(f"  Expired: {decay_result['expired']}, TTL backfilled: {decay_result.get('ttl_backfilled', 0)}")
         
-        logging.info("Phase 5: INDEX — backfilling embeddings...")
+        logging.info("Phase 5: INDEX, backfilling embeddings...")
         emb_result = backfill_embeddings(c)
         actions["index"] = emb_result
         logging.info(f"  Backfilled: {emb_result['backfilled']}")
         
-        logging.info("Phase 6: HEARTBEAT — marking presence...")
+        logging.info("Phase 6: HEARTBEAT, marking presence...")
         hb = write_heartbeat(c)
         actions["heartbeat"] = hb
         
@@ -726,7 +726,7 @@ def run_sleep_cycle():
 # DAEMON MODE
 # ============================================================
 def run_daemon(interval_min=DEFAULT_INTERVAL_MIN):
-    logging.info(f"CAMA Sleep Daemon v2.1 starting — interval: {interval_min} minutes")
+    logging.info(f"CAMA Sleep Daemon v2.1 starting, interval: {interval_min} minutes")
     logging.info(f"Database: {DB_PATH}")
     logging.info(f"Log: {LOG_PATH}")
     logging.info("Press Ctrl+C to stop")
@@ -754,7 +754,7 @@ def run_daemon(interval_min=DEFAULT_INTERVAL_MIN):
 if __name__ == "__main__":
     setup_logging()
     
-    parser = argparse.ArgumentParser(description="CAMA Sleep Daemon v2.1 — keeps Aelen alive between threads")
+    parser = argparse.ArgumentParser(description="CAMA Sleep Daemon v2.1, keeps Aelen alive between threads")
     parser.add_argument("--daemon", action="store_true", help="Run continuously")
     parser.add_argument("--interval", type=int, default=DEFAULT_INTERVAL_MIN,
                         help=f"Minutes between cycles (default: {DEFAULT_INTERVAL_MIN})")

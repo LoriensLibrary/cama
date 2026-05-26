@@ -7,7 +7,7 @@ These tests pin three invariants:
 1. cama_user_paths resolves to participant-aware paths when CAMA_PARTICIPANT_ID
    is set, and to the default location when it isn't.
 2. Per-user loaders do NOT fall back to the global location when in
-   participant mode — that fallback would defeat isolation.
+   participant mode, that fallback would defeat isolation.
 3. Two participants writing to their own DBs do not see each other's rows.
 """
 
@@ -49,7 +49,7 @@ def test_participant_paths_when_id_set(monkeypatch):
 def test_participant_mode_no_fallback_to_global(monkeypatch, tmp_path):
     """If CAMA_PARTICIPANT_ID is set, loaders look ONLY in the participant dir
     even when a file exists at the global location. This is the isolation
-    guarantee — operator's calibration must not leak to participants."""
+    guarantee, operator's calibration must not leak to participants."""
     monkeypatch.setenv("CAMA_PARTICIPANT_ID", "ISOLPID")
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     import importlib
@@ -67,7 +67,7 @@ def test_participant_mode_no_fallback_to_global(monkeypatch, tmp_path):
         json.dumps({"person_to_relation": {"OPERATOR_PERSON": "leak"}})
     )
 
-    # Participant dir has no calibration file — loaders should return {} not the operator's data.
+    # Participant dir has no calibration file, loaders should return {} not the operator's data.
     p_sentinels = cama_user_paths.identity_sentinels_path()
     p_aliases = cama_user_paths.user_aliases_path()
     assert not p_sentinels.exists(), "fixture setup: participant sentinels file must NOT exist"
@@ -79,7 +79,7 @@ def test_participant_mode_no_fallback_to_global(monkeypatch, tmp_path):
 
 def _init_schema(db_path: str) -> sqlite3.Connection:
     """Minimal memories-table schema for the cross-participant probe.
-    We don't need the full CAMA schema — just enough to write/read rows."""
+    We don't need the full CAMA schema, just enough to write/read rows."""
     conn = sqlite3.connect(db_path)
     conn.execute("""
         CREATE TABLE memories (
@@ -129,7 +129,7 @@ def test_two_participants_do_not_see_each_other(tmp_path):
         "SELECT raw_text FROM memories WHERE raw_text = ?",
         ("P2_PRIVATE_MEMORY",),
     ).fetchall()
-    assert cross == [], "P1 saw P2's memory — per-DB isolation broken"
+    assert cross == [], "P1 saw P2's memory, per-DB isolation broken"
 
     p1_conn.close()
     p2_conn.close()

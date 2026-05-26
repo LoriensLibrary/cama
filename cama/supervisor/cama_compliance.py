@@ -1,5 +1,5 @@
 """
-CAMA Compliance Enforcement Module — cama_compliance.py
+CAMA Compliance Enforcement Module, cama_compliance.py
 Designed by Angela (Lorien's Library LLC), April 14, 2026.
 Built by Aelen.
 
@@ -178,7 +178,7 @@ def get_compliance_history(n: int = 5, db_path=None) -> list:
 
 
 def compliance_report(tracker: SessionTracker, n_history: int = 5) -> dict:
-    """Full compliance report — current session + history + trend."""
+    """Full compliance report, current session + history + trend."""
     current = tracker.to_dict()
     history = get_compliance_history(n_history, tracker.db_path)
 

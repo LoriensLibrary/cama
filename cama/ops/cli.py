@@ -1,4 +1,4 @@
-"""``cama-ops`` — operator CLI.
+"""``cama-ops``, operator CLI.
 
 Subcommands::
 
@@ -11,7 +11,7 @@ Subcommands::
 Why a CLI and not HTTP: the keys DB is operator-controlled. Operator
 actions over HTTP would require an admin-API-key, which would be the
 single most valuable credential in the system. File-based auth means
-operator-level actions require shell access to the host — a much
+operator-level actions require shell access to the host, a much
 larger barrier than guessing or stealing an HTTP token.
 
 Run ``cama-ops --help`` for the full surface.

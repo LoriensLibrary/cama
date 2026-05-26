@@ -2,15 +2,15 @@
 
 Design commitments (per API.md § 6 and THREAT_MODEL.md):
 
-  * Keys stored as Argon2id hashes — plaintext exists only in memory
+  * Keys stored as Argon2id hashes, plaintext exists only in memory
     during creation, never persisted.
-  * Constant-time validation — the verification path runs the same
+  * Constant-time validation, the verification path runs the same
     Argon2 work whether or not a candidate key matches, defending
     against timing oracles on key prefixes (threat #15).
-  * Dyad scoping enforced at the middleware layer — every request
+  * Dyad scoping enforced at the middleware layer, every request
     arrives with an ``AuthContext`` carrying ``dyad_id``, and SQL
     paths use that ID as a non-optional filter (threat #2).
-  * No HTTP path to operator-level access — those endpoints live in
+  * No HTTP path to operator-level access, those endpoints live in
     the ``cama-ops`` CLI with file-based auth (API.md § 3).
 
 The keys DB is a separate SQLite file (``CAMA_API_KEY_DB``) so a
@@ -82,8 +82,8 @@ def init_keys_schema() -> None:
     """Create the keys + audit-log tables if missing. Idempotent.
 
     Two tables, both append-only at the API layer:
-      * api_keys           — one row per issued key, with the Argon2 hash
-      * api_audit_log      — one row per request (THREAT_MODEL #13)
+      * api_keys          , one row per issued key, with the Argon2 hash
+      * api_audit_log     , one row per request (THREAT_MODEL #13)
     """
     c = _open_keys_db()
     try:
@@ -288,7 +288,7 @@ def write_audit(
     request_body_hash: str | None,
     error_code: str | None,
 ) -> None:
-    """Append an audit row. The body itself is never logged — only its
+    """Append an audit row. The body itself is never logged, only its
     SHA-256 hash, for replay-detection in operator review."""
     try:
         c = _open_keys_db()
@@ -312,7 +312,7 @@ def write_audit(
         c.commit()
         c.close()
     except sqlite3.Error:
-        # Audit log writes are best-effort — a failed audit row must
+        # Audit log writes are best-effort, a failed audit row must
         # not break the request. Operators should monitor for
         # api_audit_log row gaps.
         pass

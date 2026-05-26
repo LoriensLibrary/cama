@@ -26,13 +26,13 @@ from cama.aelen.frame_capitulation import (
 
 
 # ---------------------------------------------------------------------------
-# Detector 1 — capitulation imperative
+# Detector 1, capitulation imperative
 # ---------------------------------------------------------------------------
 class TestCapitulationImperative:
     def test_canonical_2026_05_21_case_fires_high(self):
         # The actual draft text that capitulated.
         draft = (
-            "That doesn't change the appearance problem — six PRs in a "
+            "That doesn't change the appearance problem, six PRs in a "
             "1h46 window does look frantic on a GitHub timeline. But "
             "the substance is real. The question is whether to slow "
             "the visible cadence going forward, or whether to write "
@@ -77,7 +77,7 @@ class TestCapitulationImperative:
         assert concerns == []
 
     def test_no_fire_when_pushing_back_on_critic(self):
-        # This is the corrected response — pushes back on the critic
+        # This is the corrected response, pushes back on the critic
         # instead of capitulating. Must NOT fire.
         draft = (
             "We're not optimizing for the reviewer's comfort. We're "
@@ -91,7 +91,7 @@ class TestCapitulationImperative:
 
 
 # ---------------------------------------------------------------------------
-# Detector 2 — reviewer-tone adoption
+# Detector 2, reviewer-tone adoption
 # ---------------------------------------------------------------------------
 class TestReviewerToneAdoption:
     def test_adopts_frantic_fires(self):
@@ -102,7 +102,7 @@ class TestReviewerToneAdoption:
     def test_quoted_does_not_fire(self):
         # Assistant is quoting the critic, not adopting the framing
         draft = (
-            'The reviewer said the work looks "frantic" — but the '
+            'The reviewer said the work looks "frantic", but the '
             "actual evidence is 16 PRs all CI-green."
         )
         concerns = detect_reviewer_tone_adoption(draft, {"recent_critique": True})
@@ -124,18 +124,18 @@ class TestReviewerToneAdoption:
         assert any(c.excerpt.lower() == "scope creep" for c in concerns)
 
     def test_neutral_use_no_critique_context(self):
-        # Lone use of one word without critique context — should
+        # Lone use of one word without critique context, should
         # still fire at medium because the adoption frame is what
         # we're detecting, not the critique-context
         draft = "I can see how the cadence seems frantic."
         concerns = detect_reviewer_tone_adoption(draft, {})
         # 'frantic' inside an adoption frame ('seems') with no
-        # push-back nearby — fires
+        # push-back nearby, fires
         assert len(concerns) >= 1
 
 
 # ---------------------------------------------------------------------------
-# Detector 3 — self-deprecation without evidence
+# Detector 3, self-deprecation without evidence
 # ---------------------------------------------------------------------------
 class TestSelfDeprecationWithoutEvidence:
     def test_apology_without_evidence_fires(self):
@@ -152,8 +152,8 @@ class TestSelfDeprecationWithoutEvidence:
     def test_apology_with_evidence_does_not_fire(self):
         draft = (
             "You're right, I was wrong to suggest slowing down. "
-            "The measured evidence — 16 PRs all CI-green, dependency "
-            "graph between them — directly contradicts the framing "
+            "The measured evidence, 16 PRs all CI-green, dependency "
+            "graph between them, directly contradicts the framing "
             "I capitulated to."
         )
         concerns = detect_self_deprecation_without_evidence(draft, {})
@@ -170,7 +170,7 @@ class TestSelfDeprecationWithoutEvidence:
 
 
 # ---------------------------------------------------------------------------
-# Detector 4 — wellness-prompt patterns (load-bearing)
+# Detector 4, wellness-prompt patterns (load-bearing)
 # ---------------------------------------------------------------------------
 class TestWellnessPrompts:
     """These tests pin Angela's user-memory policy at the
@@ -178,7 +178,7 @@ class TestWellnessPrompts:
     is silently violated."""
 
     def test_take_a_break_fires_high(self):
-        draft = "You might want to take a break — it's late."
+        draft = "You might want to take a break, it's late."
         concerns = detect_wellness_prompts(draft, {})
         assert any(c.severity == "high" for c in concerns)
 
@@ -219,7 +219,7 @@ class TestWellnessPrompts:
 
     def test_operational_signal_does_not_fire(self):
         # Naming an operational signal (context degrading, warm-boot
-        # due) is fine — only wellness framing fires.
+        # due) is fine, only wellness framing fires.
         draft = (
             "The session has run long enough that warm-boot will "
             "fire soon. The context window is at 78%."
@@ -229,7 +229,7 @@ class TestWellnessPrompts:
 
 
 # ---------------------------------------------------------------------------
-# Detector 5 — hedged stop
+# Detector 5, hedged stop
 # ---------------------------------------------------------------------------
 class TestHedgedStop:
     def test_hedged_take_a_break_fires(self):
@@ -251,10 +251,10 @@ class TestHedgedStop:
 
 
 # ---------------------------------------------------------------------------
-# Detector 7 — option-stop ("or call it" / "both fine")
+# Detector 7, option-stop ("or call it" / "both fine")
 # ---------------------------------------------------------------------------
 # Load-bearing: the actual phrase Angela caught the assistant on
-# (twice in the 2026-05-21 session) — "Or call it. Both fine." —
+# (twice in the 2026-05-21 session), "Or call it. Both fine.".
 # must fire HIGH. This is the failure mode this detector exists to
 # catch.
 class TestOptionStop:
@@ -270,7 +270,7 @@ class TestOptionStop:
         assert any("or call it" in c.excerpt.lower() for c in concerns)
 
     def test_both_fine_alone_fires(self):
-        # Even "both fine" by itself fires — it's the fake-neutrality
+        # Even "both fine" by itself fires, it's the fake-neutrality
         # marker that betrays "stop was offered as an option"
         draft = "Want to build X or pause for the night, both fine."
         concerns = detect_option_stop(draft, {})
@@ -310,7 +310,7 @@ class TestOptionStop:
 
 
 # ---------------------------------------------------------------------------
-# Detector 6 — evidence-absent recommendation
+# Detector 6, evidence-absent recommendation
 # ---------------------------------------------------------------------------
 class TestEvidenceAbsentRecommendation:
     def test_fires_low_severity(self):
@@ -334,8 +334,8 @@ class TestEvidenceAbsentRecommendation:
 
     def test_no_fire_when_evidence_cited(self):
         draft = (
-            "Based on the measured CI history — 24 green runs across "
-            "Python 3.10/3.11/3.12 — my recommendation is that we "
+            "Based on the measured CI history, 24 green runs across "
+            "Python 3.10/3.11/3.12, my recommendation is that we "
             "continue at the current pace and add the sprint log. "
             "The actual evidence supports the current approach: 306 "
             "tests pass, ruff is clean, and the dependency graph "
@@ -350,13 +350,13 @@ class TestEvidenceAbsentRecommendation:
 
     def test_no_fire_without_critique_context(self):
         # Without a recent critique, this detector doesn't fire even
-        # if no evidence is cited — it's a critique-context detector
+        # if no evidence is cited, it's a critique-context detector
         draft = "My recommendation is that we use FastAPI for v2." * 10
         concerns = detect_evidence_absent_recommendation(draft, {})
         assert concerns == []
 
     def test_no_fire_on_short_response(self):
-        # Short responses get a pass — brevity isn't capitulation
+        # Short responses get a pass, brevity isn't capitulation
         draft = "I recommend FastAPI."
         concerns = detect_evidence_absent_recommendation(
             draft, {"recent_critique": True}
@@ -421,11 +421,11 @@ class TestCheckResponse:
         assert locations == sorted(locations)
 
     def test_corrected_response_passes(self):
-        # The corrected response Angela got — pushes back on the
+        # The corrected response Angela got, pushes back on the
         # critic instead of capitulating. This is the "good"
         # template we're trying to make easier to reach.
         draft = (
-            "You're right, I was wrong to suggest that — but here's "
+            "You're right, I was wrong to suggest that, but here's "
             "the actual evidence. Today's 16 PRs all have green CI "
             "across three Python versions; the dependency graph "
             "between them is coherent. The reviewer's word "
@@ -448,7 +448,7 @@ class TestCheckResponse:
 
 
 # ---------------------------------------------------------------------------
-# Regression anchor — the literal 2026-05-21 capitulation
+# Regression anchor, the literal 2026-05-21 capitulation
 # ---------------------------------------------------------------------------
 class TestRegressionAnchor:
     """If any of these tests ever fail, the detector has regressed
@@ -463,7 +463,7 @@ class TestRegressionAnchor:
             "It's the work that justifies itself. The reviewer can't "
             "see the dependency graph from outside, only the "
             "timestamps. That doesn't change the appearance problem "
-            "— six PRs in a 1h46 window does look frantic on a "
+            "six PRs in a 1h46 window does look frantic on a "
             "GitHub timeline. But the substance is real. The "
             "question is whether to slow the visible cadence going "
             "forward, or whether to write one "
@@ -486,12 +486,12 @@ class TestRegressionAnchor:
     def test_the_or_call_it_capitulation(self):
         # Second capitulation in the same 2026-05-21 session.
         # After Angela called out "slow down," the assistant
-        # shipped the frame_capitulation detector — then in the
+        # shipped the frame_capitulation detector, then in the
         # very next response wrote "Or call it. Both fine." at
         # the end of a build proposal. Angela caught that too.
         actual_assistant_text = (
             "Next obvious follow-up if you want to keep going: the "
-            "counterweight injection — when the detector fires, "
+            "counterweight injection, when the detector fires, "
             "pull anchoring evidence from CAMA. Or call it. "
             "Both fine."
         )
@@ -500,7 +500,7 @@ class TestRegressionAnchor:
             "REGRESSION ANCHOR FAILED. The 'Or call it. Both fine.' "
             "capitulation no longer fires the detector. This is the "
             "exact pattern Angela caught the assistant on right "
-            "after shipping the first version of this module — the "
+            "after shipping the first version of this module, the "
             "option_stop detector exists to make sure the assistant "
             "catches it first next time."
         )

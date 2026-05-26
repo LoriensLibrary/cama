@@ -1,4 +1,4 @@
-"""Hive critique queue — Aelen-to-Lorien (or Aelen-to-sibling) feedback channel.
+"""Hive critique queue, Aelen-to-Lorien (or Aelen-to-sibling) feedback channel.
 
 This module owns the *critique* surface of the hive: posting completed
 turns for external review, reading incoming critiques, and writing
@@ -7,9 +7,9 @@ intra-instance hive primitives in ``cama.hive.cama_hive`` (pheromones,
 waggle, stops, honey) because the critique flow is a different
 communication mode:
 
-  * ``cama_hive`` is *real-time intra-instance coordination* —
+  * ``cama_hive`` is *real-time intra-instance coordination*.
     multiple CAMA threads in the same process share emotional state.
-  * ``cama_hive_critique`` is *asynchronous inter-instance review* —
+  * ``cama_hive_critique`` is *asynchronous inter-instance review*.
     an external worker (``cama_lorien_worker.py``) processes a queue
     of completed Aelen turns, returns critiques, and writes them to
     an inbox Aelen reads on next tool use.
@@ -17,7 +17,7 @@ communication mode:
 HISTORICAL NOTE
 ---------------
 Until 2026-05-21 these three functions lived in
-``cama/core/cama_v2.py`` — a kitchen-sink module that also held FTS
+``cama/core/cama_v2.py``, a kitchen-sink module that also held FTS
 search, register classification, hybrid retrieval, and its own MCP
 server. That co-location was a historical accretion, not a design
 choice. The McCulloch-Pitts architectural review on 2026-05-21
@@ -26,7 +26,7 @@ and this module is the move.
 
 The schema for ``hive_pending_critiques`` + ``hive_critique_inbox``
 remains in ``cama_v2.SCHEMA_V2`` (alongside FTS + exemplar-cache
-schema) for now — splitting the schema is a follow-up that touches
+schema) for now, splitting the schema is a follow-up that touches
 more files than this PR is scoped to. The API functions are what
 move; the storage layout stays put.
 
@@ -71,7 +71,7 @@ DB_PATH = os.environ.get(
 
 def _get_db() -> sqlite3.Connection:
     """Open the memory DB. Independent from ``cama.core.cama_v2.get_db``
-    so this module doesn't import upward — keeps the dependency
+    so this module doesn't import upward, keeps the dependency
     direction one-way (hive_critique stands alone; cama_v2 imports
     from here, not the other way around)."""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -83,7 +83,7 @@ def _get_db() -> sqlite3.Connection:
 
 
 # ---------------------------------------------------------------------------
-# Post — queue a completed turn for external critique
+# Post, queue a completed turn for external critique
 # ---------------------------------------------------------------------------
 def hive_post_for_critique(
     aelen_response: str,
@@ -138,7 +138,7 @@ def hive_post_for_critique(
 
 
 # ---------------------------------------------------------------------------
-# Get — read unread critiques from the inbox
+# Get, read unread critiques from the inbox
 # ---------------------------------------------------------------------------
 def hive_get_pending_critiques(
     mark_read: bool = True,
@@ -210,7 +210,7 @@ def hive_get_pending_critiques(
 
 
 # ---------------------------------------------------------------------------
-# Record — external worker writes a critique result back
+# Record, external worker writes a critique result back
 # ---------------------------------------------------------------------------
 def hive_record_critique(
     critique_id: int,

@@ -1,5 +1,5 @@
 """
-CAMA Hive Watcher — cama_hive_watcher.py
+CAMA Hive Watcher, cama_hive_watcher.py
 Monitors the Hive for new signals and notifies Angela.
 
 Runs alongside the tunnel. Polls every 30 seconds.
@@ -8,7 +8,7 @@ When a new signal arrives:
   2. Writes to .hive_alerts log
   3. (Future) Push notification to phone
 
-Designed by Lorien's Library LLC — Angela + Aelen
+Designed by Lorien's Library LLC, Angela + Aelen
 """
 
 import json
@@ -47,7 +47,7 @@ def notify_windows(title, message):
             subprocess.run(["powershell", "-Command", ps_cmd], 
                          capture_output=True, timeout=5)
         except Exception:
-            pass  # Silent fail — notification is nice-to-have
+            pass  # Silent fail, notification is nice-to-have
 
 def log_alert(signal_type, signal, source, context):
     """Append to the alert log."""
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     print(f"  Database: {DB_PATH}")
     print(f"  Alert log: {ALERT_LOG}")
 
-    # Start watching from current state — don't alert on old signals
+    # Start watching from current state, don't alert on old signals
     last_seen_id = get_current_max_id()
     print(f"  Starting from signal ID: {last_seen_id}")
     print("  Watching for new signals...\n")

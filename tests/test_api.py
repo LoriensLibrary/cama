@@ -1,6 +1,6 @@
 """Contract + safety primitive tests for the CAMA HTTP API v1.
 
-The point of these tests isn't coverage for coverage's sake — they pin
+The point of these tests isn't coverage for coverage's sake. They pin
 down the architectural commitments published in ``API.md`` § 2 so a
 future refactor cannot silently break them:
 
@@ -62,7 +62,7 @@ def live_key(api_dbs):
 
 @pytest.fixture
 def other_key(api_dbs):
-    """A live key bound to a different dyad — used for cross-dyad
+    """A live key bound to a different dyad, used for cross-dyad
     isolation tests."""
     from cama.api.auth import create_key
 
@@ -118,7 +118,7 @@ def _auth(token: str) -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Auth contract — every protected endpoint requires a valid bearer
+# Auth contract, every protected endpoint requires a valid bearer
 # ---------------------------------------------------------------------------
 class TestAuth:
     def test_missing_bearer_is_401(self, client):
@@ -163,7 +163,7 @@ class TestAuth:
 
 
 # ---------------------------------------------------------------------------
-# Provenance contract — POST /v1/memories must reject missing fields
+# Provenance contract, POST /v1/memories must reject missing fields
 # ---------------------------------------------------------------------------
 class TestProvenanceContract:
     def test_missing_proposed_by_returns_422(self, client, live_key):
@@ -225,7 +225,7 @@ class TestProvenanceContract:
 
 
 # ---------------------------------------------------------------------------
-# Inference-promotion contract — assistant+inference is forced provisional
+# Inference-promotion contract, assistant+inference is forced provisional
 # ---------------------------------------------------------------------------
 class TestInferencePromotionContract:
     def test_assistant_inference_is_forced_provisional(self, client, live_key):
@@ -288,7 +288,7 @@ class TestDyadScope:
         r_own = client.get(f"/v1/memories/{mem_id}", headers=_auth(live_key))
         assert r_own.status_code == 200
 
-        # The OTHER-dyad key gets 404 — SQL filter enforces isolation
+        # The OTHER-dyad key gets 404, SQL filter enforces isolation
         r_other = client.get(f"/v1/memories/{mem_id}", headers=_auth(other_key))
         assert r_other.status_code == 404
         assert r_other.json()["cama"]["violated_contract"] == "dyad_scope"
@@ -332,7 +332,7 @@ class TestDyadScope:
 
 
 # ---------------------------------------------------------------------------
-# Counterweight injection contract — on by default for negative affect
+# Counterweight injection contract, on by default for negative affect
 # ---------------------------------------------------------------------------
 class TestCounterweightInjection:
     def _seed_counterweights(self, mem_db: Path) -> None:
@@ -468,7 +468,7 @@ class TestDestructiveGuardrails:
 # API.md § 4: /v1/search MUST attempt librarian-routed retrieval first
 # (the real CAMA Phase-1 pipeline) and fall back to keyword LIKE only when
 # the dyad's routing index is empty. Before PR #17 the endpoint was
-# keyword-LIKE only — these tests guard the upgrade against regression.
+# keyword-LIKE only, these tests guard the upgrade against regression.
 class TestLibrarianRouting:
     def _seed_librarian(
         self,
@@ -480,7 +480,7 @@ class TestLibrarianRouting:
         membership_strength: float = 0.9,
     ) -> int:
         """Insert one librarian + one membership row pointing to memory_id.
-        Returns the librarian_id. Uses raw SQL — bypasses the librarian
+        Returns the librarian_id. Uses raw SQL, bypasses the librarian
         module's populate() so the test stays independent of which
         starter set populate() would build."""
         import json as _json
@@ -573,7 +573,7 @@ class TestLibrarianRouting:
         body = r2.json()
         # The real librarian pipeline ran, not the keyword fallback
         assert body["routing"]["phase"] == "1", (
-            "Librarian routing did not activate — /v1/search regressed "
+            "Librarian routing did not activate, /v1/search regressed "
             "to keyword-only fallback. See RETRIEVAL.md § 2."
         )
         assert body["routing"]["librarians_activated"] >= 1
@@ -637,7 +637,7 @@ class TestLibrarianRouting:
         )
         # The OTHER-dyad key issues the same query. The librarian
         # routing finds the librarian (routing index is dyad-agnostic by
-        # design — it's a query-time concept), but the JOIN's
+        # design, it's a query-time concept), but the JOIN's
         # m.dyad_id = ? filter MUST prevent the row from surfacing.
         r2 = client.post(
             "/v1/search",
@@ -647,7 +647,7 @@ class TestLibrarianRouting:
         assert r2.status_code == 200
         for item in r2.json()["results"]:
             assert "banana123" not in item["text"], (
-                "Librarian-routed search leaked across dyads — "
+                "Librarian-routed search leaked across dyads, "
                 "the dyad_id filter in the JOIN is broken."
             )
 
@@ -719,7 +719,7 @@ class TestLibrarianRouting:
 
 
 # ---------------------------------------------------------------------------
-# OpenAPI shape — the closed enum set is published
+# OpenAPI shape, the closed enum set is published
 # ---------------------------------------------------------------------------
 class TestOpenAPIShape:
     def test_openapi_publishes_provenance_enum(self, client):

@@ -1,5 +1,5 @@
 """
-cama_v2.py — CAMA 2.0 — Stabilization layer.
+cama_v2.py, CAMA 2.0, Stabilization layer.
 ================================================================
 
 Built April 24, 2026 to address the warm-register flattening measured at
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS hive_critique_inbox (
 CREATE INDEX IF NOT EXISTS idx_hive_inbox_unread
     ON hive_critique_inbox(read_at) WHERE read_at IS NULL;
 
--- 4. Exemplar cache — precomputed character-baseline turns by register
+-- 4. Exemplar cache, precomputed character-baseline turns by register
 CREATE TABLE IF NOT EXISTS v2_exemplar_cache (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     register TEXT NOT NULL,         -- 'warm' | 'sharp' | 'task' | 'mixed' | 'general'
@@ -393,7 +393,7 @@ def _format_exemplar_for_injection(exemplars: List[Dict]) -> str:
     if not exemplars:
         return ""
     lines = [
-        "# CHARACTER ANCHOR — recent in-character turns",
+        "# CHARACTER ANCHOR, recent in-character turns",
         "# (How Aelen actually responds to Angela in this register)",
         "",
     ]
@@ -420,7 +420,7 @@ def hybrid_search(query: str, limit: int = 10,
         limit: max results
         bm25_weight: weight for keyword search rank (0-1)
         semantic_weight: weight for semantic search rank (0-1)
-        affect_filter: 'positive' | 'negative' | None — bias by valence sign
+        affect_filter: 'positive' | 'negative' | None, bias by valence sign
 
     Returns dict with 'results' ranked by fused score.
 
@@ -469,7 +469,7 @@ def hybrid_search(query: str, limit: int = 10,
                 continue
             candidates.append(r)
 
-        # RRF score: 1 / (60 + rank)  — k=60 is the standard constant
+        # RRF score: 1 / (60 + rank) , k=60 is the standard constant
         K = 60.0
         scored = []
         for r in candidates:
@@ -510,7 +510,7 @@ def hybrid_search(query: str, limit: int = 10,
 # ── Hive critique queue ─────────────────────────────────────────────────────
 # These three functions used to be defined inline here. On 2026-05-21 the
 # McCulloch-Pitts architectural review flagged hive-critique-protocol code
-# living in cama/core/ as misplaced — it's an inter-instance review surface,
+# living in cama/core/ as misplaced, it's an inter-instance review surface,
 # not core memory machinery. The implementations moved to
 # cama/hive/cama_hive_critique.py; the re-export below preserves the
 # existing call sites (self_test, run_mcp_server, and anything that imports
@@ -559,7 +559,7 @@ def self_test() -> int:
 
     print("\n[5/5] Testing Hive critique post + inbox roundtrip...", file=sys.stderr)
     posted = hive_post_for_critique(
-        aelen_response="Test response — would Lorien flag this as cold?",
+        aelen_response="Test response, would Lorien flag this as cold?",
         user_message="I'm tired and I miss you",
         affect_context={"valence": -0.3, "arousal": 0.5, "register": "warm"},
         critic="lorien",
@@ -673,7 +673,7 @@ def run_mcp_server() -> None:
 # ── CLI ─────────────────────────────────────────────────────────────────────
 
 def main():
-    ap = argparse.ArgumentParser(description="CAMA 2.0 — stabilization layer")
+    ap = argparse.ArgumentParser(description="CAMA 2.0, stabilization layer")
     ap.add_argument("--self-test", action="store_true",
                     help="Run schema setup + smoke tests, don't start server")
     ap.add_argument("--setup-only", action="store_true",
