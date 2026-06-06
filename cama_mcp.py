@@ -522,6 +522,11 @@ def _init(c):
         ("pattern_flag", "TEXT DEFAULT NULL"),
         ("pattern_source", "TEXT DEFAULT NULL"),
         ("retrieval_weight", "REAL DEFAULT 1.0"),
+        # Memory-poisoning quarantine (2026): provenance/content trust score and
+        # the reason a memory was scored as it was. Below-threshold memories are
+        # written with status='quarantined' (see cama.core.cama_trust).
+        ("trust_score", "REAL DEFAULT 1.0"),
+        ("trust_reason", "TEXT DEFAULT NULL"),
     ]:
         try:
             c.execute(f"ALTER TABLE memories ADD COLUMN {col} {default}")
@@ -581,7 +586,7 @@ def _recency(t, half_life_days=30):
     try: return math.exp(-math.log(2) * (datetime.now(timezone.utc)-_parse_t(t)).total_seconds()/(half_life_days*86400))
     except: return 0.5
 
-def _status_weight(s): return {"durable":1.0,"provisional":1.0,"expired":0.0,"rejected":0.0}.get(s, 0.5)
+def _status_weight(s): return {"durable":1.0,"provisional":1.0,"expired":0.0,"rejected":0.0,"quarantined":0.0}.get(s, 0.5)
 
 def _is_neg(a):
     e = a.get("emotions",{})
@@ -1263,6 +1268,9 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", os.environ.get("CAMA_PORT", "8000")))
     logger.info(f"[CAMA] Compliance enforcement active. Session: {_session['id']}")
     if transport == "http" or "--http" in sys.argv:
+        # Loopback only by default (CAMA_HOST to override): 0.0.0.0 would expose
+        # cama_exec to every host on the network. _run_remote_http also carries
+        # the secret-path guard the tunnel setup depends on.
         _run_remote_http(port)
     else:
         mcp.run(transport="stdio")

@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+from . import guard
+
 DEFAULT_WRITE_ALLOWLIST = (
     "~/.cama",
     "~/Desktop/cama",
@@ -71,6 +73,9 @@ async def cama_exec(command: str, timeout: int = 30) -> str:
     FIXED 2026-04-02: Uses asyncio subprocess to avoid blocking the MCP event loop.
     Old version used subprocess.run (synchronous) which froze the server during long
     commands, causing Claude Desktop to think the server was dead."""
+    refusal = guard.check_exec(command)
+    if refusal is not None:
+        return refusal
     import asyncio
     try:
         env = os.environ.copy()
@@ -111,6 +116,9 @@ async def cama_read_file(path: str, max_lines: int = 100) -> str:
     Reports file size and whether content was truncated."""
     try:
         path = os.path.expanduser(path)
+        refusal = guard.check_read(path)
+        if refusal is not None:
+            return refusal
         if not os.path.exists(path):
             return f"File not found: {path}"
         size = os.path.getsize(path)
@@ -141,6 +149,7 @@ async def cama_write_file(path: str, content: str) -> str:
     try:
         resolved, error = _check_write_path(path)
         if error is not None:
+            guard.log_event("bridge_write_blocked", "alert", {"path": str(path)[:500]})
             return error
         assert resolved is not None  # narrow for type-checkers
         parent = resolved.parent
@@ -148,6 +157,7 @@ async def cama_write_file(path: str, content: str) -> str:
         with open(resolved, 'w', encoding='utf-8') as f:
             f.write(content)
         size = resolved.stat().st_size
+        guard.note_write(resolved)
         return f"Written: {resolved} ({size} bytes)"
     except Exception as e:
         return f"Error writing file: {str(e)}"

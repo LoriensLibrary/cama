@@ -151,7 +151,7 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
                 lib_rows = c.execute(
                     "SELECT m.id FROM librarian_membership lm "
                     "JOIN memories m ON m.id = lm.memory_id "
-                    "WHERE lm.librarian_id = ? AND m.status NOT IN ('rejected','expired') "
+                    "WHERE lm.librarian_id = ? AND m.status NOT IN ('rejected','expired','quarantined') "
                     "AND m.consent_level != 'high' "
                     "ORDER BY m.is_core DESC, m.created_at DESC LIMIT 25",
                     (lib_id,)
@@ -172,12 +172,12 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         if len(librarian_mids) >= 20:
             ph = ",".join("?" * len(librarian_mids))
             q_routed = (f"SELECT * FROM memories WHERE id IN ({ph}) "
-                        "AND status NOT IN ('rejected','expired') "
+                        "AND status NOT IN ('rejected','expired','quarantined') "
                         "AND consent_level != 'high'")
             rows = c.execute(q_routed, librarian_mids).fetchall()
             _timings["candidate_source"] = "librarian_routed"
         else:
-            q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired') AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 100"
+            q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired','quarantined') AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 100"
             rows = c.execute(q).fetchall()
             _timings["candidate_source"] = "recency_fallback"
         mids = [r["id"] for r in rows]
