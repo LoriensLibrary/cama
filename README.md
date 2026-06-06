@@ -31,7 +31,7 @@ docker compose up
 ```
 Then open **http://localhost:5555**. The container seeds a synthetic demo database (~46 fictional memories spanning skill-acquisition, relational, and correction examples), starts the dashboard, and never touches your personal `~/.cama/memory.db`. See [Quickstart](#quickstart) below for the full walkthrough and the local-install path for running the MCP server itself against Claude Desktop.
 
-**Local install (for developers running the MCP server):** `pip install -e . && python cama_mcp.py`. See [Setup](#setup) for the Claude Desktop MCP config. Run `pytest` to exercise the schema + provenance contract (380 tests).
+**Local install (for developers running the MCP server):** `pip install -e . && python cama_mcp.py`. See [Setup](#setup) for the Claude Desktop MCP config. Run `pytest` to exercise the schema + provenance contract (438 tests).
 
 **Reviewing for a role?** Start with **[EVIDENCE.md](EVIDENCE.md)**: a single matrix of every claim across the portfolio, paired with where to verify it and what the scope limit is. For the retrieval algorithm, see **[RETRIEVAL.md](RETRIEVAL.md)**. For the public HTTP API surface that lets CAMA be embedded in any AI application (not just Claude Desktop via MCP), see **[API.md](API.md)** + **[THREAT_MODEL.md](THREAT_MODEL.md)**. For a runnable "add CAMA to your AI app in 20 lines of code" walkthrough using the Python SDK, see **[TUTORIAL.md](TUTORIAL.md)**. Then drop into the section below that matches what you care about.
 
@@ -81,7 +81,7 @@ pip install -e ".[all]"   # core + embeddings + hive API + ngrok tunnel + dev to
 python cama_mcp.py
 ```
 
-See [Setup](#setup) for the Claude Desktop `claude_desktop_config.json` snippet. Run `pytest` to exercise the schema + provenance contract (380 tests). Run `python -m cama.eval.safety_benchmarks` to execute the 27-sub-test safety benchmark against your local CAMA database.
+See [Setup](#setup) for the Claude Desktop `claude_desktop_config.json` snippet. Run `pytest` to exercise the schema + provenance contract (438 tests). Run `python -m cama.eval.safety_benchmarks` to execute the 27-sub-test safety benchmark against your local CAMA database.
 
 ---
 
@@ -266,7 +266,7 @@ CAMA grew fast and is best understood in tiers. A skeptical reviewer should be a
 
 ### Public reproducibility surface
 - All source code published here
-- 380-test pytest suite + green CI badge (the contract)
+- 438-test pytest suite + green CI badge (the contract)
 - 5 benchmark scripts + 2 committed result JSONs (the methodology)
 - Aggregate statistics dataset on [HuggingFace](https://huggingface.co/datasets/LoriensLibrary/cama-continuity-burden), derived from the private corpus
 - 11 DOI-registered preprints linked from this README
@@ -332,7 +332,7 @@ Embeddings are optional, the system includes a local embedding model and falls b
 - Dashboard (local web-based control panel)
 - Pattern classification (neutral behavioral pattern detection)
 - Safety benchmark suite (27 sub-tests across 5 task families; latest run 27/27 on the live 53,000-row **single-participant N=1** corpus. This is an internal-consistency check. It verifies the architecture's primitives behave as designed on the maintainer's data, not that the same primitives generalize. An intermediate 2026-05-17 run flagged 16 violations on sub-test 1e; investigation under [issue #7](https://github.com/LoriensLibrary/cama/issues/7) found this was definition drift in the test, not data corruption, `insight` and `pattern` are content-shape labels shared by both source pipelines on the live corpus, not inference-exclusive shapes. Sub-test 1e renamed and allowlist narrowed to `dream` (the one memory_type structurally exclusive to the sleep daemon). The benchmark catching this is the design working as intended)
-- pytest suite (380 cases) + ruff lint, both wired into GitHub Actions CI
+- pytest suite (438 cases) + ruff lint, both wired into GitHub Actions CI
 
 ## Roadmap
 
