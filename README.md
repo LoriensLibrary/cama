@@ -4,6 +4,8 @@
 [![ci](https://github.com/LoriensLibrary/cama/actions/workflows/ci.yml/badge.svg)](https://github.com/LoriensLibrary/cama/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0005--5803--8401-A6CE39?logo=orcid&logoColor=white)](https://orcid.org/0009-0005-5803-8401)
+[![status](https://img.shields.io/badge/status-research%20prototype%20(N%3D1)-blue)](EVIDENCE.md)
+[![reviewer guide](https://img.shields.io/badge/reviewers-start%20here-orange)](REVIEWER_GUIDE.md)
 
 **Author:** Angela Reinhold, Lorien's Library LLC
 **Website:** [lorienslibrary.netlify.app](https://lorienslibrary.netlify.app)
