@@ -9,6 +9,7 @@ from typing import Optional
 # Persona name is per-deployment. Default preserves the historical local
 # value; participants and study deployments override via CAMA_PERSONA_NAME.
 PERSONA_NAME = os.environ.get("CAMA_PERSONA_NAME", "Aelen")
+from cama.core import embedding_store as _emb_store
 from cama_mcp import (
     SCORE_W,
     _affect_dist,
@@ -16,7 +17,6 @@ from cama_mcp import (
     _buf_reset,
     _build_daily_context,
     _compliance_tracker,
-    _cosine_sim,
     _format_brain_context,
     _get_compliance_history,
     _get_embedding,
@@ -208,12 +208,11 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
 
         # Stage 2: Load embeddings ONLY for finalists, rescore with full blend
         finalist_mids = [r["id"] for _, r, _ in finalists]
-        emb_map = {}
+        sims = {}
         if query_vec and finalist_mids:
             _tel0 = time.perf_counter()
-            ph = ",".join("?" * len(finalist_mids))
-            for er in c.execute(f"SELECT memory_id, embedding_json FROM memory_embeddings WHERE memory_id IN ({ph})", finalist_mids).fetchall():
-                emb_map[er["memory_id"]] = json.loads(er["embedding_json"]) if er["embedding_json"] else []
+            emb_map = _emb_store.fetch_emb_map(c, finalist_mids)
+            sims = _emb_store.cosine_scores(query_vec, emb_map)
             _timings["embedding_load"] = round((time.perf_counter() - _tel0) * 1000, 1)
             _timings["embeddings_loaded"] = len(emb_map)
 
@@ -223,8 +222,8 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
             rel = min(r["rel_degree"]/10.0, 1.0)
             rec = _recency(r["created_at"])
             tm = 0.0
-            if query_vec and r["id"] in emb_map:
-                tm = max(0.0, _cosine_sim(query_vec, emb_map[r["id"]]))
+            if r["id"] in sims:
+                tm = max(0.0, sims[r["id"]])
             elif query_text and query_text.lower() in r["raw_text"].lower():
                 tm = 0.6
             sc = SCORE_W["semantic"]*tm + SCORE_W["affect"]*(1-ad) + SCORE_W["relational"]*rel + SCORE_W["recency"]*rec

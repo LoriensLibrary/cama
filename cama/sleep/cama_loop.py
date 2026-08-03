@@ -30,6 +30,8 @@ import time
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
+from cama.core import embedding_store as _emb_store
+
 # ============================================================
 # PATHS
 # ============================================================
@@ -72,7 +74,8 @@ def get_db():
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA foreign_keys=ON")
-    
+    _emb_store.ensure_blob_column(c)
+
     # Ensure tables exist
     c.execute("""CREATE TABLE IF NOT EXISTS daily_context (
         date TEXT PRIMARY KEY,
@@ -459,10 +462,7 @@ def index_embeddings(c, batch_size=50):
         
         for r in rows:
             vec = model.encode(r["raw_text"][:512], normalize_embeddings=True).tolist()
-            c.execute("""INSERT OR REPLACE INTO memory_embeddings 
-                (memory_id, embedding_json, model, computed_at)
-                VALUES (?, ?, 'all-MiniLM-L6-v2', ?)""",
-                (r["id"], json.dumps(vec), ts))
+            _emb_store.store_embedding(c, r["id"], vec, "all-MiniLM-L6-v2", ts)
             c.commit()  # Commit each for resilience
             count += 1
         

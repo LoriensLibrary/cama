@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
+import numpy as np
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -76,6 +77,7 @@ except ImportError:
 # ============================================================
 # Config
 # ============================================================
+from cama.core import embedding_store as _emb_store
 from cama.core.cama_user_paths import default_db_path as _cama_default_db_path
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", _cama_default_db_path())
@@ -346,14 +348,14 @@ async def _get_embedding(text: str) -> list[float]:
         return await _get_embedding_api(text)
     return []
 
-def _cosine_sim(v1: list[float], v2: list[float]) -> float:
-    """Cosine similarity without numpy."""
-    if not v1 or not v2 or len(v1) != len(v2): return 0.0
-    dot = sum(a*b for a, b in zip(v1, v2))
-    mag1 = sum(a*a for a in v1)**0.5
-    mag2 = sum(b*b for b in v2)**0.5
-    if mag1 * mag2 == 0: return 0.0
-    return dot / (mag1 * mag2)
+def _cosine_sim(v1, v2) -> float:
+    """Cosine similarity. Accepts lists or numpy arrays; 0.0 on any mismatch."""
+    if v1 is None or v2 is None: return 0.0
+    a = np.asarray(v1, dtype=np.float32); b = np.asarray(v2, dtype=np.float32)
+    if a.size == 0 or b.size == 0 or a.shape != b.shape: return 0.0
+    denom = float(np.linalg.norm(a)) * float(np.linalg.norm(b))
+    if denom == 0.0: return 0.0
+    return float(a @ b) / denom
 
 # ============================================================
 # Database
@@ -392,6 +394,7 @@ def _init(c):
         CREATE TABLE IF NOT EXISTS memory_embeddings (
             memory_id INTEGER PRIMARY KEY,
             embedding_json TEXT,
+            embedding_blob BLOB,
             model TEXT DEFAULT 'text-embedding-3-small',
             computed_at TEXT,
             FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE);
@@ -450,6 +453,8 @@ def _init(c):
         c.execute("ALTER TABLE memories ADD COLUMN counterweight_type TEXT DEFAULT NULL")
     except Exception:
         pass  # Column already exists
+    # Migration (2026-08): float32 blob embeddings on existing DBs
+    _emb_store.ensure_blob_column(c)
     c.execute("CREATE INDEX IF NOT EXISTS idx_cw_type ON memories(counterweight_type)")
 
     # Compliance table
@@ -724,11 +729,10 @@ def _update_rel_degree(c, mid):
     c.execute("UPDATE memories SET rel_degree=? WHERE id=?", (deg, mid))
 
 async def _store_embedding(c, mid, text):
-    """Fetch and store embedding for a memory."""
+    """Fetch and store embedding for a memory (float32 blob)."""
     vec = await _get_embedding(text)
     if vec:
-        c.execute("INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding_json, model, computed_at) VALUES (?,?,?,?)",
-                  (mid, json.dumps(vec), EMBEDDING_MODEL, _now()))
+        _emb_store.store_embedding(c, mid, vec, EMBEDDING_MODEL, _now())
 
 # ============================================================
 # MCP Server
