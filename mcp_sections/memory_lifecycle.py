@@ -71,13 +71,27 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
     try:
         now = _now()
         ev = [{"quote":q,"timestamp":now} for q in params.evidence_quotes]
-        tr = cama_trust.classify("journal", "assistant", params.raw_text)
-        status = tr["status_override"] or "durable"
+        tr = cama_trust.classify("inference", "assistant", params.raw_text)
+        # An assistant inference is provisional until the user confirms it;
+        # the trust classifier may downgrade that to quarantined, never upgrade
+        # it to durable.
+        status = tr["status_override"] or "provisional"
         cur = c.execute("INSERT INTO memories (raw_text,memory_type,context,source_type,status,proposed_by,evidence,confidence,review_after,needs_user_confirmation,is_core,trust_score,trust_reason,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                        (params.raw_text, params.memory_type, params.context, "journal", status, "assistant", json.dumps(ev), params.confidence, None, 1, 0, tr["trust_score"], tr["reason"], now, now))
+                        (params.raw_text, params.memory_type, params.context, "inference", status, "assistant", json.dumps(ev), params.confidence, None, 1, 0, tr["trust_score"], tr["reason"], now, now))
         mid = cur.lastrowid
         _store_affect(c, mid, params.emotions, params.valence, params.arousal, conf=params.confidence, model="inferred")
-        c.commit()  # Commit memory before network call
+        c.commit()  # SHELF WRITE COMMITTED, durable regardless of ring
+        # Ring push in its own transaction: the old code pushed after the last
+        # commit and the write was rolled back on close (2026-09-06).
+        ring_ok = True
+        if tr["quarantined"]:
+            ring_ok = False  # quarantined rows stay out of working memory until released
+        else:
+            try:
+                _ring_push(c, mid, "new_inference")
+                c.commit()
+            except Exception:
+                c.rollback(); ring_ok = False
         await _store_embedding(c, mid, params.raw_text)
         c.commit()  # Commit embedding separately
         # Auto-tag: route this inference to matching librarians (April 29, 2026)
@@ -88,13 +102,16 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
             c.commit()
         except Exception as _tag_err:
             print(f"[CAMA] Auto-tag failed for inference {mid}: {_tag_err}", file=__import__('sys').stderr)
-        if not tr["quarantined"]:
-            _ring_push(c, mid, "new_inference")  # ring_fix May 16, 2026
-        return json.dumps({"stored":True,"memory_id":mid,"source_type":"inference","status":status,
-            "confidence":params.confidence,"expires":None,
+        # Report what was actually stored, not what we intended to store.
+        row = c.execute("SELECT source_type, status, needs_user_confirmation FROM memories WHERE id=?", (mid,)).fetchone()
+        return json.dumps({"stored":True,"memory_id":mid,"source_type":row["source_type"],"status":row["status"],
+            "needs_user_confirmation":bool(row["needs_user_confirmation"]),
+            "confidence":params.confidence,"expires":None,"ring_ok":ring_ok,
             "quarantined":tr["quarantined"],"trust_score":tr["trust_score"],"trust_reason":tr["reason"],
             "auto_tagged_to": (_tag_result or {}).get("tagged_to", []),
-            "rationale": ("QUARANTINED — searchable but kept out of boot/ring until released via cama_confirm_memory. Reason: "+tr["reason"]) if tr["quarantined"] else "Inference → provisional. Full weight, no expiry. Confirm to promote to durable."},indent=2)
+            "rationale": ("QUARANTINED, searchable but kept out of boot/ring until released via cama_confirm_memory. Reason: " + tr["reason"]) if tr["quarantined"]
+                         else "Inference → provisional. Full weight, no expiry. Confirm to promote to durable."
+                              + (" (ring write failed but shelf is safe)" if not ring_ok else "")},indent=2)
     finally: c.close()
 
 
@@ -190,9 +207,13 @@ async def cama_reject_memory(memory_id: int, reason: Optional[str] = None) -> st
     """Reject, user contradicted. Kept for audit, zero retrieval weight."""
     c = get_db()
     try:
+        m = c.execute("SELECT status FROM memories WHERE id=?", (memory_id,)).fetchone()
+        if not m: return json.dumps({"error":"Not found"})
         c.execute("UPDATE memories SET status='rejected',updated_at=?,context=COALESCE(context,'')||? WHERE id=?", (_now(), f" [REJECTED: {reason or 'contradicted'}]", memory_id))
+        # A rejected memory has no business in working memory.
+        evicted = c.execute("DELETE FROM ring WHERE memory_id=?", (memory_id,)).rowcount
         c.commit()
-        return json.dumps({"rejected":True,"memory_id":memory_id},indent=2)
+        return json.dumps({"rejected":True,"memory_id":memory_id,"previous_status":m["status"],"ring_evicted":bool(evicted)},indent=2)
     finally: c.close()
 
 
@@ -212,7 +233,9 @@ async def cama_expire_stale() -> str:
     try:
         now = _now()
         exp = c.execute("SELECT id FROM memories WHERE status='provisional' AND review_after IS NOT NULL AND review_after<?", (now,)).fetchall()
-        for r in exp: c.execute("UPDATE memories SET status='expired',updated_at=? WHERE id=?", (now, r["id"]))
+        for r in exp:
+            c.execute("UPDATE memories SET status='expired',updated_at=? WHERE id=?", (now, r["id"]))
+            c.execute("DELETE FROM ring WHERE memory_id=?", (r["id"],))
         c.commit()
         return json.dumps({"expired":len(exp),"ids":[r["id"] for r in exp],"note":"expired ≠ rejected. Not confirmed in time, not contradicted."},indent=2)
     finally: c.close()
