@@ -227,6 +227,7 @@ def write_memories(
     memories: List[Dict],
     apply: bool = False,
     embed: bool = False,
+    encoder=None,
 ) -> Dict:
     """Insert new exchanges. Without ``apply`` nothing is written.
 
@@ -245,7 +246,9 @@ def write_memories(
         return {"written": 0, "would_write": len(fresh), "skipped": skipped,
                 "embedded": 0}
 
-    model = _encoder() if embed and fresh else None
+    # A caller that already holds a loaded model (the sleep daemon) passes it
+    # in; otherwise load one only when there is something to embed.
+    model = encoder if encoder is not None else (_encoder() if embed and fresh else None)
     embedded = 0
     written = 0
     for m in fresh:
