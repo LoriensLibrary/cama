@@ -44,7 +44,13 @@ classifiers = [
 # Hive HTTP API). Heavier optional dependencies are split into extras
 # below so a thin install stays thin.
 dependencies = [
-    "mcp>=1.0.0",
+    # Pinned below 2.0 deliberately. mcp 2.x renamed FastMCP to MCPServer and
+    # changed neighbouring APIs, so cama_mcp.py and cama/core/cama_v2.py, which
+    # both do `from mcp.server.fastmcp import FastMCP`, fail to import under it.
+    # The range was open, so CI began installing 2.x and every job died at
+    # conftest collection while local venvs on 1.26 kept passing. Unpin only
+    # together with the migration: https://py.sdk.modelcontextprotocol.io/v2/migration/
+    "mcp>=1.0.0,<2",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "httpx>=0.24.0",
