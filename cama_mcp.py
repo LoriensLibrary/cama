@@ -77,6 +77,7 @@ except ImportError:
 # ============================================================
 # Config
 # ============================================================
+from cama.core import embedding_cache as _emb_cache
 from cama.core import embedding_store as _emb_store
 from cama.core.cama_user_paths import default_db_path as _cama_default_db_path
 
@@ -159,6 +160,8 @@ EMOTIONS = ["joy","sadness","anger","fear","disgust","trust","love","grief","pri
 EMBEDDING_BASE_URL = os.environ.get("EMBEDDING_BASE_URL", "https://api.openai.com/v1/embeddings")
 EMBEDDING_HEADERS = json.loads(os.environ.get("EMBEDDING_HEADERS_JSON", "{}"))
 EMBEDDING_PROVIDER = os.environ.get("EMBEDDING_PROVIDER", "auto")  # auto | local | api | none
+# The local encoder, named once so the loader and the cache key cannot drift.
+LOCAL_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 # Local model, loaded lazily on first use
 _local_model = None
@@ -285,8 +288,8 @@ def _load_local_model():
     _local_model_attempted = True
     try:
         from sentence_transformers import SentenceTransformer
-        _local_model = SentenceTransformer("all-MiniLM-L6-v2")
-        logger.info("[CAMA] Local embedding model loaded: all-MiniLM-L6-v2 (384d)")
+        _local_model = SentenceTransformer(LOCAL_EMBEDDING_MODEL)
+        logger.info(f"[CAMA] Local embedding model loaded: {LOCAL_EMBEDDING_MODEL} (384d)")
         return _local_model
     except ImportError:
         logger.warning("[CAMA] sentence-transformers not installed, local embeddings unavailable")
@@ -333,19 +336,37 @@ async def _get_embedding_api(text: str) -> list[float]:
 
 async def _get_embedding(text: str) -> list[float]:
     """Get embedding, tries local first (free, private), then API, then empty.
-    Provider selection: auto tries local→api. Set EMBEDDING_PROVIDER to force."""
+    Provider selection: auto tries local→api. Set EMBEDDING_PROVIDER to force.
+
+    Short queries are served from the on-disk cache first. The lookup has to
+    come before _get_embedding_local, because that call is what triggers the
+    sentence-transformers import: about 22 seconds in a cold process such as
+    the SessionStart boot hook. Cache keys carry the provider that produced
+    the vector, so a local vector is never handed back as an API one."""
     if not text:
         return []
     if EMBEDDING_PROVIDER == "none":
         return []
     if EMBEDDING_PROVIDER == "local" or EMBEDDING_PROVIDER == "auto":
+        tag = f"local:{LOCAL_EMBEDDING_MODEL}"
+        hit = _emb_cache.get(text, tag)
+        if hit:
+            return hit
         vec = _get_embedding_local(text)
         if vec:
+            _emb_cache.put(text, tag, vec)
             return vec
         if EMBEDDING_PROVIDER == "local":
             return []
     if EMBEDDING_PROVIDER == "api" or EMBEDDING_PROVIDER == "auto":
-        return await _get_embedding_api(text)
+        tag = f"api:{EMBEDDING_MODEL}"
+        hit = _emb_cache.get(text, tag)
+        if hit:
+            return hit
+        vec = await _get_embedding_api(text)
+        if vec:
+            _emb_cache.put(text, tag, vec)
+        return vec
     return []
 
 def _cosine_sim(v1, v2) -> float:

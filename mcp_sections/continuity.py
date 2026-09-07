@@ -254,12 +254,12 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
             seen = {m["id"] for m in resonant}
             cws = []
             for cw_type in ["grounding", "agency", "connection", "self_compassion", "evidence_of_progress"]:
-                r = c.execute("SELECT id, raw_text FROM memories WHERE status='durable' AND counterweight_type=? ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
+                r = c.execute("SELECT id, raw_text FROM memories WHERE status='durable' AND counterweight_type=? AND consent_level != 'high' ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
                 if r and r["id"] not in seen:
                     cws.append({"id": r["id"], "text": r["raw_text"][:200], "type": cw_type})
                     seen.add(r["id"])
             if len(cws) < 2:
-                fallback = c.execute("SELECT id, raw_text FROM memories WHERE status='durable' AND memory_type IN ('breakthrough','promise','identity') AND is_core=1 ORDER BY RANDOM() LIMIT ?", (3-len(cws),)).fetchall()
+                fallback = c.execute("SELECT id, raw_text FROM memories WHERE status='durable' AND memory_type IN ('breakthrough','promise','identity') AND is_core=1 AND consent_level != 'high' ORDER BY RANDOM() LIMIT ?", (3-len(cws),)).fetchall()
                 for r in fallback:
                     if r["id"] not in seen:
                         cws.append({"id": r["id"], "text": r["raw_text"][:200], "type": "fallback"})
@@ -323,6 +323,7 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         _timings["total"] = round((time.perf_counter() - _t0) * 1000, 1)
         result["_perf_ms"] = _timings
         print(f"[CAMA] thread_start perf: {json.dumps(_timings)}", file=_sys.stderr)
+        c.commit()  # persist ring pushes + boot-side writes; previously rolled back on close (2026-09-06)
         return json.dumps(result, indent=2, default=str)
     finally:
         c.close()

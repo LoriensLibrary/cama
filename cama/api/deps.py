@@ -55,6 +55,10 @@ def open_memory_db() -> sqlite3.Connection:
     )
     conn = sqlite3.connect(path, timeout=10.0)
     conn.row_factory = sqlite3.Row
+    # SQLite enforces declared foreign keys only per-connection. Without
+    # this the ON DELETE CASCADE rules in the schema silently no-op and
+    # deleted memories leave edges, ring slots and island rows behind.
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 

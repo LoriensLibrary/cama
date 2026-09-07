@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from schema_builder import init_production_memory_schema
 
 
 # ---------------------------------------------------------------------------
@@ -71,46 +72,8 @@ def other_key(api_dbs):
 
 
 def _init_memory_schema(db_path: Path) -> None:
-    """Minimal subset of the cama_mcp schema needed by the API
-    endpoints under test. Keeps tests self-contained (no dependency on
-    cama_mcp's init path)."""
-    c = sqlite3.connect(str(db_path))
-    c.executescript("""
-        CREATE TABLE IF NOT EXISTS memories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            raw_text TEXT,
-            memory_type TEXT,
-            context TEXT,
-            source_type TEXT NOT NULL,
-            status TEXT DEFAULT 'durable',
-            proposed_by TEXT NOT NULL,
-            consent_level TEXT DEFAULT 'medium',
-            review_after TEXT,
-            is_core INTEGER DEFAULT 0,
-            evidence TEXT,
-            counterweight_type TEXT,
-            dyad_id TEXT NOT NULL DEFAULT 'default',
-            updated_at TEXT,
-            created_at TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_memories_dyad ON memories(dyad_id);
-        CREATE TABLE IF NOT EXISTS memory_affect (
-            memory_id INTEGER PRIMARY KEY,
-            valence REAL, arousal REAL, dominance REAL,
-            emotion_json TEXT, confidence REAL,
-            computed_at TEXT, model TEXT
-        );
-        CREATE TABLE IF NOT EXISTS memory_embeddings (
-            memory_id INTEGER PRIMARY KEY,
-            embedding_json TEXT, model TEXT, computed_at TEXT
-        );
-        CREATE TABLE IF NOT EXISTS librarian_membership (
-            librarian_id INTEGER, memory_id INTEGER, membership_strength REAL,
-            assigned_by TEXT, assigned_at TEXT
-        );
-    """)
-    c.commit()
-    c.close()
+    """Build the production schema. See tests/_schema.py for why."""
+    init_production_memory_schema(db_path)
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -344,8 +307,8 @@ class TestCounterweightInjection:
         ):
             c.execute(
                 "INSERT INTO memories (raw_text, memory_type, source_type, "
-                "proposed_by, status, counterweight_type, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "proposed_by, status, counterweight_type, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     f"cw-{i}: anchor memory",
                     "experience",
@@ -354,19 +317,21 @@ class TestCounterweightInjection:
                     "durable",
                     cw_type,
                     "2026-01-01T00:00:00Z",
+                    "2026-01-01T00:00:00Z",
                 ),
             )
         # Also a regular memory that will match the search query
         c.execute(
             "INSERT INTO memories (raw_text, memory_type, source_type, "
-            "proposed_by, status, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "proposed_by, status, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 "loss is heavy this week",
                 "experience",
                 "exchange",
                 "user",
                 "durable",
+                "2026-05-01T00:00:00Z",
                 "2026-05-01T00:00:00Z",
             ),
         )
@@ -661,8 +626,8 @@ class TestLibrarianRouting:
         for cw_type in ("grounding", "agency"):
             c.execute(
                 "INSERT INTO memories (raw_text, memory_type, source_type, "
-                "proposed_by, status, counterweight_type, dyad_id, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "proposed_by, status, counterweight_type, dyad_id, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     f"counterweight-{cw_type}",
                     "experience",
@@ -671,6 +636,7 @@ class TestLibrarianRouting:
                     "durable",
                     cw_type,
                     "default",
+                    "2026-01-01T00:00:00Z",
                     "2026-01-01T00:00:00Z",
                 ),
             )
@@ -733,3 +699,106 @@ class TestOpenAPIShape:
         properties = mem_create.get("properties", {})
         assert "proposed_by" in properties
         assert "source_type" in properties
+
+
+# ---------------------------------------------------------------------------
+# Production-schema contract
+# ---------------------------------------------------------------------------
+class TestProductionSchemaContract:
+    """The API must work against the schema a live CAMA actually has.
+
+    These pin the fixture to the real DDL. If someone reintroduces a
+    reduced local schema, the NOT NULL and foreign-key assertions here
+    fail rather than the API silently passing on a permissive fake.
+    """
+
+    def test_fixture_uses_the_canonical_not_null_timestamps(self, api_dbs):
+        c = sqlite3.connect(str(api_dbs["mem"]))
+        try:
+            notnull = {r[1]: r[3] for r in c.execute("PRAGMA table_info(memories)")}
+        finally:
+            c.close()
+        assert notnull["created_at"] == 1
+        assert notnull["updated_at"] == 1, (
+            "the API test schema must declare updated_at NOT NULL like production"
+        )
+
+    def test_create_populates_both_timestamps(self, client, live_key):
+        r = client.post(
+            "/v1/memories",
+            headers=_auth(live_key),
+            json={
+                "text": "a teaching that must carry both timestamps",
+                "memory_type": "experience",
+                "source_type": "teaching",
+                "proposed_by": "user",
+            },
+        )
+        assert r.status_code == 201, r.text
+        memory_id = r.json()["id"]
+
+        c = sqlite3.connect(str(api_dbs_path(client)))
+        try:
+            row = c.execute(
+                "SELECT created_at, updated_at FROM memories WHERE id = ?",
+                (memory_id,),
+            ).fetchone()
+        finally:
+            c.close()
+        assert row is not None
+        assert row[0] and row[1], "created_at and updated_at must both be set"
+        assert row[0] == row[1], "a new memory reads as never-modified"
+
+    def test_delete_cascades_edges(self, client, live_key, api_dbs):
+        """Deleting through the API must not leave an edge (and its
+        rationale text) pointing at the removed memory. The route deletes
+        only a few tables by hand; the rest depends on foreign keys being
+        enforced on the connection."""
+        ids = []
+        for text in ("edge source", "edge target"):
+            r = client.post(
+                "/v1/memories",
+                headers=_auth(live_key),
+                json={
+                    "text": text,
+                    "memory_type": "experience",
+                    "source_type": "teaching",
+                    "proposed_by": "user",
+                },
+            )
+            assert r.status_code == 201, r.text
+            ids.append(r.json()["id"])
+        a, b = ids
+
+        c = sqlite3.connect(str(api_dbs["mem"]))
+        try:
+            c.execute(
+                "INSERT INTO edges (from_id, to_id, edge_type, weight, rationale, "
+                "created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (a, b, "resonance", 0.5, "why these two connect", "2026-01-01T00:00:00Z"),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+        r = client.delete(f"/v1/memories/{a}", headers={**_auth(live_key), "X-Confirm": str(a)})
+        assert r.status_code == 204, r.text
+
+        c = sqlite3.connect(str(api_dbs["mem"]))
+        try:
+            survivors = c.execute(
+                "SELECT id FROM edges WHERE from_id = ? OR to_id = ?", (a, a)
+            ).fetchall()
+        finally:
+            c.close()
+        assert survivors == [], (
+            "an edge referencing the deleted memory survived; PRAGMA foreign_keys "
+            "is off on the API connection"
+        )
+
+
+def api_dbs_path(client) -> str:
+    """The memory DB the app under test is bound to."""
+    import os
+
+    return os.environ["CAMA_DB_PATH"]

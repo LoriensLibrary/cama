@@ -62,8 +62,19 @@ def _secret() -> bytes:
         return _DEV_FALLBACK_SECRET
 
 
+CONSENT_CHALLENGE_TTL_SECONDS = 300  # a person has 5 minutes to accept
+
+
 def init_consent_schema() -> None:
-    """Tracks consumed nonces so tokens are one-shot."""
+    """Tracks issued challenges and consumed nonces.
+
+    ``consent_consumed`` makes a minted token one-shot. ``consent_challenges``
+    makes the grant step provable: a grant has to name a challenge that was
+    actually issued, for this dyad, this action and this memory, and has not
+    already been used. Without the table the challenge step was decorative,
+    the challenge_id was generated and thrown away and grant never asked for
+    one, so a caller could mint consent for an action nobody was ever shown.
+    """
     c = _open_keys_db()
     try:
         c.executescript("""
@@ -74,8 +85,123 @@ def init_consent_schema() -> None:
                 action TEXT NOT NULL,
                 consumed_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS consent_challenges (
+                challenge_id TEXT PRIMARY KEY,
+                dyad_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                memory_id INTEGER,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                granted_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_challenge_dyad
+                ON consent_challenges(dyad_id);
         """)
         c.commit()
+    finally:
+        c.close()
+
+
+def approver_secret() -> str | None:
+    """The credential that stands for a human acceptance.
+
+    Held by the consent page the person actually interacts with, not by
+    the application server. The application server holds an API key,
+    which is why an API key alone must not be able to grant consent:
+    otherwise the machine records the human's decision on the human's
+    behalf, which is the one thing the two-step flow exists to prevent.
+    """
+    s = os.environ.get("CAMA_CONSENT_APPROVER_SECRET", "").strip()
+    return s or None
+
+
+def require_approver(presented: str | None) -> None:
+    """Raise unless the caller presented the approver credential.
+
+    Fails closed. A deployment with no approver secret configured cannot
+    grant consent at all, because there is nothing in that deployment
+    that can represent a person saying yes.
+    """
+    expected = approver_secret()
+    if expected is None:
+        raise CamaAPIError(503, CamaContract.CONSENT_APPROVER_NOT_CONFIGURED)
+    if not presented:
+        raise CamaAPIError(401, CamaContract.CONSENT_APPROVER_REQUIRED)
+    if not hmac.compare_digest(presented, expected):
+        raise CamaAPIError(403, CamaContract.CONSENT_APPROVER_REQUIRED,
+                           detail="approver credential did not match")
+
+
+def record_challenge(*, dyad_id: str, action: str, memory_id: int | None) -> dict:
+    """Persist a challenge and return the row the caller should echo back."""
+    init_consent_schema()
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(seconds=CONSENT_CHALLENGE_TTL_SECONDS)
+    challenge_id = secrets.token_urlsafe(16)
+    c = _open_keys_db()
+    try:
+        c.execute(
+            "INSERT INTO consent_challenges "
+            "(challenge_id, dyad_id, action, memory_id, created_at, expires_at, granted_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, NULL)",
+            (challenge_id, dyad_id, action, memory_id,
+             now.isoformat(), expires.isoformat()),
+        )
+        c.commit()
+    finally:
+        c.close()
+    return {
+        "challenge_id": challenge_id,
+        "dyad_id": dyad_id,
+        "action": action,
+        "memory_id": memory_id,
+        "expires_at": expires.isoformat(),
+    }
+
+
+def consume_challenge(
+    *, challenge_id: str | None, dyad_id: str, action: str, memory_id: int | None
+) -> dict:
+    """Validate a challenge and mark it granted. Raises on any mismatch.
+
+    Every check is a separate way the old code could be fooled: no
+    challenge at all, someone else's challenge, a challenge for a
+    different memory or a different action, a stale one, or one already
+    spent.
+    """
+    if not challenge_id:
+        raise CamaAPIError(422, CamaContract.CONSENT_CHALLENGE_REQUIRED)
+    init_consent_schema()
+    c = _open_keys_db()
+    try:
+        row = c.execute(
+            "SELECT * FROM consent_challenges WHERE challenge_id = ?",
+            (challenge_id,),
+        ).fetchone()
+        if row is None:
+            raise CamaAPIError(403, CamaContract.CONSENT_CHALLENGE_INVALID,
+                               detail="no such challenge")
+        if row["granted_at"] is not None:
+            raise CamaAPIError(403, CamaContract.CONSENT_CHALLENGE_INVALID,
+                               detail="challenge already granted")
+        if row["dyad_id"] != dyad_id:
+            raise CamaAPIError(403, CamaContract.CONSENT_CHALLENGE_INVALID,
+                               detail="challenge belongs to a different dyad")
+        if row["action"] != action:
+            raise CamaAPIError(403, CamaContract.CONSENT_CHALLENGE_INVALID,
+                               detail="challenge describes a different action")
+        if row["memory_id"] != memory_id:
+            raise CamaAPIError(403, CamaContract.CONSENT_CHALLENGE_INVALID,
+                               detail="challenge describes a different memory")
+        if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
+            raise CamaAPIError(403, CamaContract.CONSENT_CHALLENGE_INVALID,
+                               detail="challenge expired")
+        c.execute(
+            "UPDATE consent_challenges SET granted_at = ? WHERE challenge_id = ?",
+            (datetime.now(timezone.utc).isoformat(), challenge_id),
+        )
+        c.commit()
+        return dict(row)
     finally:
         c.close()
 

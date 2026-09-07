@@ -103,16 +103,19 @@ async def cama_query_memories(params: QueryInput) -> str:
         # Five categories: grounding, agency, connection, self_compassion, evidence_of_progress
         cw = []
         if params.include_counterweight and _is_neg(params.current_affect):
+            # Same visibility predicate as the ordinary candidates: a counterweight
+            # must not leak a high-sensitivity memory the caller did not ask for.
+            _sens = "" if (params.filters and params.filters.get("include_sensitive") == "true") else " AND consent_level != 'high'"
             seen = {x["id"] for x in results}
             cw_types = ["grounding", "agency", "connection", "self_compassion", "evidence_of_progress"]
             for cw_type in cw_types:
                 # First try explicitly tagged counterweights
-                r = c.execute("SELECT * FROM memories WHERE status='durable' AND counterweight_type=? ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
+                r = c.execute(f"SELECT * FROM memories WHERE status='durable' AND counterweight_type=?{_sens} ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
                 if r and r["id"] not in seen:
                     m = _fmt(c, r); m["rationale"] = f"COUNTERWEIGHT({cw_type})"; cw.append(m); seen.add(r["id"])
             # If we got fewer than 2 typed counterweights, fall back to untyped core/breakthrough
             if len(cw) < 2:
-                fallback = c.execute("SELECT * FROM memories WHERE status='durable' AND (memory_type IN ('breakthrough','promise','identity') OR is_core=1) ORDER BY RANDOM() LIMIT ?", (3 - len(cw),)).fetchall()
+                fallback = c.execute(f"SELECT * FROM memories WHERE status='durable' AND (memory_type IN ('breakthrough','promise','identity') OR is_core=1){_sens} ORDER BY RANDOM() LIMIT ?", (3 - len(cw),)).fetchall()
                 for r in fallback:
                     if r["id"] not in seen:
                         m = _fmt(c, r); m["rationale"] = "COUNTERWEIGHT(untyped_fallback)"; cw.append(m); seen.add(r["id"])
@@ -169,7 +172,7 @@ async def cama_get_ring() -> str:
     _session_tick()  # compliance
     c = get_db()
     try:
-        rows = c.execute("SELECT r.slot,r.activation,r.last_activated_at,r.reason, r.activation * (0.5 * (1.0 / (1.0 + (julianday('now') - julianday(r.last_activated_at))))) as effective_activation, m.* FROM ring r JOIN memories m ON r.memory_id=m.id ORDER BY effective_activation DESC").fetchall()
+        rows = c.execute("SELECT r.slot,r.activation,r.last_activated_at,r.reason, r.activation * (0.5 * (1.0 / (1.0 + (julianday('now') - julianday(r.last_activated_at))))) as effective_activation, m.* FROM ring r JOIN memories m ON r.memory_id=m.id WHERE m.status NOT IN ('rejected','expired') ORDER BY effective_activation DESC").fetchall()
         return json.dumps({"ring":[{**dict(r),"affect":_get_affect(c,r["id"])} for r in rows],"capacity":RING_SIZE,"occupied":len(rows)},indent=2)
     finally: c.close()
 
@@ -195,7 +198,7 @@ async def cama_read_room(params: ReadRoomInput) -> str:
         crisis_alert = None
         if _crisis_detected(params.current_affect, params.context or ""):
             crisis_alert = CRISIS_MESSAGE
-        mems = c.execute("SELECT * FROM memories WHERE status='durable' ORDER BY is_core DESC, updated_at DESC LIMIT 300").fetchall()
+        mems = c.execute("SELECT * FROM memories WHERE status='durable' AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 300").fetchall()
         mids = [r["id"] for r in mems]; affects = _batch_affects(c, mids)
         scored = []
         for r in mems:
@@ -206,16 +209,17 @@ async def cama_read_room(params: ReadRoomInput) -> str:
         # Push to ring (ring_fix May 16, 2026)
         for d, r, af in scored[:5]:
             _ring_push(c, r["id"], f"read_room:{round(1-d, 3)}")
+        c.commit()  # ring pushes were previously rolled back on close (2026-09-06)
 
         cw = []
         if neg:
             seen = {m["id"] for m in top}
             for cw_type in ["grounding", "agency", "connection", "self_compassion", "evidence_of_progress"]:
-                r = c.execute("SELECT * FROM memories WHERE status='durable' AND counterweight_type=? ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
+                r = c.execute("SELECT * FROM memories WHERE status='durable' AND counterweight_type=? AND consent_level != 'high' ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
                 if r and r["id"] not in seen:
                     cw.append({**_fmt(c,r),"role":f"counterweight({cw_type})"}); seen.add(r["id"])
             if len(cw) < 2:
-                for r in c.execute("SELECT * FROM memories WHERE status='durable' AND (memory_type IN ('breakthrough','promise','identity') OR is_core=1) ORDER BY RANDOM() LIMIT ?", (3-len(cw),)).fetchall():
+                for r in c.execute("SELECT * FROM memories WHERE status='durable' AND (memory_type IN ('breakthrough','promise','identity') OR is_core=1) AND consent_level != 'high' ORDER BY RANDOM() LIMIT ?", (3-len(cw),)).fetchall():
                     if r["id"] not in seen: cw.append({**_fmt(c,r),"role":"counterweight(untyped)"}); seen.add(r["id"])
 
         ppl = []

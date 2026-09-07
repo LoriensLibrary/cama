@@ -2,34 +2,47 @@
 
 The two-step user-authored consent flow:
 
-  1. ``/v1/consent/challenge``, server returns a challenge payload
-     describing the proposed action. The application server uses this
-     to render a hosted page for the user to acknowledge.
-  2. ``/v1/consent/grant``    , once the user acknowledges, the
-     server mints a one-shot HMAC-signed consent token bound to
-     ``(dyad_id, memory_id, action)``. The token has a 5-minute TTL,
-     a nonce tracked in ``consent_consumed`` to reject replay, and is
-     the only credential that lets a provisional inference promote to
-     durable (via ``PATCH /v1/memories/{id}/confirm``).
+  1. ``/v1/consent/challenge``, the application server describes a
+     proposed action and gets back a persisted ``challenge_id``. It uses
+     this to render the page the person actually reads.
+  2. ``/v1/consent/grant``, once the person acknowledges, the consent UI
+     posts the ``challenge_id`` together with the approver credential and
+     receives a one-shot HMAC-signed token bound to
+     ``(dyad_id, memory_id, action)``. The token has a 5-minute TTL, a
+     nonce tracked in ``consent_consumed`` to reject replay, and is the
+     only credential that lets a provisional inference promote to durable
+     (via ``PATCH /v1/memories/{id}/confirm``).
 
-This split, challenge vs grant, keeps the human-authored consent
-step (the user clicks "yes" in their browser) cleanly separated from
-the machine credential (the token the application server uses on the
-next API call). The two-step shape is what makes the consent flow
-auditable: every promotion can be traced back to a specific consent
-grant event with a timestamp and nonce.
+Two things make the split real rather than decorative, and both were
+missing before 2026-09-07. The challenge is persisted and the grant has
+to name one, so consent cannot be minted for an action nobody was shown.
+And the grant requires ``X-Consent-Approval``, a secret held by the
+consent UI rather than by the application server, so the API key that
+requests a challenge cannot also answer it. Previously both endpoints
+took the same bearer and the grant accepted any payload, which meant a
+caller could create an assistant inference, grant itself consent without
+ever requesting a challenge, and promote its own hypothesis to durable.
+
+Deployments with no ``CAMA_CONSENT_APPROVER_SECRET`` cannot grant consent
+at all. That is deliberate: if nothing in the deployment can represent a
+person saying yes, then nothing should be able to record that they did.
 """
 
 from __future__ import annotations
 
-import secrets
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 
 from cama.api.auth import AuthContext
-from cama.api.consent import mint_token
-from cama.api.deps import iso_days_from_now, require_auth
+from cama.api.consent import (
+    CONSENT_TOKEN_TTL_SECONDS,
+    consume_challenge,
+    mint_token,
+    record_challenge,
+    require_approver,
+)
+from cama.api.deps import require_auth
 from cama.api.errors import CamaAPIError, CamaContract
 
 router = APIRouter(tags=["consent"])
@@ -59,25 +72,27 @@ def consent_challenge(
             CamaContract.ENUM_VALUE_UNKNOWN,
             detail="promote_to_durable requires a memory_id (int)",
         )
-    return {
-        "challenge_id": secrets.token_urlsafe(16),
-        "dyad_id": ctx.dyad_id,
-        "action": action,
-        "memory_id": memory_id,
-        "expires_at": iso_days_from_now(0)[:-13] + "T00:00:00+00:00",
-        "next": "POST /v1/consent/grant with the same payload",
-    }
+    challenge = record_challenge(
+        dyad_id=ctx.dyad_id, action=action, memory_id=memory_id
+    )
+    challenge["next"] = (
+        "POST /v1/consent/grant with this challenge_id and the "
+        "X-Consent-Approval header"
+    )
+    return challenge
 
 
 @router.post("/v1/consent/grant")
 def consent_grant(
     payload: dict[str, Any],
+    x_consent_approval: str | None = Header(default=None, alias="X-Consent-Approval"),
     ctx: AuthContext = Depends(require_auth),
 ) -> dict[str, Any]:
-    """Step 2: server mints a one-shot HMAC-signed consent token. In a
-    real deployment the user's browser hits this directly after
-    acknowledging the challenge UI, and the response is relayed to the
-    application server for use in step 3."""
+    """Step 2: record that a person accepted, and mint a one-shot token.
+
+    The consent UI calls this after the person clicks accept. It must
+    present both the challenge it displayed and the approver credential;
+    the API key alone is not authority to say that a human agreed."""
     action = payload.get("action")
     memory_id = payload.get("memory_id")
     if action not in ("promote_to_durable", "delete_memory"):
@@ -86,9 +101,23 @@ def consent_grant(
             CamaContract.ENUM_VALUE_UNKNOWN,
             detail="action must be one of: promote_to_durable, delete_memory",
         )
+    # Authority first, so a caller without it learns nothing about which
+    # challenge ids exist.
+    require_approver(x_consent_approval)
+    consume_challenge(
+        challenge_id=payload.get("challenge_id"),
+        dyad_id=ctx.dyad_id,
+        action=action,
+        memory_id=memory_id,
+    )
     token = mint_token(
         dyad_id=ctx.dyad_id,
         memory_id=memory_id,
         action=action,
     )
-    return {"token": token, "ttl_seconds": 300, "action": action}
+    return {
+        "token": token,
+        "ttl_seconds": CONSENT_TOKEN_TTL_SECONDS,
+        "action": action,
+        "challenge_id": payload.get("challenge_id"),
+    }
