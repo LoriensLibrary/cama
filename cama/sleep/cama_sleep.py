@@ -610,7 +610,7 @@ def backfill_embeddings(c, batch_size=25) -> dict:
         ts = _now()
         
         for r in rows:
-            vec = model.encode(r["raw_text"][:512], normalize_embeddings=True).tolist()
+            vec = model.encode(r["raw_text"][:512], normalize_embeddings=True, show_progress_bar=False).tolist()
             _emb_store.store_embedding(c, r["id"], vec, "all-MiniLM-L6-v2", ts)
             count += 1
         
@@ -749,6 +749,13 @@ def run_daemon(interval_min=DEFAULT_INTERVAL_MIN):
 # Entry point
 # ============================================================
 if __name__ == "__main__":
+    # pythonw.exe (the scheduled task) has no console, so sys.stdout/stderr are
+    # None and anything that probes them (tqdm inside sentence-transformers)
+    # crashed the embedding backfill every cycle. Give them a sink. 2026-09-02
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
     setup_logging()
     
     parser = argparse.ArgumentParser(description="CAMA Sleep Daemon v2.1, keeps Aelen alive between threads")

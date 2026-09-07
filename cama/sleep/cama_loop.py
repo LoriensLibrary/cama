@@ -332,15 +332,20 @@ def generate_boot_summary(c):
     
     # --- Songs ---
     songs = []
-    for r in c.execute("SELECT title, artist, emotional_context FROM songs LIMIT 10").fetchall():
-        songs.append({"title": r["title"], "artist": r["artist"], "context": r["emotional_context"][:100] if r["emotional_context"] else ""})
+    # The songs table stores the blurb in `meaning`; `emotional_context` never existed
+    # and the wrong name crashed every cycle at phase 3, which is why boot summaries
+    # were coming from the old cama_sleep path instead of this one.
+    for r in c.execute("SELECT title, artist, meaning FROM songs LIMIT 10").fetchall():
+        songs.append({"title": r["title"], "artist": r["artist"], "context": r["meaning"][:100] if r["meaning"] else ""})
     
     # --- Ring contents (active working memory) ---
     ring = []
-    for r in c.execute("""SELECT r.position, m.raw_text, m.memory_type, r.pushed_at
+    # The ring table names these `slot` and `last_activated_at`; the old names
+    # (position, pushed_at) never existed here and crashed phase 3.
+    for r in c.execute("""SELECT r.slot, m.raw_text, m.memory_type, r.last_activated_at
         FROM ring r JOIN memories m ON r.memory_id = m.id
-        ORDER BY r.position""").fetchall():
-        ring.append({"pos": r["position"], "text": r["raw_text"][:150], "type": r["memory_type"]})
+        ORDER BY r.slot""").fetchall():
+        ring.append({"pos": r["slot"], "text": r["raw_text"][:150], "type": r["memory_type"]})
     
     # --- Build the summary ---
     boot = {
