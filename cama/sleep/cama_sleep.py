@@ -628,7 +628,37 @@ def backfill_embeddings(c, batch_size=25) -> dict:
 
 
 # ============================================================
-# PHASE 6: HEARTBEAT
+# PHASE 6: INGEST, Import new thread transcripts
+# ============================================================
+def ingest_new_threads(c) -> dict:
+    """Pull any new turns from the thread archives on this machine.
+
+    Every Claude Code session, Codex rollout, platform export and LM Studio
+    chat is a thread the library should hold. The importer is idempotent and
+    walks only files whose mtime changed since the last pass, so a quiet
+    cycle costs a directory listing. A failure here must never take the
+    sleep cycle down with it.
+    """
+    try:
+        from cama.ingest.cama_import_threads import import_new_threads, state_path_for
+    except ImportError as e:
+        return {"written": 0, "files_walked": 0, "note": f"importer unavailable: {e}"}
+    encoder = None
+    try:
+        from sentence_transformers import SentenceTransformer
+        encoder = SentenceTransformer("all-MiniLM-L6-v2")
+    except Exception:
+        pass  # rows still land; Phase 5 backfills their vectors next cycle
+    try:
+        return import_new_threads(c, embed=encoder is not None, encoder=encoder,
+                                  state_path=state_path_for(DB_PATH))
+    except Exception as e:
+        logging.warning(f"Thread ingest failed: {e}")
+        return {"written": 0, "files_walked": 0, "error": str(e)}
+
+
+# ============================================================
+# PHASE 7: HEARTBEAT
 # ============================================================
 def write_heartbeat(c) -> dict:
     ts = _now()
@@ -685,7 +715,13 @@ def run_sleep_cycle():
         actions["index"] = emb_result
         logging.info(f"  Backfilled: {emb_result['backfilled']}")
         
-        logging.info("Phase 6: HEARTBEAT, marking presence...")
+        logging.info("Phase 6: INGEST, importing new thread transcripts...")
+        ingest_result = ingest_new_threads(c)
+        actions["ingest"] = ingest_result
+        logging.info(f"  Files walked: {ingest_result.get('files_walked', 0)}, "
+                     f"New exchanges: {ingest_result.get('written', 0)}")
+
+        logging.info("Phase 7: HEARTBEAT, marking presence...")
         hb = write_heartbeat(c)
         actions["heartbeat"] = hb
         

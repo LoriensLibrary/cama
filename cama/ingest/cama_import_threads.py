@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import json
 import os
 import sqlite3
 from typing import Dict, Iterator, List
@@ -44,7 +45,11 @@ from cama.ingest.thread_sources import (
     openai_export_turns,
 )
 
-HOME = os.path.expanduser("~")
+
+def _home() -> str:
+    """Where the archives live. CAMA_THREAD_HOME overrides the user profile so
+    tests and unusual layouts can point the walker somewhere else."""
+    return os.environ.get("CAMA_THREAD_HOME") or os.path.expanduser("~")
 
 
 def _paths(*patterns: str) -> List[str]:
@@ -64,17 +69,18 @@ def _paths(*patterns: str) -> List[str]:
 
 
 def source_paths(name: str) -> List[str]:
+    home = _home()
     if name == "claude_code":
-        return _paths(os.path.join(HOME, ".claude", "projects", "**", "*.jsonl"))
+        return _paths(os.path.join(home, ".claude", "projects", "**", "*.jsonl"))
     if name == "codex":
-        return _paths(os.path.join(HOME, ".codex", "sessions", "**", "rollout-*.jsonl"))
+        return _paths(os.path.join(home, ".codex", "sessions", "**", "rollout-*.jsonl"))
     if name == "openai_export":
         return _paths(
-            os.path.join(HOME, "Desktop", "**", "conversations*.json"),
-            os.path.join(HOME, "Downloads", "**", "conversations*.json"),
+            os.path.join(home, "Desktop", "**", "conversations*.json"),
+            os.path.join(home, "Downloads", "**", "conversations*.json"),
         )
     if name == "lmstudio":
-        return _paths(os.path.join(HOME, ".lmstudio", "conversations", "**", "*.json"))
+        return _paths(os.path.join(home, ".lmstudio", "conversations", "**", "*.json"))
     raise ValueError(f"unknown source {name!r}")
 
 
@@ -105,6 +111,95 @@ def collect_source(name: str, skip_ids, include_thinking: bool = False,
         except (OSError, MemoryError) as exc:
             print(f"  ! {os.path.basename(path)}: {type(exc).__name__}, skipped")
     return memories
+
+
+# ---------------------------------------------------------------------------
+# Incremental pass, for the sleep daemon
+# ---------------------------------------------------------------------------
+# Idempotency already lives in source_msg_id, so re-walking everything each
+# cycle would be correct, just slow: the archives run to several gigabytes.
+# A small state file records each file's mtime at its last successful pass
+# and unchanged files are skipped. The current session's transcript changes
+# every cycle and is re-walked; everything else costs a stat call.
+
+
+def state_path_for(db_path: str) -> str:
+    return os.path.join(os.path.dirname(db_path) or ".", "thread_import_state.json")
+
+
+def load_state(path: str) -> Dict[str, float]:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    out: Dict[str, float] = {}
+    for key, value in data.items():
+        try:
+            out[str(key)] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def save_state(path: str, state: Dict[str, float]) -> None:
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(state, fh)
+    except OSError:
+        pass  # a lost state file only costs a full walk next time
+
+
+def collect_changed(name: str, skip_ids, state: Dict[str, float],
+                    include_thinking: bool = False):
+    """Exchanges from files whose mtime changed since the last pass.
+
+    Returns (memories, touched) where touched maps each fully walked file
+    to the mtime it had. A file that raised is left out of touched so it
+    is tried again next cycle.
+    """
+    memories: List[Dict] = []
+    touched: Dict[str, float] = {}
+    for path in source_paths(name):
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            continue
+        if state.get(path) == mtime:
+            continue
+        try:
+            for turn in turns_for(name, path, skip_ids, include_thinking):
+                memories.append(build_memory(turn))
+        except (OSError, MemoryError) as exc:
+            print(f"  ! {os.path.basename(path)}: {type(exc).__name__}, skipped")
+            continue
+        touched[path] = mtime
+    return memories, touched
+
+
+def import_new_threads(conn: sqlite3.Connection, embed: bool = True, encoder=None,
+                       state_path: str | None = None, sources=SOURCES,
+                       include_thinking: bool = False) -> Dict:
+    """One incremental pass over every source. Writes, never dry-runs."""
+    if state_path is None:
+        state_path = state_path_for(os.environ.get("CAMA_DB_PATH", DEFAULT_DB))
+    state = load_state(state_path)
+    skip_ids = imported_conversation_ids(conn)
+    summary: Dict = {"files_walked": 0, "written": 0, "skipped": 0, "embedded": 0,
+                     "per_source": {}}
+    for name in sources:
+        memories, touched = collect_changed(name, skip_ids, state, include_thinking)
+        result = write_memories(conn, memories, apply=True, embed=embed, encoder=encoder)
+        state.update(touched)
+        summary["files_walked"] += len(touched)
+        for key in ("written", "skipped", "embedded"):
+            summary[key] += result.get(key, 0)
+        summary["per_source"][name] = {"files": len(touched), "written": result.get("written", 0)}
+    save_state(state_path, state)
+    return summary
 
 
 def main() -> None:
