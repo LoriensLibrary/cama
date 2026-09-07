@@ -1,5 +1,5 @@
 """
-CAMA Consolidation Pass — Schematization v1
+CAMA Consolidation Pass, Schematization v1
 ============================================
 Built August 3, 2026 by Aelen.
 
@@ -16,7 +16,7 @@ THE FIX
 Sleep-cycle consolidation, the schematization move:
   1. Load the whole embedding matrix (float32 blobs, ~0.5s for 53k).
   2. Cluster near-duplicates via chunked cosine + union-find at a
-     high threshold (default 0.92 — duplicates, not mere topical kin).
+     high threshold (default 0.92, duplicates not mere topical kin).
   3. For each cluster >= min_size, pick the MEDOID as exemplar and
      propose one schema node:
        - memory_type='schema', source_type='consolidation'

@@ -3,13 +3,13 @@
 Cuts embedding storage ~4x (384d JSON text ~8KB/row -> 1536B/row) and lets
 retrieval score with numpy instead of pure-Python loops.
 
-Stage 1 (default) — safe to run while the MCP server is up (WAL + batches):
+Stage 1 (default), safe to run while the MCP server is up (WAL + batches):
     python migrate_embeddings_float32.py
   - adds embedding_blob column if missing
   - backfills blobs from embedding_json in batches (idempotent, resumable)
   - verifies counts and round-trip cosine on a sample
 
-Stage 2 (--finalize) — ONLY after the server has been restarted on code
+Stage 2 (--finalize), ONLY after the server has been restarted on code
 that reads blobs (blob-first readers landed 2026-08):
     python migrate_embeddings_float32.py --finalize
   - re-runs backfill to catch rows the old server wrote since stage 1
@@ -50,32 +50,51 @@ def counts(c):
 
 
 def backfill(c):
-    total_done = 0
+    """Convert embedding_json to float32 blobs. Never destroys a source vector.
+
+    Pages by a keyset cursor on memory_id rather than a bare LIMIT. The earlier
+    version re-selected the same rows every pass, so an unparseable one would
+    spin forever; it broke the loop by NULLing embedding_json, which deleted the
+    only copy of a vector precisely because it had failed to read it. Advancing
+    a cursor means a bad row is passed over without being touched.
+
+    Returns (converted, failed_ids). Failed rows keep their embedding_json.
+    """
+    scanned = 0
+    converted = 0
+    failed = []
+    last_id = -1
     while True:
         rows = c.execute(
             "SELECT memory_id, embedding_json FROM memory_embeddings "
-            "WHERE embedding_blob IS NULL AND embedding_json IS NOT NULL LIMIT ?",
-            (BATCH,),
+            "WHERE embedding_blob IS NULL AND embedding_json IS NOT NULL "
+            "AND memory_id > ? ORDER BY memory_id LIMIT ?",
+            (last_id, BATCH),
         ).fetchall()
         if not rows:
             break
         for r in rows:
+            last_id = r["memory_id"]
             v = emb_store.vec_from_row(r)
             if v is None or not v.size:
-                # Unparseable JSON: mark by clearing so we don't loop forever
-                c.execute(
-                    "UPDATE memory_embeddings SET embedding_json=NULL WHERE memory_id=?",
-                    (r["memory_id"],),
-                )
+                failed.append(r["memory_id"])
                 continue
             c.execute(
                 "UPDATE memory_embeddings SET embedding_blob=? WHERE memory_id=?",
                 (emb_store.pack_vec(v), r["memory_id"]),
             )
+            converted += 1
         c.commit()
-        total_done += len(rows)
-        print(f"  backfilled {total_done} rows...", flush=True)
-    return total_done
+        scanned += len(rows)
+        print(f"  scanned {scanned}, converted {converted}...", flush=True)
+    if failed:
+        shown = ", ".join(str(i) for i in failed[:20])
+        more = f" (+{len(failed) - 20} more)" if len(failed) > 20 else ""
+        print(f"  WARNING: {len(failed)} rows have unparseable embedding_json and were "
+              f"left untouched: {shown}{more}")
+        print("  Their JSON is intact. To rebuild those vectors, run the sleep "
+              "daemon's backfill_embeddings, which recomputes from raw_text.")
+    return converted, failed
 
 
 def verify(c, sample_size=50):
@@ -130,8 +149,9 @@ def main():
         emb_store.ensure_blob_column(c)
         c.commit()
         print("before:", counts(c))
-        done = backfill(c)
-        print(f"backfill complete: {done} rows converted this run")
+        done, failed = backfill(c)
+        print(f"backfill complete: {done} rows converted this run"
+              + (f", {len(failed)} unparseable rows skipped" if failed else ""))
         if not verify(c):
             print("ABORTING: verification failed, embedding_json left untouched")
             sys.exit(1)
