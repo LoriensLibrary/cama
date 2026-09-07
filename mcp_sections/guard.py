@@ -173,7 +173,7 @@ def check_exec(command: str) -> str | None:
         # Split on both separators explicitly: os.path.basename only knows the
         # host's separator, so on a Linux CI runner a Windows path survives
         # whole and an allowlisted tool is refused.
-        base = re.split(r"[\/]", first)[-1].lower()
+        base = re.split(r"[\\/]", first)[-1].lower()
         base = base[:-4] if base.endswith(".exe") else base
         allowed = {t.lower() for t in _SAFE_FIRST_TOKENS}
         if base not in allowed:
