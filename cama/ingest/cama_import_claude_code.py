@@ -278,6 +278,12 @@ def write_memories(
             except Exception:
                 pass  # an un-embedded row is still a stored row
         written += 1
+        # Commit in batches. The live database is shared with a running MCP
+        # server and the sleep daemon; one transaction held open across a
+        # multi-minute embedding loop would block their writes past their
+        # busy timeout.
+        if written % 50 == 0:
+            conn.commit()
     conn.commit()
     return {"written": written, "would_write": 0, "skipped": skipped,
             "embedded": embedded}

@@ -126,7 +126,8 @@ def main() -> None:
         print(f"No database at {args.db}")
         return
 
-    conn = sqlite3.connect(args.db)
+    # Wait on the server rather than failing if it holds the write lock.
+    conn = sqlite3.connect(args.db, timeout=60)
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         skip_ids = imported_conversation_ids(conn)
