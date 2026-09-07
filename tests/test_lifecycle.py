@@ -109,7 +109,10 @@ def test_confirm_promotes_provisional_inference(db):
     _, cama_mcp = db
     mid = _store_inference(cama_mcp)["memory_id"]
     out = _run(memory_lifecycle.cama_confirm_memory(mid))
-    assert out == {"promoted": True, "memory_id": mid, "new_status": "durable"}
+    # main's confirm also reports quarantine-release fields; pin only ours.
+    assert out["promoted"] is True
+    assert out["memory_id"] == mid
+    assert out["new_status"] == "durable"
     row = _row(cama_mcp, mid)
     assert row["status"] == "durable"
     assert row["needs_user_confirmation"] == 0
