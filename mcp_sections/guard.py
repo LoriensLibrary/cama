@@ -170,7 +170,10 @@ def check_exec(command: str) -> str | None:
         first = tokens[0] if tokens else ""
         first = first.strip("\"'")
         # Strip a leading path so "C:\...\git.exe" still reads as "git".
-        base = os.path.basename(first).lower()
+        # Split on both separators explicitly: os.path.basename only knows the
+        # host's separator, so on a Linux CI runner a Windows path survives
+        # whole and an allowlisted tool is refused.
+        base = re.split(r"[\/]", first)[-1].lower()
         base = base[:-4] if base.endswith(".exe") else base
         allowed = {t.lower() for t in _SAFE_FIRST_TOKENS}
         if base not in allowed:
