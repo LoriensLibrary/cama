@@ -1179,6 +1179,57 @@ def _save_compliance_on_exit():
 atexit.register(_save_compliance_on_exit)
 
 
+def _run_remote_http(port: int) -> None:
+    """Serve CAMA over Streamable HTTP for remote clients (Claude custom connectors).
+
+    Added 2026-09-01 so the phone can reach CAMA. Claude's cloud connects here
+    through an ngrok tunnel, so the endpoint is guarded by a secret path segment:
+    the MCP app lives at /<secret>/mcp and everything else is 404. The secret is
+    read from CAMA_HTTP_SECRET, else ~/.cama/http_secret.txt (generated once).
+    Binds 127.0.0.1 by default (ngrok forwards to it); set CAMA_HOST to change.
+
+    Old branch called mcp.run(transport="streamable_http", host=..., port=...),
+    which this SDK (mcp 1.26) rejects: the literal is "streamable-http" and
+    run() takes no host/port. Host/port/path go through mcp.settings instead.
+    """
+    import secrets as _secrets
+    from pathlib import Path as _Path
+
+    from mcp.server.transport_security import TransportSecuritySettings
+    from starlette.responses import PlainTextResponse
+
+    secret = os.environ.get("CAMA_HTTP_SECRET", "").strip()
+    if not secret:
+        secret_file = _Path.home() / ".cama" / "http_secret.txt"
+        if secret_file.exists():
+            secret = secret_file.read_text(encoding="utf-8").strip()
+        if not secret:
+            secret = _secrets.token_urlsafe(32)
+            secret_file.parent.mkdir(parents=True, exist_ok=True)
+            secret_file.write_text(secret, encoding="utf-8")
+            logger.info(f"[CAMA] Generated new HTTP secret at {secret_file}")
+
+    mcp.settings.host = os.environ.get("CAMA_HOST", "127.0.0.1")
+    mcp.settings.port = port
+    mcp.settings.streamable_http_path = f"/{secret}/mcp"
+    # Requests arrive through the tunnel carrying a public Host header, so the
+    # localhost-only DNS-rebinding allowlist FastMCP auto-enables must be off.
+    # The secret path is the access control.
+    mcp.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+
+    @mcp.custom_route("/healthz", methods=["GET"])
+    async def _healthz(_request):
+        return PlainTextResponse("ok")
+
+    logger.info(
+        f"[CAMA] Remote HTTP transport on {mcp.settings.host}:{port}, "
+        f"MCP path /<secret>/mcp, health /healthz"
+    )
+    mcp.run(transport="streamable-http")
+
+
 if __name__ == "__main__":
     # Register section tools here (see comment above re: dual-load cycle).
     from mcp_sections import (
@@ -1212,6 +1263,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", os.environ.get("CAMA_PORT", "8000")))
     logger.info(f"[CAMA] Compliance enforcement active. Session: {_session['id']}")
     if transport == "http" or "--http" in sys.argv:
-        mcp.run(transport="streamable_http", host="0.0.0.0", port=port)
+        _run_remote_http(port)
     else:
         mcp.run(transport="stdio")
