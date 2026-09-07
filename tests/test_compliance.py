@@ -4,43 +4,16 @@ consent challenge + grant, inference promotion."""
 from __future__ import annotations
 
 import os
-import sqlite3
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from schema_builder import init_production_memory_schema
 
 
 def _init_memory_schema(db_path: Path) -> None:
-    c = sqlite3.connect(str(db_path))
-    c.executescript("""
-        CREATE TABLE IF NOT EXISTS memories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            raw_text TEXT, memory_type TEXT, context TEXT,
-            source_type TEXT NOT NULL, status TEXT DEFAULT 'durable',
-            proposed_by TEXT NOT NULL, consent_level TEXT DEFAULT 'medium',
-            review_after TEXT, is_core INTEGER DEFAULT 0, evidence TEXT,
-            counterweight_type TEXT,
-            dyad_id TEXT NOT NULL DEFAULT 'default',
-            updated_at TEXT, created_at TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS memory_affect (
-            memory_id INTEGER PRIMARY KEY,
-            valence REAL, arousal REAL, dominance REAL,
-            emotion_json TEXT, confidence REAL,
-            computed_at TEXT, model TEXT
-        );
-        CREATE TABLE IF NOT EXISTS memory_embeddings (
-            memory_id INTEGER PRIMARY KEY, embedding_json TEXT,
-            model TEXT, computed_at TEXT
-        );
-        CREATE TABLE IF NOT EXISTS librarian_membership (
-            librarian_id INTEGER, memory_id INTEGER,
-            membership_strength REAL, assigned_by TEXT, assigned_at TEXT
-        );
-    """)
-    c.commit()
-    c.close()
+    """Build the production schema. See tests/_schema.py for why."""
+    init_production_memory_schema(db_path)
 
 
 @pytest.fixture

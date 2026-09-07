@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from schema_builder import init_production_memory_schema
 
 
 # ---------------------------------------------------------------------------
@@ -71,40 +72,8 @@ def other_key(api_dbs):
 
 
 def _init_memory_schema(db_path: Path) -> None:
-    """Build the real production schema, not a hand-maintained subset.
-
-    The API is exercised against the same DDL a live CAMA has: cama_mcp's
-    own ``_init`` for the memory tables, the librarian tables from the
-    librarian module, and the dyad column the API migration adds. A
-    reduced local schema used to make ``updated_at`` nullable here while
-    production declares it NOT NULL, so an API insert that fails against a
-    real database passed in CI.
-    """
-    import cama_mcp
-    from cama.librarian import cama_librarian
-
-    saved = cama_mcp.DB_PATH
-    cama_mcp.DB_PATH = str(db_path)
-    try:
-        conn = cama_mcp.get_db()  # canonical memories/affect/embeddings/edges/ring/...
-        conn.close()
-    finally:
-        cama_mcp.DB_PATH = saved
-
-    c = sqlite3.connect(str(db_path))
-    try:
-        c.executescript(cama_librarian.SCHEMA_SQL)  # librarians + librarian_membership
-        cols = {r[1] for r in c.execute("PRAGMA table_info(memories)").fetchall()}
-        if "dyad_id" not in cols:
-            c.execute(
-                "ALTER TABLE memories ADD COLUMN dyad_id TEXT NOT NULL DEFAULT 'default'"
-            )
-            c.execute(
-                "CREATE INDEX IF NOT EXISTS idx_memories_dyad ON memories(dyad_id)"
-            )
-        c.commit()
-    finally:
-        c.close()
+    """Build the production schema. See tests/_schema.py for why."""
+    init_production_memory_schema(db_path)
 
 
 def _auth(token: str) -> dict[str, str]:
