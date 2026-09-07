@@ -2,6 +2,7 @@
 
 import json
 
+from cama.core import embedding_store as _emb_store
 from cama_mcp import (
     EMBEDDING_API_KEY,
     EMBEDDING_MODEL,
@@ -29,8 +30,7 @@ async def cama_backfill_embeddings(batch_size: int = 50) -> str:
         for r in rows:
             vec = await _get_embedding(r["raw_text"])
             if vec:
-                c.execute("INSERT OR REPLACE INTO memory_embeddings (memory_id,embedding_json,model,computed_at) VALUES (?,?,?,?)",
-                          (r["id"], json.dumps(vec), EMBEDDING_MODEL, _now()))
+                _emb_store.store_embedding(c, r["id"], vec, EMBEDDING_MODEL, _now())
                 c.commit()  # Commit each embedding individually for resilience
                 count += 1
         remaining = c.execute("SELECT COUNT(*) as c FROM memories m LEFT JOIN memory_embeddings e ON m.id=e.memory_id WHERE e.memory_id IS NULL").fetchone()["c"]

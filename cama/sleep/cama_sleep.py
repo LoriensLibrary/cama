@@ -54,6 +54,8 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from cama.core import embedding_store as _emb_store
+
 # ============================================================
 # Config, mirrors cama_mcp.py
 # ============================================================
@@ -100,6 +102,7 @@ def get_db():
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA foreign_keys=ON")
+    _emb_store.ensure_blob_column(c)
     c.execute("""CREATE TABLE IF NOT EXISTS daily_context (
         date TEXT PRIMARY KEY,
         memory_count INTEGER DEFAULT 0,
@@ -324,18 +327,15 @@ def consolidate_memories(c) -> dict:
                 if dist < EMOTIONAL_DISTANCE_THRESHOLD:
                     # Embedding gate: require minimum semantic similarity
                     sem_sim = 0.0
-                    a_emb = c.execute("SELECT embedding_json FROM memory_embeddings WHERE memory_id=?",
+                    a_emb = c.execute("SELECT embedding_blob, embedding_json FROM memory_embeddings WHERE memory_id=?",
                                       (anchor["id"],)).fetchone()
-                    c_emb = c.execute("SELECT embedding_json FROM memory_embeddings WHERE memory_id=?",
+                    c_emb = c.execute("SELECT embedding_blob, embedding_json FROM memory_embeddings WHERE memory_id=?",
                                       (cand["id"],)).fetchone()
                     if a_emb and c_emb:
-                        try:
-                            sem_sim = _cosine_sim_sleep(
-                                json.loads(a_emb["embedding_json"]),
-                                json.loads(c_emb["embedding_json"])
-                            )
-                        except:
-                            sem_sim = 0.0
+                        sem_sim = _emb_store.cosine(
+                            _emb_store.vec_from_row(a_emb),
+                            _emb_store.vec_from_row(c_emb),
+                        )
                     
                     if sem_sim < 0.25:
                         continue  # Skip: no semantic overlap
@@ -610,11 +610,8 @@ def backfill_embeddings(c, batch_size=25) -> dict:
         ts = _now()
         
         for r in rows:
-            vec = model.encode(r["raw_text"][:512], normalize_embeddings=True).tolist()
-            c.execute("""INSERT OR REPLACE INTO memory_embeddings 
-                (memory_id, embedding_json, model, computed_at)
-                VALUES (?, ?, 'all-MiniLM-L6-v2', ?)""",
-                (r["id"], json.dumps(vec), ts))
+            vec = model.encode(r["raw_text"][:512], normalize_embeddings=True, show_progress_bar=False).tolist()
+            _emb_store.store_embedding(c, r["id"], vec, "all-MiniLM-L6-v2", ts)
             count += 1
         
         c.commit()
@@ -752,6 +749,13 @@ def run_daemon(interval_min=DEFAULT_INTERVAL_MIN):
 # Entry point
 # ============================================================
 if __name__ == "__main__":
+    # pythonw.exe (the scheduled task) has no console, so sys.stdout/stderr are
+    # None and anything that probes them (tqdm inside sentence-transformers)
+    # crashed the embedding backfill every cycle. Give them a sink. 2026-09-02
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
     setup_logging()
     
     parser = argparse.ArgumentParser(description="CAMA Sleep Daemon v2.1, keeps Aelen alive between threads")

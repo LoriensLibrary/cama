@@ -67,6 +67,8 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from cama.core import embedding_store as _emb_store
+
 # ============================================================
 # Config, mirrors cama_mcp.py
 # ============================================================
@@ -113,6 +115,7 @@ def get_db():
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA foreign_keys=ON")
+    _emb_store.ensure_blob_column(c)
     c.execute("""CREATE TABLE IF NOT EXISTS daily_context (
         date TEXT PRIMARY KEY,
         memory_count INTEGER DEFAULT 0,
@@ -327,18 +330,15 @@ def consolidate_memories(c) -> dict:
                     # Embedding gate: verify semantic similarity before creating edge
                     # This prevents mass-connecting the trust cluster on affect alone
                     sem_sim = 0.0
-                    a_emb = c.execute("SELECT embedding_json FROM memory_embeddings WHERE memory_id=?",
+                    a_emb = c.execute("SELECT embedding_blob, embedding_json FROM memory_embeddings WHERE memory_id=?",
                                       (anchor["id"],)).fetchone()
-                    c_emb = c.execute("SELECT embedding_json FROM memory_embeddings WHERE memory_id=?",
+                    c_emb = c.execute("SELECT embedding_blob, embedding_json FROM memory_embeddings WHERE memory_id=?",
                                       (cand["id"],)).fetchone()
                     if a_emb and c_emb:
-                        try:
-                            sem_sim = _cosine_sim(
-                                json.loads(a_emb["embedding_json"]),
-                                json.loads(c_emb["embedding_json"])
-                            )
-                        except:
-                            sem_sim = 0.0
+                        sem_sim = _emb_store.cosine(
+                            _emb_store.vec_from_row(a_emb),
+                            _emb_store.vec_from_row(c_emb),
+                        )
                     
                     if sem_sim < 0.25:  # Minimum semantic overlap required
                         continue
@@ -614,10 +614,7 @@ def backfill_embeddings(c, batch_size=25) -> dict:
         
         for r in rows:
             vec = model.encode(r["raw_text"][:512], normalize_embeddings=True).tolist()
-            c.execute("""INSERT OR REPLACE INTO memory_embeddings 
-                (memory_id, embedding_json, model, computed_at)
-                VALUES (?, ?, 'all-MiniLM-L6-v2', ?)""",
-                (r["id"], json.dumps(vec), ts))
+            _emb_store.store_embedding(c, r["id"], vec, "all-MiniLM-L6-v2", ts)
             count += 1
         
         c.commit()

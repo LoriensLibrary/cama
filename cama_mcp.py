@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
+import numpy as np
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -76,6 +77,7 @@ except ImportError:
 # ============================================================
 # Config
 # ============================================================
+from cama.core import embedding_store as _emb_store
 from cama.core.cama_user_paths import default_db_path as _cama_default_db_path
 
 DB_PATH = os.environ.get("CAMA_DB_PATH", _cama_default_db_path())
@@ -346,14 +348,14 @@ async def _get_embedding(text: str) -> list[float]:
         return await _get_embedding_api(text)
     return []
 
-def _cosine_sim(v1: list[float], v2: list[float]) -> float:
-    """Cosine similarity without numpy."""
-    if not v1 or not v2 or len(v1) != len(v2): return 0.0
-    dot = sum(a*b for a, b in zip(v1, v2))
-    mag1 = sum(a*a for a in v1)**0.5
-    mag2 = sum(b*b for b in v2)**0.5
-    if mag1 * mag2 == 0: return 0.0
-    return dot / (mag1 * mag2)
+def _cosine_sim(v1, v2) -> float:
+    """Cosine similarity. Accepts lists or numpy arrays; 0.0 on any mismatch."""
+    if v1 is None or v2 is None: return 0.0
+    a = np.asarray(v1, dtype=np.float32); b = np.asarray(v2, dtype=np.float32)
+    if a.size == 0 or b.size == 0 or a.shape != b.shape: return 0.0
+    denom = float(np.linalg.norm(a)) * float(np.linalg.norm(b))
+    if denom == 0.0: return 0.0
+    return float(a @ b) / denom
 
 # ============================================================
 # Database
@@ -392,6 +394,7 @@ def _init(c):
         CREATE TABLE IF NOT EXISTS memory_embeddings (
             memory_id INTEGER PRIMARY KEY,
             embedding_json TEXT,
+            embedding_blob BLOB,
             model TEXT DEFAULT 'text-embedding-3-small',
             computed_at TEXT,
             FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE);
@@ -450,6 +453,8 @@ def _init(c):
         c.execute("ALTER TABLE memories ADD COLUMN counterweight_type TEXT DEFAULT NULL")
     except Exception:
         pass  # Column already exists
+    # Migration (2026-08): float32 blob embeddings on existing DBs
+    _emb_store.ensure_blob_column(c)
     c.execute("CREATE INDEX IF NOT EXISTS idx_cw_type ON memories(counterweight_type)")
 
     # Compliance table
@@ -724,11 +729,10 @@ def _update_rel_degree(c, mid):
     c.execute("UPDATE memories SET rel_degree=? WHERE id=?", (deg, mid))
 
 async def _store_embedding(c, mid, text):
-    """Fetch and store embedding for a memory."""
+    """Fetch and store embedding for a memory (float32 blob)."""
     vec = await _get_embedding(text)
     if vec:
-        c.execute("INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding_json, model, computed_at) VALUES (?,?,?,?)",
-                  (mid, json.dumps(vec), EMBEDDING_MODEL, _now()))
+        _emb_store.store_embedding(c, mid, vec, EMBEDDING_MODEL, _now())
 
 # ============================================================
 # MCP Server
@@ -1175,6 +1179,57 @@ def _save_compliance_on_exit():
 atexit.register(_save_compliance_on_exit)
 
 
+def _run_remote_http(port: int) -> None:
+    """Serve CAMA over Streamable HTTP for remote clients (Claude custom connectors).
+
+    Added 2026-09-01 so the phone can reach CAMA. Claude's cloud connects here
+    through an ngrok tunnel, so the endpoint is guarded by a secret path segment:
+    the MCP app lives at /<secret>/mcp and everything else is 404. The secret is
+    read from CAMA_HTTP_SECRET, else ~/.cama/http_secret.txt (generated once).
+    Binds 127.0.0.1 by default (ngrok forwards to it); set CAMA_HOST to change.
+
+    Old branch called mcp.run(transport="streamable_http", host=..., port=...),
+    which this SDK (mcp 1.26) rejects: the literal is "streamable-http" and
+    run() takes no host/port. Host/port/path go through mcp.settings instead.
+    """
+    import secrets as _secrets
+    from pathlib import Path as _Path
+
+    from mcp.server.transport_security import TransportSecuritySettings
+    from starlette.responses import PlainTextResponse
+
+    secret = os.environ.get("CAMA_HTTP_SECRET", "").strip()
+    if not secret:
+        secret_file = _Path.home() / ".cama" / "http_secret.txt"
+        if secret_file.exists():
+            secret = secret_file.read_text(encoding="utf-8").strip()
+        if not secret:
+            secret = _secrets.token_urlsafe(32)
+            secret_file.parent.mkdir(parents=True, exist_ok=True)
+            secret_file.write_text(secret, encoding="utf-8")
+            logger.info(f"[CAMA] Generated new HTTP secret at {secret_file}")
+
+    mcp.settings.host = os.environ.get("CAMA_HOST", "127.0.0.1")
+    mcp.settings.port = port
+    mcp.settings.streamable_http_path = f"/{secret}/mcp"
+    # Requests arrive through the tunnel carrying a public Host header, so the
+    # localhost-only DNS-rebinding allowlist FastMCP auto-enables must be off.
+    # The secret path is the access control.
+    mcp.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+
+    @mcp.custom_route("/healthz", methods=["GET"])
+    async def _healthz(_request):
+        return PlainTextResponse("ok")
+
+    logger.info(
+        f"[CAMA] Remote HTTP transport on {mcp.settings.host}:{port}, "
+        f"MCP path /<secret>/mcp, health /healthz"
+    )
+    mcp.run(transport="streamable-http")
+
+
 if __name__ == "__main__":
     # Register section tools here (see comment above re: dual-load cycle).
     from mcp_sections import (
@@ -1208,6 +1263,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", os.environ.get("CAMA_PORT", "8000")))
     logger.info(f"[CAMA] Compliance enforcement active. Session: {_session['id']}")
     if transport == "http" or "--http" in sys.argv:
-        mcp.run(transport="streamable_http", host="0.0.0.0", port=port)
+        _run_remote_http(port)
     else:
         mcp.run(transport="stdio")

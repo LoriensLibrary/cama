@@ -121,3 +121,11 @@ CLEANUP_GITHUB.bat
 
 # Plan / migration notes
 PLAN_*.md
+
+# Internal strategy notes, same convention as POSITIONING.md
+STRATEGY_*.md
+
+# Raw paper capture files: unpublished drafts holding NDA-sensitive source
+# material and named third parties. Publish the finished preprint, never these.
+PAPER*_CAPTURE.md
+paper12/

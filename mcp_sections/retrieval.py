@@ -3,6 +3,7 @@
 import json
 import time
 
+from cama.core import embedding_store as _emb_store
 from cama_mcp import (
     RING_SIZE,
     SCORE_W,
@@ -13,7 +14,6 @@ from cama_mcp import (
     _batch_affects,
     _buf_flush_if_ready,
     _buf_track,
-    _cosine_sim,
     _fmt,
     _get_affect,
     _get_embedding,
@@ -55,13 +55,12 @@ async def cama_query_memories(params: QueryInput) -> str:
         mids = [r["id"] for r in rows]
         affects = _batch_affects(c, mids)
 
-        # Batch fetch embeddings
-        emb_map = {}
+        # Batch fetch embeddings (float32 blobs) + batched cosine
+        sims = {}
         if query_vec and mids:
             _tel0 = time.perf_counter()
-            ph = ",".join("?" * len(mids))
-            for er in c.execute(f"SELECT memory_id, embedding_json FROM memory_embeddings WHERE memory_id IN ({ph})", mids).fetchall():
-                emb_map[er["memory_id"]] = json.loads(er["embedding_json"]) if er["embedding_json"] else []
+            emb_map = _emb_store.fetch_emb_map(c, mids)
+            sims = _emb_store.cosine_scores(query_vec, emb_map)
             _timings["embedding_load"] = round((time.perf_counter() - _tel0) * 1000, 1)
             _timings["embeddings_loaded"] = len(emb_map)
 
@@ -75,8 +74,8 @@ async def cama_query_memories(params: QueryInput) -> str:
 
             # Semantic: embedding cosine sim or fallback to substring
             tm = 0.0
-            if query_vec and r["id"] in emb_map:
-                tm = max(0.0, _cosine_sim(query_vec, emb_map[r["id"]]))
+            if r["id"] in sims:
+                tm = max(0.0, sims[r["id"]])
             elif params.query_text and params.query_text.lower() in r["raw_text"].lower():
                 tm = 0.6  # Fallback substring (lower weight than embedding)
 
@@ -85,7 +84,7 @@ async def cama_query_memories(params: QueryInput) -> str:
             if r["is_core"]: sc *= 1.3
 
             parts = []
-            if tm > 0: parts.append(f"sem={tm:.2f}{'(emb)' if query_vec and r['id'] in emb_map else '(sub)'}")
+            if tm > 0: parts.append(f"sem={tm:.2f}{'(emb)' if r['id'] in sims else '(sub)'}")
             parts += [f"aff={1-ad:.2f}", f"rel={rel:.2f}", f"rec={rec:.2f}"]
             if r["status"]=="provisional": parts.append("prov")
             if r["is_core"]: parts.append("core↑")

@@ -53,6 +53,8 @@ import sqlite3
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
+from cama.core import embedding_store as _emb_store
+
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 
 # Knobs
@@ -212,6 +214,7 @@ def compute_era_subcentroids_for_librarian(
 
         rows = c.execute(
             """SELECT m.id AS memory_id,
+                      e.embedding_blob,
                       e.embedding_json,
                       m.created_at
                FROM librarian_membership lm
@@ -226,15 +229,12 @@ def compute_era_subcentroids_for_librarian(
         if len(rows) < min_members:
             return None
 
-        # Parse embeddings + timestamps
+        # Parse embeddings (blob-first, JSON fallback) + timestamps
         records: List[Tuple[List[float], str]] = []
         for r in rows:
-            try:
-                v = json.loads(r["embedding_json"])
-                if isinstance(v, list) and len(v) > 0:
-                    records.append((v, r["created_at"]))
-            except (json.JSONDecodeError, TypeError):
-                continue
+            v = _emb_store.vec_from_row(r)
+            if v is not None and v.size:
+                records.append((v.tolist(), r["created_at"]))
 
         if len(records) < min_members:
             return None

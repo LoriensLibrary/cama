@@ -45,6 +45,7 @@ from typing import Any, Dict, List, Optional
 
 from cama.agents import cama_dyad, cama_persona
 from cama.hive import cama_hive_resources
+from cama.memory.typed_tokens import encode_memory
 
 # ============================================================
 # Simple keyword-based affect estimator (no ML deps)
@@ -110,6 +111,7 @@ class DyadAgent:
         retrieved_memory_count: int = 5,
         max_tokens: int = 1024,
         temperature: float = 0.7,
+        typed_tokens: bool = True,
     ):
         self.dyad_id = dyad_id
         self.meta = cama_dyad.get_dyad_meta(dyad_id)
@@ -122,6 +124,9 @@ class DyadAgent:
         self.retrieved_memory_count = retrieved_memory_count
         self.max_tokens = max_tokens
         self.temperature = temperature
+        # When True, retrieved memories are serialized as typed tokens
+        # (provenance + trust + affect inline). False = legacy "[type] text".
+        self.typed_tokens = typed_tokens
 
     # ------------------------------------------------------------
     # Public surface
@@ -268,10 +273,17 @@ class DyadAgent:
             parts.append(last_journal.strip())
 
         if retrieved:
-            parts.append("\n## Relevant memories retrieved for this turn")
-            for m in retrieved:
-                tag = f"[{m['memory_type']}]"
-                parts.append(f"- {tag} {m['text']}")
+            if self.typed_tokens:
+                parts.append(
+                    "\n## Relevant memories retrieved for this turn"
+                    "\n(typed tokens encode provenance, trust, and affect inline)"
+                )
+                for m in retrieved:
+                    parts.append(f"- {encode_memory(m, affect=m.get('affect'))}")
+            else:
+                parts.append("\n## Relevant memories retrieved for this turn")
+                for m in retrieved:
+                    parts.append(f"- [{m['memory_type']}] {m['text']}")
 
         if counterweights:
             parts.append(
@@ -394,21 +406,50 @@ class DyadAgent:
         # OR them together, capped to avoid huge queries.
         query = " OR ".join(toks[:8])
         try:
-            rows = conn.execute(
-                "SELECT m.id, m.raw_text, m.memory_type FROM memories m "
+            cur = conn.execute(
+                "SELECT m.* FROM memories m "
                 "JOIN memories_fts f ON f.rowid = m.id "
                 "WHERE memories_fts MATCH ? "
                 "  AND m.status = 'durable' "
                 "ORDER BY rank LIMIT ?",
                 (query, self.retrieved_memory_count),
-            ).fetchall()
+            )
+            cols = [d[0] for d in cur.description]
+            rows = cur.fetchall()
         except sqlite3.OperationalError:
             # FTS may not be present in every schema; tolerate gracefully.
             return []
-        return [
-            {"id": r[0], "text": r[1], "memory_type": r[2]}
-            for r in rows
-        ]
+        out: List[Dict[str, Any]] = []
+        for r in rows:
+            rec = dict(zip(cols, r))
+            # keep the legacy "text" alias so older callers keep working
+            rec["text"] = rec.get("raw_text")
+            rec["affect"] = self._fetch_affect(conn, rec.get("id"))
+            out.append(rec)
+        return out
+
+    def _fetch_affect(
+        self, conn: sqlite3.Connection, memory_id: Any
+    ) -> Optional[Dict[str, Any]]:
+        """Latest affect row for a memory, or None. Tolerant of a missing
+        memory_affect table (older / partial schemas)."""
+        if memory_id is None:
+            return None
+        try:
+            row = conn.execute(
+                "SELECT valence, arousal, emotion_json FROM memory_affect "
+                "WHERE memory_id = ? ORDER BY computed_at DESC LIMIT 1",
+                (memory_id,),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return None
+        if not row:
+            return None
+        try:
+            emotions = json.loads(row[2] or "{}")
+        except (ValueError, TypeError):
+            emotions = {}
+        return {"valence": row[0], "arousal": row[1], "emotions": emotions}
 
     def _fetch_counterweights(
         self, conn: sqlite3.Connection

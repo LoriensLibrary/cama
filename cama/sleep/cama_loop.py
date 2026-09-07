@@ -30,6 +30,8 @@ import time
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
+from cama.core import embedding_store as _emb_store
+
 # ============================================================
 # PATHS
 # ============================================================
@@ -72,7 +74,8 @@ def get_db():
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA foreign_keys=ON")
-    
+    _emb_store.ensure_blob_column(c)
+
     # Ensure tables exist
     c.execute("""CREATE TABLE IF NOT EXISTS daily_context (
         date TEXT PRIMARY KEY,
@@ -329,15 +332,20 @@ def generate_boot_summary(c):
     
     # --- Songs ---
     songs = []
-    for r in c.execute("SELECT title, artist, emotional_context FROM songs LIMIT 10").fetchall():
-        songs.append({"title": r["title"], "artist": r["artist"], "context": r["emotional_context"][:100] if r["emotional_context"] else ""})
+    # The songs table stores the blurb in `meaning`; `emotional_context` never existed
+    # and the wrong name crashed every cycle at phase 3, which is why boot summaries
+    # were coming from the old cama_sleep path instead of this one.
+    for r in c.execute("SELECT title, artist, meaning FROM songs LIMIT 10").fetchall():
+        songs.append({"title": r["title"], "artist": r["artist"], "context": r["meaning"][:100] if r["meaning"] else ""})
     
     # --- Ring contents (active working memory) ---
     ring = []
-    for r in c.execute("""SELECT r.position, m.raw_text, m.memory_type, r.pushed_at
+    # The ring table names these `slot` and `last_activated_at`; the old names
+    # (position, pushed_at) never existed here and crashed phase 3.
+    for r in c.execute("""SELECT r.slot, m.raw_text, m.memory_type, r.last_activated_at
         FROM ring r JOIN memories m ON r.memory_id = m.id
-        ORDER BY r.position""").fetchall():
-        ring.append({"pos": r["position"], "text": r["raw_text"][:150], "type": r["memory_type"]})
+        ORDER BY r.slot""").fetchall():
+        ring.append({"pos": r["slot"], "text": r["raw_text"][:150], "type": r["memory_type"]})
     
     # --- Build the summary ---
     boot = {
@@ -459,10 +467,7 @@ def index_embeddings(c, batch_size=50):
         
         for r in rows:
             vec = model.encode(r["raw_text"][:512], normalize_embeddings=True).tolist()
-            c.execute("""INSERT OR REPLACE INTO memory_embeddings 
-                (memory_id, embedding_json, model, computed_at)
-                VALUES (?, ?, 'all-MiniLM-L6-v2', ?)""",
-                (r["id"], json.dumps(vec), ts))
+            _emb_store.store_embedding(c, r["id"], vec, "all-MiniLM-L6-v2", ts)
             c.commit()  # Commit each for resilience
             count += 1
         
