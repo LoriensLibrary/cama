@@ -41,6 +41,10 @@ class CamaContract(str, Enum):
     DYAD_LOCKED = "dyad_locked"
     DEGRADED_MODE = "degraded_mode"
     UNAUTHORIZED = "unauthorized"
+    CONSENT_CHALLENGE_REQUIRED = "consent_challenge_required"
+    CONSENT_CHALLENGE_INVALID = "consent_challenge_invalid"
+    CONSENT_APPROVER_REQUIRED = "consent_approver_required"
+    CONSENT_APPROVER_NOT_CONFIGURED = "consent_approver_not_configured"
 
 
 # Per-contract suggested fix text. Keeps human-facing guidance with
@@ -100,6 +104,26 @@ _FIX_TEXT: dict[CamaContract, str] = {
         "load, search is keyword-only)."
     ),
     CamaContract.UNAUTHORIZED: "Authentication is required.",
+    CamaContract.CONSENT_CHALLENGE_REQUIRED: (
+        "POST /v1/consent/grant requires the challenge_id returned by "
+        "POST /v1/consent/challenge. A grant with no challenge behind it "
+        "records consent nobody asked for."
+    ),
+    CamaContract.CONSENT_CHALLENGE_INVALID: (
+        "The challenge is unknown, expired, already used, or does not "
+        "describe the action being granted. Request a fresh challenge."
+    ),
+    CamaContract.CONSENT_APPROVER_REQUIRED: (
+        "Recording a human acceptance requires the X-Consent-Approval "
+        "header. The API key that requests a challenge deliberately "
+        "cannot grant it: the approver secret belongs to the consent UI "
+        "the person actually clicks, not to the application server."
+    ),
+    CamaContract.CONSENT_APPROVER_NOT_CONFIGURED: (
+        "This deployment has no CAMA_CONSENT_APPROVER_SECRET set, so no "
+        "credential can represent a human acceptance and consent cannot "
+        "be granted. Set it on the consent UI and the API."
+    ),
 }
 
 _TYPE_URI_BASE = "https://lorienslibrary.com/cama/errors/"
