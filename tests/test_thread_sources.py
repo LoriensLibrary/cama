@@ -229,3 +229,40 @@ def test_lmstudio_prefers_an_explicit_created_at(tmp_path):
     ]}), encoding="utf-8")
     turn = list(ts.lmstudio_turns(str(p)))[0]
     assert turn["timestamp"].startswith("2025-01-01"), turn["timestamp"]
+
+
+# ---------------------------------------------------------------- write-side idempotency for every source
+
+def test_reimport_is_idempotent_for_every_prefix(tmp_path, monkeypatch):
+    """The dedupe lookup once matched only Claude Code keys, so codex,
+    export and LM Studio turns were written again on every pass."""
+    import sqlite3
+
+    from schema_builder import init_production_memory_schema
+
+    from cama.ingest.cama_import_claude_code import build_memory, write_memories
+
+    db = tmp_path / "memory.db"
+    monkeypatch.setenv("CAMA_DB_PATH", str(db))
+    init_production_memory_schema(db)
+    conn = sqlite3.connect(str(db))
+    conn.execute("PRAGMA foreign_keys = ON")
+
+    codex = write_jsonl(tmp_path, [meta(), ev("user_message", "q"), ev("agent_message", "a")])
+    export = write_export(tmp_path, [_convo("c1", "t", [("user", "x", 1.0), ("assistant", "y", 2.0)])])
+    lm = tmp_path / "1754584354087.conversation.json"
+    lm.write_text(json.dumps({"name": "L", "messages": [
+        {"role": "user", "content": [{"type": "text", "text": "hi"}]}]}), encoding="utf-8")
+
+    memories = [build_memory(t) for t in ts.codex_turns(codex)]
+    memories += [build_memory(t) for t in ts.openai_export_turns(export)]
+    memories += [build_memory(t) for t in ts.lmstudio_turns(str(lm))]
+    assert {m["source_msg_id"][:3] for m in memories} == {"cx:", "oa:", "lm:"}
+
+    first = write_memories(conn, memories, apply=True)
+    second = write_memories(conn, memories, apply=True)
+    assert first["written"] == 3
+    assert second["written"] == 0, "every prefix must be recognized as already stored"
+    assert second["skipped"] == 3
+    assert conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0] == 3
+    conn.close()

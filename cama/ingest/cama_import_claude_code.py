@@ -203,10 +203,19 @@ def build_memory(turn: Dict) -> Dict:
     }
 
 
+# Every importer prefix. A key not listed here is invisible to dedupe, and
+# the writer will happily store the same turn again on every pass: that is
+# exactly what happened on 2026-09-07 when cx:, oa: and lm: were added to
+# the sources but not here, and 898 rows were written twice.
+IMPORT_PREFIXES = ("cc:", "cx:", "oa:", "lm:")
+
+
 def existing_source_ids(conn: sqlite3.Connection) -> set:
+    """Keys of every imported turn already in the store, across all sources."""
+    clauses = " OR ".join("source_msg_id LIKE ?" for _ in IMPORT_PREFIXES)
     rows = conn.execute(
-        "SELECT source_msg_id FROM memories "
-        "WHERE source_msg_id LIKE 'cc:%'"
+        f"SELECT source_msg_id FROM memories WHERE {clauses}",
+        tuple(p + "%" for p in IMPORT_PREFIXES),
     ).fetchall()
     return {r[0] for r in rows}
 
