@@ -54,6 +54,13 @@ dependencies = [
     # package is harmless on those platforms and keeps tests
     # deterministic across environments.
     "tzdata>=2024.1",
+    # Embedding storage and scoring. cama/core/embedding_store.py packs and
+    # unpacks float32 blobs and scores batched cosine with numpy, and
+    # cama_mcp.py imports it at module level, so this is a hard runtime
+    # dependency of the core package rather than an extra. Previously the
+    # only importer was the Librarian, which is not exercised in CI, so the
+    # missing declaration went unnoticed until embeddings moved to blobs.
+    "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
