@@ -69,6 +69,10 @@ def create_memory(
         forced_status = "durable"
         review_after = None
 
+    # created_at and updated_at are both NOT NULL in the canonical schema
+    # (cama_mcp._init). One timestamp for both so a freshly created memory
+    # reads as never-modified.
+    created = now_iso()
     c = open_memory_db()
     try:
         cur = c.execute(
@@ -90,8 +94,8 @@ def create_memory(
                 review_after,
                 int(payload.is_core),
                 payload.evidence,
-                now_iso(),
-                None,
+                created,
+                created,
                 ctx.dyad_id,
             ),
         )
