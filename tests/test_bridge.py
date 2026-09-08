@@ -160,3 +160,29 @@ class TestWriteAllowlist:
         result = asyncio.run(bridge.cama_write_file(str(target), "should not land"))
         assert result.startswith("Refused:"), f"expected refusal, got: {result!r}"
         assert not (outside / "bad.txt").exists()
+
+
+# ---------------------------------------------------------------------------
+# Bridge exposure per transport
+# ---------------------------------------------------------------------------
+def test_bridge_is_on_for_local_stdio():
+    import cama_mcp
+
+    assert cama_mcp.bridge_enabled(remote=False, env={}) is True
+    assert cama_mcp.bridge_enabled(remote=False, env={"CAMA_REMOTE_BRIDGE": "0"}) is True
+
+
+def test_bridge_is_off_over_http_by_default():
+    """Whoever holds the tunnel URL must not hold a shell on this machine."""
+    import cama_mcp
+
+    assert cama_mcp.bridge_enabled(remote=True, env={}) is False
+    assert cama_mcp.bridge_enabled(remote=True, env={"CAMA_REMOTE_BRIDGE": "0"}) is False
+    assert cama_mcp.bridge_enabled(remote=True, env={"CAMA_REMOTE_BRIDGE": "yes"}) is False
+
+
+def test_bridge_over_http_requires_an_explicit_opt_in():
+    import cama_mcp
+
+    assert cama_mcp.bridge_enabled(remote=True, env={"CAMA_REMOTE_BRIDGE": "1"}) is True
+    assert cama_mcp.bridge_enabled(remote=True, env={"CAMA_REMOTE_BRIDGE": " 1 "}) is True

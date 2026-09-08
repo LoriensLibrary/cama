@@ -16,6 +16,11 @@ cd /d %~dp0
 set CAMA_TRANSPORT=http
 set CAMA_PORT=8765
 set CAMA_HOST=127.0.0.1
+:: The remote endpoint never gets the bridge tools (cama_exec, cama_read_file,
+:: cama_write_file): whoever holds the tunnel URL would otherwise hold a shell
+:: on this machine. Set CAMA_REMOTE_BRIDGE=1 here only if you truly need that,
+:: and if you do, strict mode below narrows what cama_exec will run.
+set CAMA_EXEC_MODE=strict
 set NGROK=%LOCALAPPDATA%\ngrok\ngrok.exe
 set SECRET_FILE=%USERPROFILE%\.cama\http_secret.txt
 set DOMAIN_FILE=%USERPROFILE%\.cama\ngrok_domain.txt
@@ -26,7 +31,7 @@ if not exist "%NGROK%" (
   exit /b 1
 )
 
-echo Starting CAMA HTTP server on %CAMA_HOST%:%CAMA_PORT% ...
+echo Starting CAMA HTTP server on %CAMA_HOST%:%CAMA_PORT% (bridge tools off) ...
 start "CAMA remote (HTTP)" .venv\Scripts\python.exe cama_mcp.py
 
 :: Wait for the secret file (created on first server start) and the port.
