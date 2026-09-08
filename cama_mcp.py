@@ -1286,6 +1286,18 @@ if __name__ == "__main__":
             logger.info("[CAMA] Embedding model ready.")
         else:
             logger.warning("[CAMA] No local model \u2014 semantic queries will use API or substring fallback.")
+    # Pre-warm the whole-store embedding matrix too: the first semantic query
+    # otherwise pays the load (about half a second on 56k rows), and every
+    # query after it is a few milliseconds.
+    try:
+        _c = get_db()
+        try:
+            _ids, _mat, _ = _emb_store.load_matrix(_c)
+            logger.info(f"[CAMA] Embedding matrix ready: {_mat.shape[0]} rows.")
+        finally:
+            _c.close()
+    except Exception as _e:
+        logger.warning(f"[CAMA] Embedding matrix pre-warm skipped: {_e}")
     transport = os.environ.get("CAMA_TRANSPORT", "stdio")
     port = int(os.environ.get("PORT", os.environ.get("CAMA_PORT", "8000")))
     logger.info(f"[CAMA] Compliance enforcement active. Session: {_session['id']}")
