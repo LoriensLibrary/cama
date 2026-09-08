@@ -5,6 +5,7 @@ import time
 
 from cama.core import embedding_store as _emb_store
 from cama_mcp import (
+    CORE_BONUS,
     RING_SIZE,
     SCORE_W,
     QueryInput,
@@ -40,7 +41,11 @@ async def cama_query_memories(params: QueryInput) -> str:
         # Get query embedding
         query_vec = await _get_embedding(params.query_text) if params.query_text else []
 
-        q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired')"; qp = []
+        # Auto-recorded session activity is telemetry (a log of which tools ran
+        # and the query strings they carried), not memory. Left in the pool it
+        # matches its own query text by substring and outranks the memories
+        # the query was about.
+        q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired') AND COALESCE(context,'') != 'auto-recorded'"; qp = []
         # Consent gating: exclude high-sensitivity unless explicitly requested
         if not (params.filters and params.filters.get("include_sensitive") == "true"):
             q += " AND consent_level != 'high'"
@@ -104,7 +109,7 @@ async def cama_query_memories(params: QueryInput) -> str:
 
             sc = SCORE_W["semantic"]*tm + SCORE_W["affect"]*(1-ad) + SCORE_W["relational"]*rel + SCORE_W["recency"]*rec
             sc *= _status_weight(r["status"])
-            if r["is_core"]: sc *= 1.3
+            if r["is_core"]: sc += CORE_BONUS
 
             parts = []
             if tm > 0: parts.append(f"sem={tm:.2f}{'(emb)' if r['id'] in sims else '(sub)'}")

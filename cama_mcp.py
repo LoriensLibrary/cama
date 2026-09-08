@@ -85,7 +85,16 @@ DB_PATH = os.environ.get("CAMA_DB_PATH", _cama_default_db_path())
 RING_SIZE = int(os.environ.get("CAMA_RING_SIZE", "30"))
 EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY", "")
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
-SCORE_W = {"semantic": 0.45, "affect": 0.25, "relational": 0.15, "recency": 0.15}
+# Blended retrieval weights. Semantic similarity carries the ranking; affect,
+# relational and recency terms shape it; core membership breaks near-ties.
+# Recalibrated 2026-09-07. The previous weights (semantic 0.45, relational
+# 0.15, core x1.3) handed a well-connected core row roughly a 0.30 cosine
+# head start, more than the entire realistic cosine range (0.35 to 0.65),
+# so no non-core memory could outrank a core one on meaning at all and every
+# query returned the same few hundred core rows.
+SCORE_W = {"semantic": 0.65, "affect": 0.20, "relational": 0.03, "recency": 0.10}
+# Additive, worth about 0.03 cosine at the semantic weight above.
+CORE_BONUS = 0.02
 
 # ============================================================
 # AUTO-EXCHANGE RECORDING

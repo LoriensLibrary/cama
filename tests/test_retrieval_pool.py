@@ -142,3 +142,41 @@ def test_empty_store_and_empty_query_are_safe(db):
     assert es.top_k_semantic(conn, [], k=5) == []
     assert es.top_k_semantic(conn, [0.0] * DIM, k=5) == []
     assert es.sims_for(conn, QUERY, [1, 2, 3]) == {}
+
+
+def test_meaning_beats_structure_at_realistic_margins(db):
+    """A well-connected core row with a weaker match must not outrank a
+    non-core memory that matches better. Real cosines sit between 0.35 and
+    0.65; here the core haystack scores 0.52 and the needle 0.63, both
+    created now so recency cannot decide it. Under the old weights
+    (relational 0.15, core x1.3) the haystack won by about 0.10."""
+    import math
+
+    conn, cama_mcp = db
+    hay = [0.52, math.sqrt(1 - 0.52 ** 2)] + [0.0] * (DIM - 2)
+    needle_vec = [0.63, math.sqrt(1 - 0.63 ** 2)] + [0.0] * (DIM - 2)
+    for i in range(50):
+        mid = _seed(conn, cama_mcp, f"connected core {i}", hay, core=1)
+        conn.execute("UPDATE memories SET rel_degree=12 WHERE id=?", (mid,))
+    needle = _seed(conn, cama_mcp, "the better match, no edges yet", needle_vec, core=0)
+    conn.commit()
+
+    ids = [m["id"] for m in _query(cama_mcp)["results"]]
+    assert ids[0] == needle, f"meaning must carry the ranking; got {ids[:3]}"
+
+
+def test_auto_recorded_activity_never_competes(db):
+    """Session-activity telemetry carries the literal query text, so with the
+    substring fallback it matched itself at 0.6 and came back first."""
+    conn, cama_mcp = db
+    real = _seed(conn, cama_mcp, "a real memory", QUERY)
+    now = cama_mcp._now()
+    conn.execute(
+        "INSERT INTO memories (raw_text, memory_type, context, source_type, status, proposed_by, "
+        "is_core, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        ("[AUTO-RECORDED SESSION ACTIVITY] Tools: query. Context: the needle",
+         "exchange", "auto-recorded", "exchange", "durable", "system", 0, now, now))
+    conn.commit()
+    ids = [m["id"] for m in _query(cama_mcp)["results"]]
+    assert real in ids
+    assert all(not m["raw_text"].startswith("[AUTO-RECORDED") for m in _query(cama_mcp)["results"])

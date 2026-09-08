@@ -11,6 +11,7 @@ from typing import Optional
 PERSONA_NAME = os.environ.get("CAMA_PERSONA_NAME", "Aelen")
 from cama.core import embedding_store as _emb_store
 from cama_mcp import (
+    CORE_BONUS,
     SCORE_W,
     _affect_dist,
     _batch_affects,
@@ -199,7 +200,7 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
             tm = 0.3 if (query_text and query_text.lower() in r["raw_text"].lower()) else 0.0
             sc = 0.3*tm + SCORE_W["affect"]*(1-ad) + SCORE_W["relational"]*rel + SCORE_W["recency"]*rec
             sc *= _status_weight(r["status"])
-            if r["is_core"]: sc *= 1.3
+            if r["is_core"]: sc += CORE_BONUS
             stage1.append((sc, r, af))
 
         stage1.sort(key=lambda x: x[0], reverse=True)
@@ -228,7 +229,7 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
                 tm = 0.6
             sc = SCORE_W["semantic"]*tm + SCORE_W["affect"]*(1-ad) + SCORE_W["relational"]*rel + SCORE_W["recency"]*rec
             sc *= _status_weight(r["status"])
-            if r["is_core"]: sc *= 1.3
+            if r["is_core"]: sc += CORE_BONUS
             scored.append((sc, r, af))
 
         _timings["stage2_scoring"] = round((time.perf_counter() - _ts0) * 1000, 1)
