@@ -123,3 +123,115 @@ def cosine_scores(query_vec, emb_map: Dict[int, np.ndarray]) -> Dict[int, float]
     norms[norms == 0.0] = 1.0
     sims = (mat @ q) / (norms * qn)
     return {mid: float(s) for mid, s in zip(ids, sims)}
+
+
+# ---------------------------------------------------------------------------
+# Whole-store semantic scan
+# ---------------------------------------------------------------------------
+# The blended retriever used to shortlist 500 candidates ordered by is_core
+# before scoring. With eleven thousand core memories that shortlist was
+# always core, so the semantic term never saw a non-core memory at all and
+# every new exchange was invisible to retrieval by meaning. A full float32
+# scan of the store measured about half a second on 53k rows, so the
+# shortlist no longer buys anything. The matrix is normalized once and kept
+# in the process; a query is a single matmul. It refreshes when the table's
+# row count or newest id changes, and writers call invalidate_matrix_cache
+# so a replaced vector is not served stale within the same process.
+
+_MATRIX_CACHE = {"key": None, "ids": None, "mat": None, "index": None}
+
+
+def _matrix_key(c):
+    row = c.execute(
+        "SELECT COUNT(*), COALESCE(MAX(memory_id), 0), COALESCE(MAX(rowid), 0) "
+        "FROM memory_embeddings"
+    ).fetchone()
+    return (int(row[0]), int(row[1]), int(row[2]))
+
+
+def invalidate_matrix_cache() -> None:
+    _MATRIX_CACHE.update(key=None, ids=None, mat=None, index=None)
+
+
+def load_matrix(c, dim: Optional[int] = None):
+    """Every embedding as (ids, row-normalized matrix, id->row index).
+
+    Vectors whose dimension disagrees with the first one seen (or with
+    ``dim`` when given) are skipped, mirroring cosine_scores' contract that
+    a mismatched vector scores as absent.
+    """
+    key = _matrix_key(c)
+    if _MATRIX_CACHE["key"] == key and _MATRIX_CACHE["mat"] is not None:
+        return _MATRIX_CACHE["ids"], _MATRIX_CACHE["mat"], _MATRIX_CACHE["index"]
+    ids, vecs = [], []
+    # Only materialize embedding_json where the blob is missing. On a store
+    # where finalize has not run, the JSON column still holds ~10 KB of text
+    # per row, and reading it for 53k rows just to discard it cost 24 s.
+    for r in c.execute(
+        "SELECT memory_id, embedding_blob, "
+        "CASE WHEN embedding_blob IS NULL THEN embedding_json END AS embedding_json "
+        "FROM memory_embeddings"
+    ):
+        v = vec_from_row(r)
+        if v is None or not v.size:
+            continue
+        if dim is None:
+            dim = int(v.size)
+        if v.size != dim:
+            continue
+        ids.append(int(r["memory_id"]))
+        vecs.append(v)
+    ids_arr = np.asarray(ids, dtype=np.int64)
+    if vecs:
+        mat = np.vstack(vecs).astype(np.float32, copy=False)
+        norms = np.linalg.norm(mat, axis=1, keepdims=True)
+        norms[norms == 0.0] = 1.0
+        mat = mat / norms
+    else:
+        mat = np.zeros((0, dim or 0), dtype=np.float32)
+    index = {mid: i for i, mid in enumerate(ids)}
+    _MATRIX_CACHE.update(key=key, ids=ids_arr, mat=mat, index=index)
+    return ids_arr, mat, index
+
+
+def _unit_query(query_vec) -> Optional[np.ndarray]:
+    if query_vec is None:
+        return None
+    q = np.asarray(query_vec, dtype=np.float32).ravel()
+    if q.size == 0:
+        return None
+    qn = float(np.linalg.norm(q))
+    if qn == 0.0:
+        return None
+    return q / qn
+
+
+def top_k_semantic(c, query_vec, k: int = 400):
+    """The k memories nearest the query over the whole store, as (id, cosine)."""
+    q = _unit_query(query_vec)
+    if q is None:
+        return []
+    ids, mat, _ = load_matrix(c, dim=int(q.size))
+    if mat.shape[0] == 0 or mat.shape[1] != q.size:
+        return []
+    sims = mat @ q
+    k = max(1, min(int(k), int(sims.size)))
+    top = np.argpartition(-sims, k - 1)[:k]
+    top = top[np.argsort(-sims[top])]
+    return [(int(ids[i]), float(sims[i])) for i in top]
+
+
+def sims_for(c, query_vec, mids: Sequence[int]) -> Dict[int, float]:
+    """Cosine of the query against specific memories, from the cached matrix."""
+    q = _unit_query(query_vec)
+    if q is None:
+        return {}
+    ids, mat, index = load_matrix(c, dim=int(q.size))
+    if mat.shape[0] == 0 or mat.shape[1] != q.size:
+        return {}
+    out: Dict[int, float] = {}
+    for mid in mids:
+        i = index.get(int(mid))
+        if i is not None:
+            out[int(mid)] = float(mat[i] @ q)
+    return out

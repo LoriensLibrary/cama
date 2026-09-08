@@ -47,22 +47,45 @@ async def cama_query_memories(params: QueryInput) -> str:
         if params.filters:
             for k,v in params.filters.items():
                 if k in ("memory_type","source_type","status"): q += f" AND {k}=?"; qp.append(v)
-        # Shortlist: limit candidates to avoid loading all embeddings (scales to 10k+)
-        q += " ORDER BY is_core DESC, updated_at DESC LIMIT 500"
-        rows = c.execute(q, qp).fetchall()
+
+        # Candidate pool from three sources. Two structural pools keep the
+        # affect, relational and recency terms meaningful; the semantic pool
+        # is a scan of the whole store so any memory can compete on meaning.
+        # The old single shortlist (ORDER BY is_core DESC LIMIT 500) was
+        # always filled by core rows once core passed 500, which made every
+        # non-core memory invisible to retrieval by meaning (2026-09-07).
+        rows, seen = [], set()
+        def _add(fetched):
+            for r in fetched:
+                if r["id"] not in seen:
+                    seen.add(r["id"]); rows.append(r)
+        _add(c.execute(q + " ORDER BY updated_at DESC LIMIT 250", qp).fetchall())
+        n_recent = len(rows)
+        _add(c.execute(q + " AND is_core=1 ORDER BY updated_at DESC LIMIT 250", qp).fetchall())
+        n_core = len(rows) - n_recent
+        n_semantic = 0
+        _tel0 = time.perf_counter()
+        if query_vec:
+            top = _emb_store.top_k_semantic(c, query_vec, k=400)
+            sem_ids = [mid for mid, _ in top if mid not in seen]
+            for i in range(0, len(sem_ids), 900):
+                chunk = sem_ids[i:i + 900]
+                ph = ",".join("?" * len(chunk))
+                # Eligibility (status, consent, filters) applies to this pool too.
+                _add(c.execute(q + f" AND id IN ({ph})", qp + chunk).fetchall())
+            n_semantic = len(rows) - n_recent - n_core
+        _timings["pool"] = {"recent": n_recent, "core": n_core, "semantic": n_semantic}
 
         # Batch fetch affects
         mids = [r["id"] for r in rows]
         affects = _batch_affects(c, mids)
 
-        # Batch fetch embeddings (float32 blobs) + batched cosine
+        # Cosine for every candidate from the cached matrix
         sims = {}
         if query_vec and mids:
-            _tel0 = time.perf_counter()
-            emb_map = _emb_store.fetch_emb_map(c, mids)
-            sims = _emb_store.cosine_scores(query_vec, emb_map)
+            sims = _emb_store.sims_for(c, query_vec, mids)
             _timings["embedding_load"] = round((time.perf_counter() - _tel0) * 1000, 1)
-            _timings["embeddings_loaded"] = len(emb_map)
+            _timings["embeddings_loaded"] = len(sims)
 
         _ts0 = time.perf_counter()
         scored = []
@@ -128,6 +151,7 @@ async def cama_query_memories(params: QueryInput) -> str:
         c.commit()
         return json.dumps({"results":results,"counterweights":cw,"anti_spiral":len(cw)>0,
             "used_embeddings":bool(query_vec),"candidates":len(scored),
+            "pool":_timings.get("pool"),
             "pattern_active": bool(_pattern_prompt),
             "pattern_trigger": _pattern_prompt or None},indent=2)
     finally: c.close()

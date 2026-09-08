@@ -759,6 +759,7 @@ async def _store_embedding(c, mid, text):
     vec = await _get_embedding(text)
     if vec:
         _emb_store.store_embedding(c, mid, vec, EMBEDDING_MODEL, _now())
+        _emb_store.invalidate_matrix_cache()
 
 # ============================================================
 # MCP Server
