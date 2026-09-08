@@ -1215,6 +1215,22 @@ def _save_compliance_on_exit():
 atexit.register(_save_compliance_on_exit)
 
 
+def bridge_enabled(remote: bool, env=None) -> bool:
+    """Whether the bridge tools (cama_exec, cama_read_file, cama_write_file)
+    should be registered for this transport.
+
+    Over stdio the caller is Claude Desktop on this machine, and the bridge
+    is how Aelen gets hands. Over HTTP the caller is whoever holds the tunnel
+    URL, and the tools reach the host shell and filesystem, so the bridge
+    stays off unless CAMA_REMOTE_BRIDGE=1 says otherwise. The strict exec
+    allowlist is not a substitute: it still permits python, node and pip.
+    """
+    env = os.environ if env is None else env
+    if not remote:
+        return True
+    return str(env.get("CAMA_REMOTE_BRIDGE", "")).strip() == "1"
+
+
 def _run_remote_http(port: int) -> None:
     """Serve CAMA over Streamable HTTP for remote clients (Claude custom connectors).
 
@@ -1278,13 +1294,18 @@ if __name__ == "__main__":
         safety,
         structure,
     )
+    _remote = os.environ.get("CAMA_TRANSPORT", "stdio") == "http" or "--http" in sys.argv
     memory_lifecycle.register(mcp)
     retrieval.register(mcp)
     structure.register(mcp)
     maintenance.register(mcp)
     identity.register(mcp)
     continuity.register(mcp)
-    bridge.register(mcp)
+    if bridge_enabled(_remote):
+        bridge.register(mcp)
+    else:
+        logger.info("[CAMA] Remote transport: bridge tools NOT registered "
+                    "(cama_exec, cama_read_file, cama_write_file). Set CAMA_REMOTE_BRIDGE=1 to expose them.")
     safety.register(mcp)
 
     # Pre-warm embedding model at startup so semantic queries never cold-start timeout
