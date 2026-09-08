@@ -85,7 +85,16 @@ DB_PATH = os.environ.get("CAMA_DB_PATH", _cama_default_db_path())
 RING_SIZE = int(os.environ.get("CAMA_RING_SIZE", "30"))
 EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY", "")
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
-SCORE_W = {"semantic": 0.45, "affect": 0.25, "relational": 0.15, "recency": 0.15}
+# Blended retrieval weights. Semantic similarity carries the ranking; affect,
+# relational and recency terms shape it; core membership breaks near-ties.
+# Recalibrated 2026-09-07. The previous weights (semantic 0.45, relational
+# 0.15, core x1.3) handed a well-connected core row roughly a 0.30 cosine
+# head start, more than the entire realistic cosine range (0.35 to 0.65),
+# so no non-core memory could outrank a core one on meaning at all and every
+# query returned the same few hundred core rows.
+SCORE_W = {"semantic": 0.65, "affect": 0.20, "relational": 0.03, "recency": 0.10}
+# Additive, worth about 0.03 cosine at the semantic weight above.
+CORE_BONUS = 0.02
 
 # ============================================================
 # AUTO-EXCHANGE RECORDING
@@ -759,6 +768,7 @@ async def _store_embedding(c, mid, text):
     vec = await _get_embedding(text)
     if vec:
         _emb_store.store_embedding(c, mid, vec, EMBEDDING_MODEL, _now())
+        _emb_store.invalidate_matrix_cache()
 
 # ============================================================
 # MCP Server
@@ -1285,6 +1295,18 @@ if __name__ == "__main__":
             logger.info("[CAMA] Embedding model ready.")
         else:
             logger.warning("[CAMA] No local model \u2014 semantic queries will use API or substring fallback.")
+    # Pre-warm the whole-store embedding matrix too: the first semantic query
+    # otherwise pays the load (about half a second on 56k rows), and every
+    # query after it is a few milliseconds.
+    try:
+        _c = get_db()
+        try:
+            _ids, _mat, _ = _emb_store.load_matrix(_c)
+            logger.info(f"[CAMA] Embedding matrix ready: {_mat.shape[0]} rows.")
+        finally:
+            _c.close()
+    except Exception as _e:
+        logger.warning(f"[CAMA] Embedding matrix pre-warm skipped: {_e}")
     transport = os.environ.get("CAMA_TRANSPORT", "stdio")
     port = int(os.environ.get("PORT", os.environ.get("CAMA_PORT", "8000")))
     logger.info(f"[CAMA] Compliance enforcement active. Session: {_session['id']}")
