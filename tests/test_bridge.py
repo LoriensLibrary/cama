@@ -20,7 +20,7 @@ from mcp_sections import bridge
 
 @dataclass
 class _FakeMCP:
-    """Minimal stand-in for a FastMCP instance.
+    """Minimal stand-in for a MCPServer instance.
 
     Captures tool registrations so tests can inspect what was registered.
     """

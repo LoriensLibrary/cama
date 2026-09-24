@@ -131,7 +131,7 @@ at module level and would execute during pytest collection.
 
 This document originally recorded `cama_mcp.py --http` as broken and left
 it that way on purpose: `mcp.run()` was called with `host` and `port`,
-which `FastMCP.run()` does not accept, and with the transport spelled
+which the mcp 1.x `FastMCP.run()` did not accept, and with the transport spelled
 `streamable_http` instead of `streamable-http`. It had never started, so
 `cama_exec` was never reachable over HTTP by accident.
 
@@ -141,6 +141,9 @@ Streamable HTTP behind the same secret-path scheme this server uses, binds
 that motivated a separate hive server still holds: `cama_mcp.py` carries
 shell, filesystem and memory tools and its URL is a private credential,
 while this server's URL can be treated as public.
+
+Both servers now run on mcp 2.x (`MCPServer`), where `run()` does take
+`host`, `port`, `streamable_http_path` and the other transport options.
 
 Also stale: `.hive_url` and both `gpt_action_spec*.json` files still point
 at a retired tunnel hostname that now returns 404. They describe the old

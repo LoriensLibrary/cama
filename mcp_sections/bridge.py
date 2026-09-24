@@ -164,7 +164,7 @@ async def cama_write_file(path: str, content: str) -> str:
 
 
 def register(mcp):
-    """Attach this section's tools to the given FastMCP instance.
+    """Attach this section's tools to the given MCPServer instance.
 
     Annotation honesty:
     - cama_exec: destructiveHint=True (arbitrary shell), openWorldHint=True

@@ -62,10 +62,10 @@ def hive_threads_list(participant: str = "aelen", limit: int = 20) -> List[Dict[
 
 
 # ============================================================
-# FastMCP registration
+# MCPServer registration
 # ============================================================
 def register(mcp):
-    """Register Hive messaging tools with the FastMCP instance."""
+    """Register Hive messaging tools with the MCPServer instance."""
 
     @mcp.tool(
         name="hive_send_message",

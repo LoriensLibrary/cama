@@ -21,7 +21,7 @@ Schema lives in its own table to avoid polluting the memories table.
 
 Drop this file in C:\\Users\\Angela\\Desktop\\cama\\ alongside cama_mcp.py.
 Then add `import cama_reasoning_journal` near the top of cama_mcp.py and
-call `cama_reasoning_journal.register(mcp)` after the FastMCP instance is
+call `cama_reasoning_journal.register(mcp)` after the MCPServer instance is
 created. The new tools will appear under cama_dev: prefix.
 """
 
@@ -140,7 +140,7 @@ class JournalPostInput(BaseModel):
 
 
 # ============================================================
-# Tool implementations (functions; registered to FastMCP below)
+# Tool implementations (functions; registered to MCPServer below)
 # ============================================================
 def _journal_pre_impl(params: JournalPreInput) -> str:
     """Open a reasoning journal entry. Call at start of response composition."""
@@ -353,11 +353,11 @@ def _journal_diff_impl(journal_id: int) -> str:
 
 
 # ============================================================
-# FastMCP registration
+# MCPServer registration
 # ============================================================
 def register(mcp):
-    """Register the reasoning journal tools with the FastMCP instance.
-    Call this from cama_mcp.py after `mcp = FastMCP(...)`:
+    """Register the reasoning journal tools with the MCPServer instance.
+    Call this from cama_mcp.py after `mcp = MCPServer(...)`:
         from cama.self_model import cama_reasoning_journal
         cama_reasoning_journal.register(mcp)
     """

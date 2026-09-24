@@ -30,7 +30,7 @@ OUT OF SCOPE (Phase 2-5, Adaptive, fresh-Angela days)
 
 INSTALL
 -------
-Drop alongside cama_mcp.py. Add to cama_mcp.py near the FastMCP init:
+Drop alongside cama_mcp.py. Add to cama_mcp.py near the MCPServer init:
 
     from cama.librarian import cama_librarian
     cama_librarian.register(mcp)
@@ -608,7 +608,7 @@ class RouteInput(BaseModel):
 
 
 # ============================================================
-# FastMCP registration
+# MCPServer registration
 # ============================================================
 def register(mcp):
     init_schema()

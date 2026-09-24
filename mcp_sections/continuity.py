@@ -520,7 +520,7 @@ async def cama_journal_reflect(hours_back: int = 24, limit: int = 20) -> str:
 
 
 def register(mcp):
-    """Attach this section's tools to the given FastMCP instance."""
+    """Attach this section's tools to the given MCPServer instance."""
     mcp.tool(
         name="cama_thread_start",
         annotations={"title":"Thread Start","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},

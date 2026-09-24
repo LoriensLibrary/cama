@@ -298,10 +298,10 @@ def retag_all_unclaimed(
 
 
 # ============================================================
-# FastMCP registration
+# MCPServer registration
 # ============================================================
 def register(mcp):
-    """Register retag tools with the FastMCP instance."""
+    """Register retag tools with the MCPServer instance."""
 
     @mcp.tool(
         name="cama_lib_retag_leaf",

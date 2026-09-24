@@ -114,7 +114,7 @@ async def cama_stats() -> str:
 
 
 def register(mcp):
-    """Attach this section's tools to the given FastMCP instance."""
+    """Attach this section's tools to the given MCPServer instance."""
     mcp.tool(
         name="cama_link_memories",
         annotations={"title":"Link","readOnlyHint":False,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},

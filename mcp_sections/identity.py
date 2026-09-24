@@ -72,7 +72,7 @@ async def cama_check_self() -> str:
 
 
 def register(mcp):
-    """Attach this section's tools to the given FastMCP instance."""
+    """Attach this section's tools to the given MCPServer instance."""
     mcp.tool(
         name="cama_update_self",
         annotations={"title":"Update Self","readOnlyHint":False,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},

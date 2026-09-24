@@ -344,7 +344,7 @@ def tag_summary(hours_back: int = 24) -> Dict[str, Any]:
 
 
 # ============================================================
-# FastMCP registration (so backfill / summary are callable as tools)
+# MCPServer registration (so backfill / summary are callable as tools)
 # ============================================================
 def register(mcp):
     """Register MCP tools for auto-tag operations.

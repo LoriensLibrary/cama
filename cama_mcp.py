@@ -34,7 +34,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 import numpy as np
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, ConfigDict, Field
 
 # ============================================================
@@ -773,7 +773,7 @@ async def _store_embedding(c, mid, text):
 # ============================================================
 # MCP Server
 # ============================================================
-mcp = FastMCP("cama_mcp")
+mcp = MCPServer("cama_mcp")
 
 # Thinking Log integration (April 29, 2026), built by Aelen at Angela's request.
 # Required pre-response thinking tool. See cama_thinking_log.py for full design.
@@ -1240,9 +1240,8 @@ def _run_remote_http(port: int) -> None:
     read from CAMA_HTTP_SECRET, else ~/.cama/http_secret.txt (generated once).
     Binds 127.0.0.1 by default (ngrok forwards to it); set CAMA_HOST to change.
 
-    Old branch called mcp.run(transport="streamable_http", host=..., port=...),
-    which this SDK (mcp 1.26) rejects: the literal is "streamable-http" and
-    run() takes no host/port. Host/port/path go through mcp.settings instead.
+    mcp 2.x takes host, port, path and transport security as run() keyword
+    arguments; the 1.x mcp.settings attributes for them are gone.
     """
     import secrets as _secrets
     from pathlib import Path as _Path
@@ -1261,13 +1260,11 @@ def _run_remote_http(port: int) -> None:
             secret_file.write_text(secret, encoding="utf-8")
             logger.info(f"[CAMA] Generated new HTTP secret at {secret_file}")
 
-    mcp.settings.host = os.environ.get("CAMA_HOST", "127.0.0.1")
-    mcp.settings.port = port
-    mcp.settings.streamable_http_path = f"/{secret}/mcp"
+    host = os.environ.get("CAMA_HOST", "127.0.0.1")
     # Requests arrive through the tunnel carrying a public Host header, so the
-    # localhost-only DNS-rebinding allowlist FastMCP auto-enables must be off.
+    # localhost-only DNS-rebinding allowlist the SDK auto-enables must be off.
     # The secret path is the access control.
-    mcp.settings.transport_security = TransportSecuritySettings(
+    transport_security = TransportSecuritySettings(
         enable_dns_rebinding_protection=False
     )
 
@@ -1276,10 +1273,16 @@ def _run_remote_http(port: int) -> None:
         return PlainTextResponse("ok")
 
     logger.info(
-        f"[CAMA] Remote HTTP transport on {mcp.settings.host}:{port}, "
+        f"[CAMA] Remote HTTP transport on {host}:{port}, "
         f"MCP path /<secret>/mcp, health /healthz"
     )
-    mcp.run(transport="streamable-http")
+    mcp.run(
+        transport="streamable-http",
+        host=host,
+        port=port,
+        streamable_http_path=f"/{secret}/mcp",
+        transport_security=transport_security,
+    )
 
 
 if __name__ == "__main__":

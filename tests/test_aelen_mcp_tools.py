@@ -1,7 +1,7 @@
 """Tests for ``cama.aelen.mcp_tools``.
 
 The MCP tool wrappers expose check_response + gather_anchors to
-the FastMCP runtime. These tests don't spin up an MCP server.
+the MCPServer runtime. These tests don't spin up an MCP server.
 they verify the ``register(mcp)`` function adds the expected tools
 to a mock MCP object and that the tool handlers return correctly
 shaped JSON.
@@ -23,7 +23,7 @@ from cama.aelen.mcp_tools import (
 
 @dataclass
 class _FakeMCP:
-    """Minimal stand-in for a FastMCP instance.
+    """Minimal stand-in for a MCPServer instance.
 
     Captures tool registrations so tests can inspect what was
     registered + invoke the handlers directly.
@@ -52,7 +52,7 @@ class TestRegister:
         for name, handler in mock.tools.items():
             assert callable(handler), f"{name} is not callable"
             assert asyncio.iscoroutinefunction(handler), (
-                f"{name} should be async (FastMCP requires async handlers)"
+                f"{name} should be async (the MCP server requires async handlers)"
             )
 
 

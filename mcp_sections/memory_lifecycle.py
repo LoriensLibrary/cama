@@ -242,7 +242,7 @@ async def cama_expire_stale() -> str:
 
 
 def register(mcp):
-    """Attach this section's tools to the given FastMCP instance."""
+    """Attach this section's tools to the given MCPServer instance."""
     mcp.tool(
         name="cama_store_teaching",
         annotations={"title":"Store Teaching","readOnlyHint":False,"destructiveHint":False,"idempotentHint":False,"openWorldHint":False},

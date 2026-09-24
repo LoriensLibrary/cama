@@ -28,7 +28,7 @@ Drop this file alongside cama_mcp.py and cama_reasoning_journal.py.
 Add to cama_mcp.py near the top:
 
     from cama.self_model import cama_thinking_log
-    # ... after `mcp = FastMCP(...)`:
+    # ... after `mcp = MCPServer(...)`:
     cama_thinking_log.register(mcp)
 
 The new tools become available as cama_dev:cama_think and
@@ -417,10 +417,10 @@ def _think_query_impl(
 
 
 # ============================================================
-# FastMCP registration
+# MCPServer registration
 # ============================================================
 def register(mcp):
-    """Register thinking log tools with the FastMCP instance."""
+    """Register thinking log tools with the MCPServer instance."""
     init_schema()
 
     @mcp.tool(

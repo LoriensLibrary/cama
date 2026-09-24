@@ -580,7 +580,7 @@ def blend_routing_v4(
 
 
 # ============================================================
-# FastMCP registration
+# MCPServer registration
 # ============================================================
 def register(mcp):
     """Register Phase 2.6 tools."""

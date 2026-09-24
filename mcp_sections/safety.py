@@ -123,7 +123,7 @@ async def cama_compliance_check() -> str:
 
 
 def register(mcp):
-    """Attach this section's tools to the given FastMCP instance."""
+    """Attach this section's tools to the given MCPServer instance."""
     mcp.tool(
         name="cama_health",
         annotations={"title":"Health Check","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},

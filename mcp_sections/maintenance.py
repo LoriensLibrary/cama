@@ -56,7 +56,7 @@ async def cama_recompute_rel_degrees() -> str:
 
 
 def register(mcp):
-    """Attach this section's tools to the given FastMCP instance."""
+    """Attach this section's tools to the given MCPServer instance."""
     mcp.tool(
         name="cama_backfill_embeddings",
         annotations={"title":"Backfill Embeddings","readOnlyHint":False,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},

@@ -95,7 +95,7 @@ class SupervisorStatsInput(BaseModel):
 # Tool registration helper
 # ============================================================
 def register(mcp):
-    """Register supervisor tools on a FastMCP instance.
+    """Register supervisor tools on a MCPServer instance.
 
     Call this from cama_mcp.py after the existing module registrations.
     """

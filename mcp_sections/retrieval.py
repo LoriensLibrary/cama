@@ -278,7 +278,7 @@ async def cama_read_room(params: ReadRoomInput) -> str:
 
 
 def register(mcp):
-    """Attach this section's tools to the given FastMCP instance."""
+    """Attach this section's tools to the given MCPServer instance."""
     mcp.tool(
         name="cama_query_memories",
         annotations={"title":"Query Memories","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},

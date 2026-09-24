@@ -121,7 +121,7 @@ class IsThisMeStatsInput(BaseModel):
 # ============================================================
 
 def register(mcp):
-    """Register isthisme tools on a FastMCP instance.
+    """Register isthisme tools on a MCPServer instance.
 
     Call this from cama_mcp.py after the supervisor registration.
     """

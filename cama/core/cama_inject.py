@@ -160,12 +160,12 @@ def main():
 
 
 # ─── MCP REGISTRATION TEMPLATE ──────────────────────────────────────────────
-# Copy these blocks into cama_mcp.py. They use your existing FastMCP `mcp` instance.
+# Copy these blocks into cama_mcp.py. They use your existing MCPServer `mcp` instance.
 #
 # Add at top of cama_mcp.py (after other imports):
 #     from cama_inject import init_pending_notes_table, post_note, get_pending_notes
 #
-# Add somewhere during startup (e.g., near the FastMCP init around line 680):
+# Add somewhere during startup (e.g., near the MCPServer init around line 680):
 #     init_pending_notes_table()
 #
 # Add these two tool registrations alongside other @mcp.tool blocks:

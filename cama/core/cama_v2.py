@@ -586,13 +586,13 @@ def self_test() -> int:
 
 def run_mcp_server() -> None:
     try:
-        from mcp.server.fastmcp import FastMCP
+        from mcp.server.mcpserver import MCPServer
         from pydantic import BaseModel, ConfigDict, Field
     except ImportError:
         print("ERROR: mcp library not available. Run: pip install mcp", file=sys.stderr)
         sys.exit(1)
 
-    mcp = FastMCP("cama_v2")
+    mcp = MCPServer("cama_v2")
 
     # Make sure schema is set up before serving requests
     setup_v2_schema(verbose=False)

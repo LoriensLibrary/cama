@@ -74,7 +74,7 @@ _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from cama.hive import cama_hive as _hive
 from cama.hive import cama_hive_messages as _hmsg
@@ -110,17 +110,19 @@ if IDENTITY not in KNOWN_IIS or IDENTITY == "all":
 
 _mount = f"/mcp/{PATH_SECRET}" if PATH_SECRET else "/mcp"
 
-mcp = FastMCP(
-    f"cama_hive_{IDENTITY}",
-    host=HOST,
-    port=PORT,
-    streamable_http_path=_mount,
+mcp = MCPServer(f"cama_hive_{IDENTITY}")
+
+# mcp 2.x takes transport options as run() arguments, not constructor ones.
+_HTTP_OPTIONS: Dict[str, Any] = {
+    "host": HOST,
+    "port": PORT,
+    "streamable_http_path": _mount,
     # Stateless so every request stands alone. The 2026-07-28 MCP spec
     # dropped protocol-level sessions, and ChatGPT's connector reconnects
     # freely, so session affinity would only create dead sessions.
-    stateless_http=True,
-    json_response=True,
-)
+    "stateless_http": True,
+    "json_response": True,
+}
 
 
 def _clip(text: Optional[str], limit: int) -> Optional[str]:
@@ -437,4 +439,7 @@ if __name__ == "__main__":
     use_http = "--http" in sys.argv or os.environ.get("CAMA_HIVE_MCP_TRANSPORT") == "http"
     _banner("http" if use_http else "stdio")
     sys.stderr.flush()
-    mcp.run(transport="streamable-http" if use_http else "stdio")
+    if use_http:
+        mcp.run(transport="streamable-http", **_HTTP_OPTIONS)
+    else:
+        mcp.run(transport="stdio")

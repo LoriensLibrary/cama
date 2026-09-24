@@ -39,7 +39,7 @@ class SetTimezoneInput(BaseModel):
 # Tool registration helper
 # ============================================================
 def register(mcp):
-    """Register temporal tools on a FastMCP instance.
+    """Register temporal tools on a MCPServer instance.
 
     Call this from cama_mcp.py after the existing module registrations,
     next to cama_supervisor_mcp.register(mcp).
