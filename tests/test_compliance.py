@@ -117,7 +117,7 @@ class TestDyadExport:
                 json={
                     "text": f"memory {i}",
                     "memory_type": "experience",
-                    "proposed_by": "user",
+                    "proposed_by": "system",
                     "source_type": "exchange",
                 },
             )
@@ -159,7 +159,7 @@ class TestDyadDelete:
                 json={
                     "text": f"m{i}",
                     "memory_type": "experience",
-                    "proposed_by": "user",
+                    "proposed_by": "system",
                     "source_type": "exchange",
                 },
             )

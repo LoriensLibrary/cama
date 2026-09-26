@@ -56,10 +56,15 @@ class MemoriesResource:
         consent_level: str = "medium",
         evidence: str | None = None,
         is_core: bool = False,
+        consent_approval: str | None = None,
     ) -> Memory:
         """Store a memory. Returns the stored record.
 
-        For ``provenance=Provenance.inference(by="assistant")`` the
+        Human-authority writes require ``consent_approval`` from the trusted
+        human-facing service. Never give this credential to an agent. It is
+        sent only on this request, not retained as a client default.
+
+        For any ``Provenance.inference(...)`` the
         returned ``Memory.status`` will be ``"provisional"`` and
         ``Memory.review_after`` will be set, per the API contract
         that "AI cannot self-promote teachings."
@@ -78,7 +83,8 @@ class MemoriesResource:
             body["evidence"] = evidence
         if affect is not None:
             body["affect"] = affect.to_payload()
-        data = self._parent.request("POST", "/v1/memories", json=body)
+        headers = {"X-Consent-Approval": consent_approval} if consent_approval else None
+        data = self._parent.request("POST", "/v1/memories", json=body, headers=headers)
         return Memory.from_response(data)
 
     def get(self, memory_id: int) -> Memory:

@@ -2,7 +2,7 @@
 
 This router owns:
 
-  POST   /v1/memories            (provenance enforced; assistant+inference
+  POST   /v1/memories            (provenance enforced; source_type=inference
                                   is forced to status=provisional)
   GET    /v1/memories/{id}       (dyad-scoped; cross-dyad reads 404)
   DELETE /v1/memories/{id}       (X-Confirm: <id> required)
@@ -15,7 +15,7 @@ This router owns:
 The four architectural commitments enforced here (per API.md § 2):
 
   1. Provenance NOT NULL at the API boundary.
-  2. AI cannot self-promote inferences, assistant+inference is
+  2. Inferences cannot self-promote; source_type=inference is
      forced to provisional with a 30-day TTL.
   3. Dyad scope leaks nothing, cross-dyad reads return 404 (not 403).
   4. Destructive endpoints require explicit X-Confirm match.
@@ -33,7 +33,7 @@ from fastapi import APIRouter, Depends, Header, status
 from fastapi.responses import JSONResponse
 
 from cama.api.auth import AuthContext
-from cama.api.consent import verify_token
+from cama.api.consent import require_approver, verify_token
 from cama.api.deps import (
     iso_days_from_now,
     open_memory_db,
@@ -55,13 +55,29 @@ router = APIRouter(tags=["memories"])
 )
 def create_memory(
     payload: MemoryCreateRequest,
+    x_consent_approval: str | None = Header(default=None, alias="X-Consent-Approval"),
     ctx: AuthContext = Depends(require_auth),
 ) -> MemoryResponse:
     # Provenance is required at the schema level (Pydantic), so we
     # know payload.proposed_by and .source_type are set. The next
     # architectural check: inferences cannot self-promote to durable.
-    # Force status = provisional for assistant+inference.
-    if payload.proposed_by == "assistant" and payload.source_type == "inference":
+    # Force status = provisional for source_type=inference.
+    # Caller-supplied provenance is not proof of human authority. Reuse the
+    # separate consent-UI credential; ordinary application keys cannot claim
+    # user authorship or write authoritative identity/core material.
+    authoritative = (
+        payload.source_type == "teaching"
+        or payload.memory_type in ("teaching", "teaching_moment", "identity")
+        or payload.is_core
+    )
+    if payload.proposed_by == "user" or authoritative:
+        require_approver(x_consent_approval)
+    if payload.source_type == "teaching" and payload.proposed_by != "user":
+        raise CamaAPIError(
+            422, CamaContract.PROVENANCE_REQUIRED,
+            detail="Teachings require user authorship; use source_type=inference for hypotheses.",
+        )
+    if payload.source_type == "inference":
         forced_status = "provisional"
         # 30-day TTL for provisional inferences
         review_after = iso_days_from_now(30)
