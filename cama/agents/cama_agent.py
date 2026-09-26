@@ -158,8 +158,8 @@ class DyadAgent:
             temperature=self.temperature,
         )
 
-        # Storage is gated on consent.storage. Default is True at init time;
-        # if a user later flips it off, refuse silently rather than throw.
+        # Generation may take time: honor consent revoked while it was running.
+        self.meta = cama_dyad.get_dyad_meta(self.dyad_id)
         stored_id: Optional[int] = None
         if self.meta["consent"].get("storage", True):
             stored_id = self._store_exchange(
@@ -190,6 +190,8 @@ class DyadAgent:
         user_message: str,
         store_writeback: bool,
     ) -> Dict[str, Any]:
+        # Long-lived agents must not retain an old consent snapshot.
+        self.meta = cama_dyad.get_dyad_meta(self.dyad_id)
         conn = sqlite3.connect(str(self.db_path))
         try:
             identity = self._fetch_identity_teachings(conn)

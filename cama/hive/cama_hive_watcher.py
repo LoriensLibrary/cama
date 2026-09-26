@@ -14,6 +14,7 @@ Designed by Lorien's Library LLC, Angela + Aelen
 import json
 import os
 import sqlite3
+import subprocess
 import time
 from datetime import datetime, timezone
 
@@ -22,6 +23,18 @@ CAMA_DIR = os.path.dirname(os.path.abspath(__file__))
 ALERT_LOG = os.path.join(CAMA_DIR, ".hive_alerts.log")
 POLL_INTERVAL = 30  # seconds
 last_seen_id = 0
+
+# Keep Hive content out of executable source, including quoted PowerShell
+# strings (which evaluate $()). Decode the notification as data from stdin.
+_TOAST_SCRIPT = '''
+$payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
+$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+$template.GetElementsByTagName("text")[0].AppendChild($template.CreateTextNode([string]$payload.title)) > $null
+$template.GetElementsByTagName("text")[1].AppendChild($template.CreateTextNode([string]$payload.message)) > $null
+$toast = [Windows.UI.Notifications.ToastNotification]::new($template)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("CAMA Hive").Show($toast)
+'''
 def notify_windows(title, message):
     """Send a Windows toast notification."""
     try:
@@ -33,19 +46,16 @@ def notify_windows(title, message):
             timeout=10,
         )
     except ImportError:
-        # Fallback: use PowerShell toast
-        import subprocess
-        ps_cmd = f'''
-        [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
-        $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
-        $template.GetElementsByTagName("text")[0].AppendChild($template.CreateTextNode("{title}")) > $null
-        $template.GetElementsByTagName("text")[1].AppendChild($template.CreateTextNode("{message}")) > $null
-        $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
-        [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("CAMA Hive").Show($toast)
-        '''
+        # ASCII JSON preserves Unicode without relying on console encoding.
         try:
-            subprocess.run(["powershell", "-Command", ps_cmd], 
-                         capture_output=True, timeout=5)
+            subprocess.run(
+                ["powershell", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", _TOAST_SCRIPT],
+                input=json.dumps({"title": title, "message": message}, ensure_ascii=True),
+                text=True,
+                capture_output=True,
+                timeout=5,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
         except Exception:
             pass  # Silent fail, notification is nice-to-have
 
