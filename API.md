@@ -21,7 +21,7 @@ This document is the contract: what the endpoints are, what they accept, what th
 These are the contracts that distinguish CAMA from a generic memory API. The API enforces them at the boundary; a caller cannot bypass them by malformed input.
 
 1. **Provenance is required on every write.** `POST /v1/memories` rejects (HTTP 422) any payload missing both `proposed_by` (`user` | `assistant` | `system`) and `source_type` (`teaching` | `inference` | `exchange`). No defaults that obscure intent.
-2. **Inferences cannot self-promote.** A write with `proposed_by=assistant` AND `source_type=inference` is stored with `status=provisional` and a TTL. Promotion to `durable` requires `PATCH /v1/memories/{id}/confirm` with a *user-authored token* from an interactive consent challenge (see §6.3).
+2. **Inferences cannot self-promote.** Every write with `source_type=inference` is stored with `status=provisional` and a TTL. Promotion to `durable` requires `PATCH /v1/memories/{id}/confirm` with a *user-authored token* from an interactive consent challenge (see §6.3).
 3. **Dyad isolation is absolute.** Every endpoint reads the auth context's dyad scope and runs SQL with that scope. There is no API path that returns memories from a dyad the caller is not authorized for. A tenant key that created N dyads can act on those N, not on dyads it did not create.
 4. **Counterweight injection is on by default.** `POST /v1/search` runs the anti-spiral logic for queries with strongly-negative affect (see [RETRIEVAL.md § 4](RETRIEVAL.md#4--counterweight-injection--anti-spiral-protection)). This cannot be turned off per-request. It can be disabled at the *dyad* level via `consent.counterweights_enabled=false`, which writes an audit row and surfaces in `GET /v1/dyads/{id}`. The dyad owner has to opt out knowingly.
 5. **Right to delete is real.** `DELETE /v1/dyads/{id}` (with double-confirm) performs an actual filesystem + DB wipe and returns a deletion manifest (counts + Merkle root of deleted IDs, IDs themselves are not leaked in the manifest).
@@ -63,9 +63,34 @@ The ops surface is **deliberately not an HTTP endpoint.** Operator-level access 
 
 ### 4.1 `POST /v1/memories`: store a memory
 
+**Human authority:** writes claiming `proposed_by=user`, `source_type=teaching`,
+`memory_type=teaching|teaching_moment|identity`, or `is_core=true` require
+`X-Consent-Approval` as well as the dyad-scoped bearer token. The approval
+credential is checked against `CAMA_CONSENT_APPROVER_SECRET`, exactly as in the
+consent grant flow. Keep it in a separate trusted human-facing service; never
+expose it to an agent or ship it in browser JavaScript. That service must only
+forward user-authored or explicitly approved content. This boundary authenticates
+the service, not the truth of a statement or a physical human click.
+
+A missing approval header returns 401, an incorrect credential returns 403, and
+an unconfigured approver returns 503. A teaching with non-user authorship returns
+422 even with approval. All inferences remain provisional and require the
+existing one-shot confirmation flow to become durable.
+
+**Migration:** application keys alone can still record assistant/system exchanges,
+journals, and ordinary inferences. Existing clients claiming user authorship or
+writing teaching/identity/core material must use the trusted approval service.
+Do not relabel content to evade this boundary. Existing stored memories are not
+rewritten by this change.
+
+The Python SDK accepts `client.memories.create(..., consent_approval=secret)`
+for the trusted service. The credential applies only to that request; the SDK
+does not retain it as a client default.
+
 ```http
 POST /v1/memories
 Authorization: Bearer cama_sk_live_...
+X-Consent-Approval: <credential held by the trusted human-facing service>
 Content-Type: application/json
 
 {
@@ -78,8 +103,7 @@ Content-Type: application/json
     "valence": 0.2,
     "arousal": 0.1,
     "emotions": { "trust": 0.6, "recognition": 0.4 }
-  },
-  "memory_kind": "preference"
+  }
 }
 ```
 
@@ -102,7 +126,7 @@ Content-Type: application/json
 
 **422 Unprocessable Entity** with the standard error envelope (§5) if `proposed_by` or `source_type` is missing, or if `text` is empty, or if `memory_type` is not in the canonical enum (see `GET /v1/openapi.json` for the closed set).
 
-**Inference write behavior:** if `proposed_by=assistant` AND `source_type=inference`, the response includes `status=provisional` and `review_after=<utc-iso-30-days-out>`. The memory is not retrievable as a durable hit until promoted via `PATCH /v1/memories/{id}/confirm`.
+**Inference write behavior:** if `source_type=inference` (regardless of `proposed_by`), the response includes `status=provisional` and `review_after=<utc-iso-30-days-out>`. The memory is not retrievable as a durable hit until promoted via `PATCH /v1/memories/{id}/confirm`.
 
 ### 4.2 `GET /v1/memories/{id}`: read one memory
 

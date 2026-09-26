@@ -35,6 +35,7 @@ def api_dbs(tmp_path, monkeypatch):
     keys_db = tmp_path / "api_keys.db"
     monkeypatch.setenv("CAMA_DB_PATH", str(mem_db))
     monkeypatch.setenv("CAMA_API_KEY_DB", str(keys_db))
+    monkeypatch.setenv("CAMA_CONSENT_APPROVER_SECRET", "synthetic-human-approval")
     _init_memory_schema(mem_db)
     return {"mem": mem_db, "keys": keys_db}
 
@@ -77,7 +78,9 @@ def _init_memory_schema(db_path: Path) -> None:
 
 
 def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+    # Existing CRUD scenarios represent the trusted human-facing client.
+    # Bare application-key authority is exercised separately below.
+    return {"Authorization": f"Bearer {token}", "X-Consent-Approval": "synthetic-human-approval"}
 
 
 # ---------------------------------------------------------------------------
@@ -211,10 +214,10 @@ class TestInferencePromotionContract:
         )
         assert body["review_after"] is not None
 
-    def test_user_teaching_stays_durable_even_via_inference_path(
+    def test_user_authored_inference_still_requires_confirmation(
         self, client, live_key
     ):
-        """User-authored writes are durable regardless of source_type."""
+        """An inference never bypasses confirmation by claiming user authorship."""
         r = client.post(
             "/v1/memories",
             headers=_auth(live_key),
@@ -226,7 +229,7 @@ class TestInferencePromotionContract:
             },
         )
         assert r.status_code == 201
-        assert r.json()["status"] == "durable"
+        assert r.json()["status"] == "provisional"
 
 
 # ---------------------------------------------------------------------------
@@ -802,3 +805,62 @@ def api_dbs_path(client) -> str:
     import os
 
     return os.environ["CAMA_DB_PATH"]
+
+
+# Application bearer tokens cannot impersonate human memory authority.
+@pytest.mark.parametrize('fields', [
+    {'proposed_by': 'user'},
+    {'source_type': 'teaching'},
+    {'memory_type': 'teaching'},
+    {'memory_type': 'teaching_moment'},
+    {'memory_type': 'identity'},
+    {'is_core': True},
+])
+@pytest.mark.parametrize('approval', [None, 'wrong-credential'])
+def test_application_key_cannot_claim_authority(client, live_key, api_dbs, fields, approval):
+    headers = {'Authorization': f'Bearer {live_key}'}
+    if approval:
+        headers['X-Consent-Approval'] = approval
+    response = client.post('/v1/memories', headers=headers, json={
+        'text': 'synthetic assertion', 'memory_type': 'experience',
+        'proposed_by': 'assistant', 'source_type': 'exchange', **fields,
+    })
+    assert response.status_code == (403 if approval else 401)
+    with sqlite3.connect(api_dbs['mem']) as conn:
+        assert conn.execute('SELECT COUNT(*) FROM memories').fetchone()[0] == 0
+
+
+@pytest.mark.parametrize('author', ['assistant', 'system', 'user'])
+def test_every_inference_is_provisional(client, live_key, author):
+    headers = {'Authorization': f'Bearer {live_key}'}
+    if author == 'user':
+        headers['X-Consent-Approval'] = 'synthetic-human-approval'
+    response = client.post('/v1/memories', headers=headers, json={
+        'text': 'synthetic hypothesis', 'memory_type': 'preference',
+        'proposed_by': author, 'source_type': 'inference',
+    })
+    assert response.status_code == 201
+    assert response.json()['status'] == 'provisional'
+    assert response.json()['review_after'] is not None
+
+
+def test_no_approver_configuration_fails_closed(client, live_key, monkeypatch):
+    monkeypatch.delenv('CAMA_CONSENT_APPROVER_SECRET')
+    response = client.post('/v1/memories', headers={
+        'Authorization': f'Bearer {live_key}', 'X-Consent-Approval': 'anything',
+    }, json={
+        'text': 'synthetic teaching', 'memory_type': 'teaching',
+        'proposed_by': 'user', 'source_type': 'teaching',
+    })
+    assert response.status_code == 503
+
+
+def test_approval_does_not_make_assistant_a_teaching_author(client, live_key):
+    response = client.post('/v1/memories', headers={
+        'Authorization': f'Bearer {live_key}',
+        'X-Consent-Approval': 'synthetic-human-approval',
+    }, json={
+        'text': 'synthetic hypothesis', 'memory_type': 'teaching',
+        'proposed_by': 'assistant', 'source_type': 'teaching',
+    })
+    assert response.status_code == 422

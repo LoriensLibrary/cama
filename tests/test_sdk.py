@@ -78,6 +78,7 @@ def sdk(tmp_path, monkeypatch):
     keys_db = tmp_path / "api_keys.db"
     monkeypatch.setenv("CAMA_DB_PATH", str(mem_db))
     monkeypatch.setenv("CAMA_API_KEY_DB", str(keys_db))
+    monkeypatch.setenv("CAMA_CONSENT_APPROVER_SECRET", "synthetic-sdk-approval")
     _init_memory_schema(mem_db)
 
     from cama.api.auth import create_key
@@ -113,6 +114,7 @@ class TestHappyPath:
             text="the user prefers concise summaries with citations",
             memory_type="teaching",
             provenance=Provenance.teaching(by="user"),
+            consent_approval="synthetic-sdk-approval",
             consent_level="high",
         )
         assert mem.id > 0
@@ -149,6 +151,7 @@ class TestProvenanceContract:
             text="I prefer evening sessions",
             memory_type="preference",
             provenance=Provenance.teaching(by="user"),
+            consent_approval="synthetic-sdk-approval",
         )
         assert mem.status == "durable"
 
@@ -161,6 +164,7 @@ class TestEnumValidation:
                 text="x",
                 memory_type="banana",  # not in canonical set
                 provenance=Provenance.teaching(by="user"),
+                consent_approval="synthetic-sdk-approval",
             )
 
 
@@ -174,6 +178,7 @@ class TestDestructiveGuardrails:
             text="ephemeral",
             memory_type="experience",
             provenance=Provenance.exchange(by="user"),
+            consent_approval="synthetic-sdk-approval",
         )
         # SDK delete should succeed
         client.memories.delete(mem.id)
@@ -188,6 +193,7 @@ class TestDestructiveGuardrails:
             text="ephemeral",
             memory_type="experience",
             provenance=Provenance.exchange(by="user"),
+            consent_approval="synthetic-sdk-approval",
         )
         with pytest.raises(CamaConfirmHeaderMissingError):
             client.request("DELETE", f"/v1/memories/{mem.id}", expect_204=True)
@@ -272,6 +278,7 @@ class TestExceptionModel:
                 text="x",
                 memory_type="banana",
                 provenance=Provenance.teaching(by="user"),
+                consent_approval="synthetic-sdk-approval",
             )
         except CamaError as e:
             assert e.contract in {"provenance_required", "enum_value_unknown"}
@@ -279,3 +286,18 @@ class TestExceptionModel:
             assert e.detail
             return
         pytest.fail("expected a typed CamaError to be raised")
+
+
+def test_sdk_approval_is_not_retained_between_requests(sdk):
+    client, _ = sdk
+    client.memories.create(
+        text="approved synthetic teaching", memory_type="teaching",
+        provenance=Provenance.teaching(by="user"),
+        consent_approval="synthetic-sdk-approval",
+    )
+    with pytest.raises(CamaError) as denied:
+        client.memories.create(
+            text="unapproved synthetic teaching", memory_type="teaching",
+            provenance=Provenance.teaching(by="user"),
+        )
+    assert denied.value.body["cama"]["violated_contract"] == "consent_approver_required"
