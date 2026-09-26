@@ -6,9 +6,8 @@ Endpoints:
   GET    /v1/webhooks         (list; secret is NEVER in list responses)
   DELETE /v1/webhooks/{id}    (X-Confirm: <id> required)
 
-The mint endpoint is the only place a webhook secret is ever surfaced
-on the wire. It's hashed at rest (SHA-256) so the operator stores it
-in their secrets manager on receipt, there is no recovery path. The
+The mint endpoint is the only place a webhook secret is returned to callers.
+Delivery derives it from an operator-held master secret and a stored nonce. The
 delivery mechanism itself lives in ``cama/api/webhooks.py``; this
 router only manages subscriptions.
 """
@@ -23,6 +22,7 @@ from fastapi.responses import JSONResponse
 from cama.api.auth import AuthContext
 from cama.api.deps import require_auth
 from cama.api.errors import CamaAPIError, CamaContract
+from cama.api.webhook_security import WebhookConfigurationError
 from cama.api.webhooks import (
     KNOWN_EVENTS,
     create_webhook,
@@ -62,9 +62,13 @@ def webhook_create(
                 f"valid: {list(KNOWN_EVENTS)}"
             ),
         )
-    webhook_id, secret = create_webhook(
-        dyad_id=ctx.dyad_id, url=url, events=events
-    )
+    try:
+        webhook_id, secret = create_webhook(dyad_id=ctx.dyad_id, url=url, events=events)
+    except WebhookConfigurationError as exc:
+        raise CamaAPIError(503, CamaContract.DEGRADED_MODE, detail=str(exc)) from exc
+    except (ValueError, OSError) as exc:
+        raise CamaAPIError(422, CamaContract.ENUM_VALUE_UNKNOWN,
+                           detail="Webhook destination or events are invalid or disallowed.") from exc
     return {
         "id": webhook_id,
         "dyad_id": ctx.dyad_id,

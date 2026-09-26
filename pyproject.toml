@@ -53,7 +53,7 @@ dependencies = [
     "mcp>=1.0.0,<2",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
-    "httpx>=0.24.0",
+    "httpx>=0.28.1",
     # IANA timezone database. Required at runtime by cama.temporal on
     # Windows (which doesn't ship system tzdata); Linux/macOS usually
     # have /usr/share/zoneinfo natively but installing the Python
@@ -105,7 +105,7 @@ tunnel = [
 dev = [
     "pytest>=7.0",
     "ruff>=0.6",
-    "httpx>=0.24.0",  # used by FastAPI's TestClient
+    "httpx>=0.28.1",  # used by FastAPI's TestClient
     "fastapi>=0.100.0",  # pulled in for tests/test_api.py
     "argon2-cffi>=23.0.0",  # same
 ]

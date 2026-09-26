@@ -565,7 +565,7 @@ The API does not claim compliance itself. It provides the primitives a compliant
 | API.md (this file) linked from README + EVIDENCE | ✅ |, |
 | `cama-sdk` package on PyPI | ❌ | next session |
 | Tutorial / "20 lines" example repo | ❌ | next session |
-| Webhooks (`POST /v1/webhooks`) | ❌ | v1.1 |
+| Webhooks (`POST /v1/webhooks`) | ✅ | Requires operator configuration below |
 | Multi-tenant tenant-key issuance via API | ❌ | v1.1 (today: via `cama-ops keys create`) |
 | Ops CLI (`cama-ops`) | ❌ | v1.1 |
 | Embedding worker separation | ❌ | v1.1 |
@@ -573,3 +573,53 @@ The API does not claim compliance itself. It provides the primitives a compliant
 | Hosted SaaS | ❌ | separate company conversation |
 
 What's in this PR is enough to demonstrate the architecture and let a developer integrate against a self-hosted CAMA. What's deferred is named, scoped, and recoverable.
+
+### Webhook security and configuration
+
+Webhooks require both environment variables on the API server:
+
+- `CAMA_WEBHOOK_ALLOWED_HOSTS`: comma-separated exact destination hostnames,
+  such as `hooks.example.com`. Use ASCII/punycode names; wildcards are unsupported.
+- `CAMA_WEBHOOK_MASTER_SECRET`: a persistent, cryptographically random secret of
+  at least 32 bytes. Generate it with `python -c "import secrets; print(secrets.token_hex(32))"`
+  and supply it through your secret manager. Never commit it or expose it to clients.
+
+Without these settings, subscription creation returns 503. Destinations must use
+HTTPS on port 443, without URL credentials or fragments. Every DNS answer must be
+public unicast; loopback, private, link-local and IPv6 transition addresses are
+rejected. The policy is checked at registration and before every delivery. Delivery
+connects to a checked IP while verifying TLS against the original hostname. It
+ignores environment proxy settings and never follows redirects.
+
+`POST /v1/webhooks` returns a per-subscription `secret` once. Store it securely at
+the receiver. Each POST carries `X-CAMA-Signature`, the lowercase hexadecimal
+HMAC-SHA256 of the **exact raw request bytes**, using the returned secret as a
+UTF-8 string (do not hex-decode it). For example, a Python receiver can verify:
+
+```python
+import hashlib
+import hmac
+
+expected = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+valid = hmac.compare_digest(expected, received_signature)
+```
+
+Reject invalid signatures before processing JSON. The signed JSON contains
+`event`, `dyad_id`, `payload`, and `delivered_at`. Use the signed timestamp to
+enforce a freshness window and track processed requests to prevent replay.
+Signatures alone do not prevent replay. `X-CAMA-Body-SHA256` is only a checksum,
+not authentication.
+
+The database stores a random nonce and a hash of the derived subscription key;
+the master secret is held separately. Existing subscriptions created before this
+change cannot be signed and will stop delivering until deleted and recreated.
+Changing the master secret likewise requires recreating subscriptions and updating
+receiver secrets. Schema migration preserves existing rows and delivery history.
+Removing a hostname from the allowlist prevents subsequent deliveries to it.
+
+Delivery remains synchronous and best-effort: errors and non-2xx responses are
+logged, with no retries or durable queue. HTTP operations have five-second phase
+timeouts, not an overall deadline; DNS lookup and multiple subscriptions can add
+latency. Response bodies are not consumed. Use a durable queue before relying on
+webhooks for guaranteed delivery. Webhook payloads may contain memory data: only
+allow destinations authorized to receive that dyad's data.
