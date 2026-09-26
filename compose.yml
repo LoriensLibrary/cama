@@ -13,7 +13,7 @@ services:
     image: cama-demo:local
     container_name: cama-demo
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     volumes:
       - cama-demo-data:/data
     restart: unless-stopped

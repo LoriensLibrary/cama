@@ -219,6 +219,38 @@ def test_storage_off_skips_writeback():
         conn.close()
 
 
+@pytest.mark.parametrize("during_generation", [False, True])
+def test_existing_agent_honors_storage_revocation(during_generation):
+    dyad_id = cama_dyad.init_dyad(person_name="X", ai_name="Y")["dyad_id"]
+
+    class RevokingBackend(EchoBackend):
+        def generate(self, **kwargs):
+            cama_dyad.update_consent(dyad_id, {"storage": False})
+            return super().generate(**kwargs)
+
+    agent = cama_agent.DyadAgent(
+        dyad_id, RevokingBackend() if during_generation else EchoBackend()
+    )
+    if not during_generation:
+        cama_dyad.update_consent(dyad_id, {"storage": False})
+    result = agent.chat("do not persist this")
+    assert result["exchange_memory_id"] is None
+    with sqlite3.connect(str(cama_dyad.dyad_db_path(dyad_id))) as conn:
+        assert conn.execute(
+            "SELECT COUNT(*) FROM memories WHERE memory_type='exchange'"
+        ).fetchone()[0] == 0
+
+
+def test_existing_agent_refreshes_counterweight_consent():
+    dyad_id = cama_dyad.init_dyad(person_name="X", ai_name="Y")["dyad_id"]
+    cama_dyad.update_consent(dyad_id, {"counterweight": True})
+    _seed_counterweight_memory(dyad_id, "You have support", "connection")
+    agent = cama_agent.DyadAgent(dyad_id, EchoBackend())
+    assert agent.chat("I feel scared and alone")["counterweights_used"]
+    cama_dyad.update_consent(dyad_id, {"counterweight": False})
+    assert not agent.chat("I feel scared and alone")["counterweights_used"]
+
+
 # ============================================================
 # Cross-dyad isolation extends to the agent runtime
 # ============================================================
