@@ -6,8 +6,8 @@ Design (per API.md v1.1):
   subscription has an event-name allowlist (``memory.created``,
   ``memory.deleted``, ``dyad.consent_changed``, etc.) and a
   per-subscription HMAC secret returned ONCE at creation.
-* Deliveries are best-effort, fire-and-forget HTTP POST with a 5-second
-  timeout. The recipient validates the body via the
+* Deliveries are best-effort, synchronous HTTP POST with 5-second
+  HTTP phase timeouts. The recipient validates the body via the
   ``X-CAMA-Signature`` header, which is HMAC-SHA256 of the canonical
   request body keyed on the subscription secret.
 * Each delivery attempt is logged to ``webhook_deliveries`` in the
@@ -16,7 +16,7 @@ Design (per API.md v1.1):
 What this MVP deliberately does NOT do:
   * No queue, no exponential backoff, no idempotency key. Failures are
     logged but not retried. Production deployments should put a real
-    queue in front. Documented in API.md as v1.2.
+    queue in front. Limitations are documented in API.md.
   * No HMAC over headers, only body, keeps the signature scheme
     portable across HTTP clients with header-handling quirks.
 """
@@ -33,6 +33,7 @@ from typing import Any
 import httpx
 
 from cama.api.auth import _open_keys_db
+from cama.api.webhook_security import checked_url, public_address, signing_secret
 from cama.core.time_utils import now_iso
 
 # A short list of event types v1.1 fires. Adding to this list is an
@@ -75,6 +76,13 @@ def init_webhooks_schema() -> None:
                 ON webhook_deliveries(webhook_id);
         """)
         c.commit()
+        if "signing_nonce" not in {row[1] for row in c.execute("PRAGMA table_info(webhooks)")}:
+            try:
+                c.execute("ALTER TABLE webhooks ADD COLUMN signing_nonce TEXT")
+                c.commit()
+            except sqlite3.OperationalError:
+                if "signing_nonce" not in {row[1] for row in c.execute("PRAGMA table_info(webhooks)")}:
+                    raise
     finally:
         c.close()
 
@@ -89,19 +97,23 @@ def create_webhook(
     events: list[str],
 ) -> tuple[int, str]:
     """Mint a new webhook subscription. Returns (webhook_id, secret).
-    The plaintext secret is shown ONCE; the row stores only its hash
-    (SHA-256, webhook secrets are not Argon2 candidates because the
-    recipient needs to validate fast on every delivery)."""
+    The secret is derived from an operator-held master key and a random
+    subscription nonce. Only its hash and nonce are stored in the database."""
+    destination = checked_url(url)
+    public_address(destination)
+    if not events or any(event not in KNOWN_EVENTS for event in events):
+        raise ValueError("Unknown or empty webhook event list.")
     init_webhooks_schema()
-    secret = secrets.token_urlsafe(32)
+    nonce = secrets.token_hex(32)
+    secret = signing_secret(nonce)
     secret_hash = hashlib.sha256(secret.encode("utf-8")).hexdigest()
     c = _open_keys_db()
     try:
         cur = c.execute(
             "INSERT INTO webhooks "
-            "(dyad_id, url, events_json, secret_hash, created_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (dyad_id, url, json.dumps(sorted(set(events))), secret_hash, now_iso()),
+            "(dyad_id, url, events_json, secret_hash, created_at, signing_nonce) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (dyad_id, str(destination), json.dumps(sorted(set(events))), secret_hash, now_iso(), nonce),
         )
         c.commit()
         return cur.lastrowid, secret
@@ -181,7 +193,7 @@ def notify(
     c = _open_keys_db()
     try:
         rows = c.execute(
-            "SELECT id, url, events_json FROM webhooks "
+            "SELECT id, url, events_json, signing_nonce, secret_hash FROM webhooks "
             "WHERE dyad_id = ? AND revoked_at IS NULL",
             (dyad_id,),
         ).fetchall()
@@ -194,17 +206,6 @@ def notify(
     if not matched:
         return 0
 
-    # Re-mint the per-webhook secrets isn't possible without the plaintext;
-    # MVP delivers UNSIGNED in this branch. The signed path uses the
-    # subscription's row-secret which we don't store. The correct fix:
-    # store the secret in a recoverable form for the operator's own
-    # webhooks (since the recipient is the operator's own service).
-    # For v1.1 MVP we hash; v1.2 will switch to symmetric encryption with
-    # an operator-supplied master key so notify() can decrypt and sign.
-    # Until then the delivery includes only X-CAMA-Event and the recipient
-    # validates via the URL being a secret-bearing path (which is what
-    # most webhook-first APIs do anyway).
-
     body = json.dumps({
         "event": event_type,
         "dyad_id": dyad_id,
@@ -215,7 +216,10 @@ def notify(
 
     owned_client = False
     if http_client is None:
-        http_client = httpx.Client(timeout=5.0)
+        http_client = httpx.Client(
+            timeout=5.0, trust_env=False, follow_redirects=False,
+            limits=httpx.Limits(max_keepalive_connections=0),
+        )
         owned_client = True
 
     attempts = 0
@@ -225,16 +229,30 @@ def notify(
             status_code: int | None = None
             error: str | None = None
             try:
-                resp = http_client.post(
-                    r["url"],
+                if not r["signing_nonce"]:
+                    raise ValueError("Legacy unsigned subscription must be recreated.")
+                secret = signing_secret(r["signing_nonce"])
+                if not hmac.compare_digest(hashlib.sha256(secret.encode("utf-8")).hexdigest(), r["secret_hash"]):
+                    raise ValueError("Subscription signing key changed; recreate subscription.")
+                destination = checked_url(r["url"])
+                address = public_address(destination)
+                # Pin DNS while preserving Host and TLS certificate verification
+                # against the original hostname. Do not consume response bodies.
+                with http_client.stream(
+                    "POST", destination.copy_with(host=address),
                     content=body,
                     headers={
+                        "Host": destination.raw_host.decode("ascii"),
                         "Content-Type": "application/json",
                         "X-CAMA-Event": event_type,
                         "X-CAMA-Body-SHA256": body_hash,
+                        "X-CAMA-Signature": _sign(body, secret),
+                        "Connection": "close",
                     },
-                )
-                status_code = resp.status_code
+                    extensions={"sni_hostname": destination.raw_host.decode("ascii")},
+                    follow_redirects=False, timeout=5.0,
+                ) as resp:
+                    status_code = resp.status_code
                 if not (200 <= status_code < 300):
                     error = f"non-2xx: {status_code}"
             except Exception as e:  # noqa: BLE001, delivery is best-effort
