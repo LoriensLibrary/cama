@@ -21,8 +21,11 @@ nothing outside the process can reach. ChatGPT connectors require a
 **public HTTPS endpoint** and cannot reach localhost. Publishing that
 server would mean publishing a shell.
 
-`cama_hive_mcp.py` is a second server with a hive-only surface. Treat its
-URL as public. Worst case if it leaks is a spam message in the hive.
+`cama_hive_mcp.py` is a second server with a hive-only surface. Its URL is
+a credential: anyone holding it can act as its configured identity and read
+that identity's messages and shared Hive signals. Keep it private and rotate
+the secret if disclosed. Removing shell tools alone does not secure every
+downstream consumer of Hive data.
 
 ## What Lorien gets
 
@@ -62,6 +65,12 @@ subdomain. Write it down as `YOURNAME.ngrok-free.app`.
 The ChatGPT connector form takes a URL and offers OAuth or no-auth, with no
 place for a static bearer header. So the secret lives in the URL path.
 Anything hitting the bare domain gets a 404.
+
+HTTP startup requires a randomly generated secret of 32–256 URL-safe
+characters (letters, numbers, underscore, hyphen). Missing, short, or invalid
+secrets stop startup; stdio remains available without a path secret. Startup
+logs redact the secret. Reverse proxies and access logs also need credential
+redaction because this authentication method puts the credential in a URL.
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(24))"
@@ -124,8 +133,21 @@ tool listing over the wire, absence of shell/file/memory tools, identity
 pinning, a live inbox read, a pheromone read, and three guard-rail
 rejections (unknown recipient, self-send, bad pheromone type).
 
-The test lives in the scratchpad, not `tests/`, because it runs its work
-at module level and would execute during pytest collection.
+The original check lived in a scratchpad. Repository regression coverage is
+now in `tests/test_hive_remote_security.py`: exact HTTP path gating and MCP
+handshake, the eight-tool allowlist, pinned sender, private thread and reply
+authorization, mixed-recipient inbox isolation, write scopes/rate limits,
+secret redaction, and notification payload handling. Tests use temporary
+databases and do not launch notifications.
+
+Remote message history is filtered per message to the configured identity.
+Knowing a thread ID or parent UUID does not grant access. Read-only identities
+must use `mark_read=false` when checking their inbox. Permissions follow
+`cama_hive_security.II_PERMISSIONS`; `codex` is a supported routing identity.
+
+The Windows notification fallback sends JSON on stdin to a fixed PowerShell
+script. Hive text is never interpolated into executable PowerShell source.
+Installing an optional notification package is not the security fix.
 
 ## Related fix, now landed
 
@@ -140,7 +162,7 @@ Streamable HTTP behind the same secret-path scheme this server uses, binds
 127.0.0.1 by default, and is meant to sit behind a tunnel. The distinction
 that motivated a separate hive server still holds: `cama_mcp.py` carries
 shell, filesystem and memory tools and its URL is a private credential,
-while this server's URL can be treated as public.
+while this server's URL grants the more limited Hive access described above.
 
 Also stale: `.hive_url` and both `gpt_action_spec*.json` files still point
 at a retired tunnel hostname that now returns 404. They describe the old

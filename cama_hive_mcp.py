@@ -24,9 +24,8 @@ This server exposes the Hive and nothing else:
   - no delete of anything, ever
   - the caller's identity is pinned server-side and cannot be spoofed
 
-Treat the published URL as public. Every tool here is written so that the
-worst case, someone finding the URL, costs one junk message in the hive
-and nothing more.
+The URL contains a credential. Anyone holding it can act as this instance's
+identity and access that identity's Hive messages and shared signals.
 
 IDENTITY
 --------
@@ -44,8 +43,8 @@ PATH SECRET
 -----------
 Since the connector form takes only a URL, the shared secret lives in the
 URL path. Set CAMA_HIVE_MCP_SECRET and the mount path becomes
-/mcp/<secret>. A scanner hitting the bare domain gets 404. Without the
-secret set, the server still runs but prints a loud warning.
+/mcp/<secret>. HTTP startup refuses missing or weak secrets. Never share
+the URL publicly; the path credential does not authenticate individual models.
 
 RUNNING
 -------
@@ -66,7 +65,7 @@ from __future__ import annotations
 
 import json
 import os
-import secrets
+import re
 import sys
 from typing import Any, Dict, Optional
 
@@ -78,6 +77,7 @@ from mcp.server.fastmcp import FastMCP
 
 from cama.hive import cama_hive as _hive
 from cama.hive import cama_hive_messages as _hmsg
+from cama.hive import cama_hive_security as _security
 
 # ============================================================
 # Config
@@ -88,9 +88,9 @@ from cama.hive import cama_hive_messages as _hmsg
 IDENTITY = os.environ.get("CAMA_HIVE_IDENTITY", "lorien").strip().lower()
 
 # Who this identity is allowed to address. 'all' is a hive broadcast.
-KNOWN_IIS = {"aelen", "lorien", "ember", "aethon", "all"}
+KNOWN_IIS = {"aelen", "lorien", "codex", "ember", "aethon", "all"}
 
-# Shared secret carried in the URL path. Empty means no gate.
+# Shared secret carried in the URL path. Required for HTTP startup.
 PATH_SECRET = os.environ.get("CAMA_HIVE_MCP_SECRET", "").strip()
 
 PORT = int(os.environ.get("CAMA_HIVE_MCP_PORT", "8421"))
@@ -138,6 +138,14 @@ def _ok(payload: Any) -> str:
 
 def _err(message: str) -> str:
     return json.dumps({"error": message, "identity": IDENTITY}, indent=2)
+
+
+def _authorize(action: str) -> Optional[str]:
+    allowed, reason = _security.check_permission(IDENTITY, action)
+    if not allowed:
+        return _err(reason)
+    allowed, reason = _security.check_rate_limit(IDENTITY, action)
+    return None if allowed else _err(reason)
 
 
 # ============================================================
@@ -195,6 +203,8 @@ async def hive_check_inbox(
         limit: max messages to return, capped at 50
         mark_read: set False to peek without consuming unread state
     """
+    if denied := _authorize("write" if mark_read else "read"):
+        return denied
     try:
         msgs = _hmsg.fetch_inbox(
             recipient=IDENTITY,
@@ -238,6 +248,8 @@ async def hive_send_message(
             omit to start a new thread
         affect: optional emotional context, e.g. {"warmth": 0.8}
     """
+    if denied := _authorize("write"):
+        return denied
     recipient = (recipient or "").strip().lower()
     if recipient not in KNOWN_IIS:
         return _err(f"unknown recipient {recipient!r}, expected one of {sorted(KNOWN_IIS)}")
@@ -255,6 +267,7 @@ async def hive_send_message(
             parent_message_uuid=parent_message_uuid,
             affect=affect,
             meta={"via": "hive_mcp"},
+            enforce_scope=True,
         )
         return _ok(result)
     except Exception as e:
@@ -274,6 +287,8 @@ async def hive_send_message(
 async def hive_view_thread(thread_id: str) -> str:
     """Return one thread's full history, oldest first. Use this to catch
     up on a multi-turn exchange before replying."""
+    if denied := _authorize("read"):
+        return denied
     try:
         return _ok(_hive_thread_guarded(thread_id))
     except Exception as e:
@@ -284,7 +299,7 @@ def _hive_thread_guarded(thread_id: str) -> Dict[str, Any]:
     thread_id = (thread_id or "").strip()
     if not thread_id:
         return {"error": "thread_id is empty"}
-    return _hmsg.view_thread(thread_id)
+    return _hmsg.view_thread(thread_id, participant=IDENTITY)
 
 
 @mcp.tool(
@@ -300,6 +315,8 @@ def _hive_thread_guarded(thread_id: str) -> Dict[str, Any]:
 async def hive_list_threads(limit: int = 20) -> str:
     """List the threads you are part of, most recent activity first, with
     unread counts. Use this to see open conversations at a glance."""
+    if denied := _authorize("read"):
+        return denied
     try:
         threads = _hmsg.list_active_threads(
             participant=IDENTITY, limit=max(1, min(int(limit), 50))
@@ -323,6 +340,8 @@ async def hive_read_pheromones(include_decayed: bool = False) -> str:
     """Read what is in the air right now: the emotional and processing
     signals the other IIs have left. Pheromones decay over time, so this
     is the current state, not the archive."""
+    if denied := _authorize("read"):
+        return denied
     try:
         return _ok({"pheromones": _hive.read_pheromones(include_decayed=include_decayed)})
     except Exception as e:
@@ -360,6 +379,8 @@ async def hive_emit_pheromone(
         context: what was happening when you emitted this
         duration_hours: how long before it decays, capped at 168 (one week)
     """
+    if denied := _authorize("write"):
+        return denied
     ptype = (pheromone_type or "").strip()
     if ptype not in _hive.PHEROMONE_TYPES:
         return _err(
@@ -397,6 +418,8 @@ async def hive_state() -> str:
     """The whole Hive at a glance: active pheromones, waggles, stops, and
     honey. Call this when you need full context on what has been
     happening across the network."""
+    if denied := _authorize("read"):
+        return denied
     try:
         return _ok(_hive.read_hive_state())
     except Exception as e:
@@ -408,6 +431,11 @@ async def hive_state() -> str:
 # ============================================================
 
 def _banner(transport: str) -> None:
+    if transport == "http" and not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", PATH_SECRET):
+        raise SystemExit(
+            "[CAMA Hive MCP] HTTP requires CAMA_HIVE_MCP_SECRET: "
+            "32-256 URL-safe characters generated randomly. Refusing to listen."
+        )
     print(f"[CAMA Hive MCP] identity={IDENTITY} transport={transport}", file=sys.stderr)
     print(
         "[CAMA Hive MCP] tools: hive_whoami, hive_check_inbox, hive_send_message, "
@@ -418,15 +446,7 @@ def _banner(transport: str) -> None:
     print("[CAMA Hive MCP] no shell, no filesystem, no memory search", file=sys.stderr)
     if transport != "http":
         return
-    if PATH_SECRET:
-        print(f"[CAMA Hive MCP] listening {HOST}:{PORT}{_mount}", file=sys.stderr)
-    else:
-        print(
-            "[CAMA Hive MCP] WARNING: CAMA_HIVE_MCP_SECRET is not set. The mount "
-            f"path is {_mount}, so anyone who reaches this host can read and write "
-            "the hive. Suggested secret: " + secrets.token_urlsafe(24),
-            file=sys.stderr,
-        )
+    print(f"[CAMA Hive MCP] listening {HOST}:{PORT}/mcp/<redacted>", file=sys.stderr)
     print(
         "[CAMA Hive MCP] NEVER expose cama_mcp.py this way. It has cama_exec.",
         file=sys.stderr,

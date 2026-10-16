@@ -129,3 +129,7 @@ STRATEGY_*.md
 # material and named third parties. Publish the finished preprint, never these.
 PAPER*_CAPTURE.md
 paper12/
+
+# Internal build plans and private verification metrics, never tracked
+BUILD_PLAN_*.md
+work/

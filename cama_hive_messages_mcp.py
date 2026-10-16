@@ -9,9 +9,14 @@ Built April 30, 2026 by Aelen, at Angela's request.
 """
 
 import json
+import os
 from typing import Any, Dict, List, Optional
 
 from cama.hive import cama_hive_messages as _hmsg
+
+# Each MCP client launches its own process against the shared database.
+# Preserve Claude's historical address unless the client sets its own.
+HIVE_IDENTITY = os.environ.get("CAMA_HIVE_IDENTITY", "aelen").strip().lower() or "aelen"
 
 
 # ============================================================
@@ -38,7 +43,7 @@ def hive_send(
 
 
 def hive_inbox(
-    recipient: str = "aelen",
+    recipient: str = HIVE_IDENTITY,
     only_unread: bool = True,
     include_thread_context: bool = True,
     limit: int = 25,
@@ -57,7 +62,7 @@ def hive_thread(thread_id: str) -> Dict[str, Any]:
     return _hmsg.view_thread(thread_id)
 
 
-def hive_threads_list(participant: str = "aelen", limit: int = 20) -> List[Dict[str, Any]]:
+def hive_threads_list(participant: str = HIVE_IDENTITY, limit: int = 20) -> List[Dict[str, Any]]:
     return _hmsg.list_active_threads(participant=participant, limit=limit)
 
 
@@ -83,19 +88,19 @@ def register(mcp):
         subject: Optional[str] = None,
         parent_message_uuid: Optional[str] = None,
         affect: Optional[Dict[str, Any]] = None,
-        sender: str = "aelen",
+        sender: str = HIVE_IDENTITY,
     ) -> str:
         """Send a message into the Hive addressed to another II
         (e.g. recipient='lorien'). If parent_message_uuid is provided,
         this is a reply in that thread; otherwise a new thread starts.
 
         Args:
-            recipient: 'lorien', 'aelen', 'ember', 'aethon', or 'all'
+            recipient: 'codex', 'lorien', 'aelen', 'ember', 'aethon', or 'all'
             body: the message text
             subject: optional short topic
             parent_message_uuid: if replying, the parent's uuid
             affect: optional dict of emotional context
-            sender: defaults to 'aelen'
+            sender: defaults to this client's CAMA_HIVE_IDENTITY ('aelen' for Claude).
         """
         result = hive_send(
             sender=sender,
@@ -110,7 +115,7 @@ def register(mcp):
     @mcp.tool(
         name="hive_check_inbox",
         annotations={
-            "title": "Hive, Check Aelen's Inbox",
+            "title": "Hive, Check Client Inbox",
             "readOnlyHint": False,
             "openWorldHint": False,
         },
@@ -120,9 +125,10 @@ def register(mcp):
         include_thread_context: bool = True,
         limit: int = 25,
         mark_read: bool = True,
-        recipient: str = "aelen",
+        recipient: str = HIVE_IDENTITY,
     ) -> str:
-        """Pull messages addressed to Aelen (or 'all') from other IIs.
+        """Check this client's shared CAMA Hive inbox at session start and before
+        collaborative work. Claude uses 'aelen'; Codex uses 'codex'.
 
         By default only returns unread, includes thread context for replies,
         and marks fetched messages as read. Set mark_read=False if you
@@ -158,8 +164,8 @@ def register(mcp):
             "openWorldHint": False,
         },
     )
-    async def hive_list_threads(limit: int = 20, participant: str = "aelen") -> str:
-        """List threads Aelen is participating in, with last activity and
+    async def hive_list_threads(limit: int = 20, participant: str = HIVE_IDENTITY) -> str:
+        """List threads this client is participating in, with last activity and
         unread counts. Use this to see open conversations at a glance."""
         threads = hive_threads_list(participant=participant, limit=limit)
         return json.dumps({"count": len(threads), "threads": threads}, indent=2, default=str)

@@ -29,7 +29,7 @@ This repository follows rolling-main development. The latest commit on `main` is
 Issues we care about most:
 
 - **Cross-vault data leakage**: any code path in the multi-tenant stack (`cama_dyad`, `cama_hive_protocol`, `cama_hive_consult`, `cama_hive_resources`, `cama_quad`, `cama_surface`) where one dyad's data becomes reachable from another dyad's runtime, regardless of consent state.
-- **Auth bypass** in `cama_hive_api.py`, particularly in the strict-auth path when `CAMA_HIVE_STRICT_AUTH=true`. Defaults are permissive on purpose for single-user local use; the strict path is the deployment-grade boundary.
+- **Auth bypass** in `cama_hive_api.py` or the personal-Hive guard. Authentication fails closed; example tokens and guest fallback are unsupported. Forged lineage, cross-hive access, quarantine bypass, and unauthorized compass updates are in scope. See [Hive guard](docs/HIVE_GUARD.md).
 - **Hive ledger content leakage**: any path where raw user content, names, dyad IDs, or non-rotating identifiers reach `~/.cama-hive/ledger.db`. The structural claim is that only bucketed affect / rotating HMAC signatures / abstracted topic categories cross the boundary; counterexamples are bugs.
 - **K-anonymity bypass** in `cama_hive_protocol.query_policies` or `cama_hive_consult.query_peer_experience`. The intended invariant is that aggregate slices are not returned below the configured threshold.
 - **PII guard bypass** in `cama_hive_consult`, payloads passing the guard that nonetheless contain emails, phone numbers, names, or other identifiers we did not anticipate.
@@ -46,14 +46,15 @@ These are not security issues for this repository, even if they're worth fixing:
 - **The single-participant corpus**: the operator's own `~/.cama/memory.db` is not in scope because the repository does not contain it. Personal-name references in old eval files are tracked in [`README.md`](README.md#stability-and-reproducibility-boundary)'s stability-and-reproducibility boundary and are intentionally gitignored.
 - **Third-party dependencies**: vulnerabilities in `anthropic`, `peft`, `transformers`, `pytest`, etc. should be reported upstream. We'll bump versions when there's a fixed release.
 - **GitHub Actions workflow vulnerabilities**: open against the workflow file, not as a security report against CAMA's safety claims.
-- **Default-permissive single-user behavior**: the single-user defaults (no auth, `*` CORS, no FDE requirement) are documented and intentional. Issues that depend on the user not configuring the strict-mode env vars in a multi-user context are deployment issues, not vulnerabilities. The [DATA_HANDLING.md](DATA_HANDLING.md) document names the required hardening; a report should describe how the strict path fails despite correct configuration.
+- **Host/operator compromise**: local stdio MCP, direct Python calls and database access are trusted operator paths. Worker agents require OS isolation from these paths and signing keys; the HTTP guard alone is not a process sandbox.
 
 ## Threat model boundary
 
 In short: **the threat model assumes the operator controls the host machine.** For single-user local deployment, that boundary is sufficient. For multi-user / study deployment, the operator must additionally configure:
 
 - Full-disk encryption on the host (FileVault / BitLocker / LUKS)
-- `CAMA_HIVE_STRICT_AUTH=true` if exposing the hive API beyond localhost
+- Explicit unique random gateway credentials and TLS if exposing the Hive API beyond localhost; permissive guest mode is no longer supported
+- An operator-only guard directory and isolated worker runtimes when using signed worker identities
 - `CAMA_HIVE_CORS_ORIGINS` restricted to known origins
 - `CAMA_PARTICIPANT_ID` for each participant's isolated database
 

@@ -72,6 +72,12 @@ def init_messages_tables():
                 ON hive_messages(recipient, status, posted_at);
             CREATE INDEX IF NOT EXISTS idx_msg_sender
                 ON hive_messages(sender, posted_at);
+            CREATE TABLE IF NOT EXISTS hive_message_receipts (
+                message_id INTEGER NOT NULL REFERENCES hive_messages(id) ON DELETE CASCADE,
+                recipient TEXT NOT NULL,
+                read_at TEXT NOT NULL,
+                PRIMARY KEY (message_id, recipient)
+            );
             """
         )
         c.commit()
@@ -90,6 +96,7 @@ def send_message(
     parent_message_uuid: Optional[str] = None,
     affect: Optional[Dict[str, Any]] = None,
     meta: Optional[Dict[str, Any]] = None,
+    enforce_scope: bool = False,
 ) -> Dict[str, Any]:
     """Post a new message or reply to an existing one."""
     init_messages_tables()
@@ -102,11 +109,16 @@ def send_message(
 
         if parent_message_uuid:
             parent_cur = c.execute(
-                "SELECT id, thread_id, recipient FROM hive_messages "
+                "SELECT id, thread_id, sender, recipient FROM hive_messages "
                 "WHERE message_uuid = ?",
                 (parent_message_uuid,),
             )
             parent = parent_cur.fetchone()
+            if enforce_scope and (not parent or (
+                sender not in (parent["sender"], parent["recipient"])
+                and parent["recipient"] != "all"
+            )):
+                return {"error": "parent not found or not accessible"}
             if not parent:
                 return {"error": f"parent not found: {parent_message_uuid}"}
             parent_id = parent["id"]
@@ -133,8 +145,8 @@ def send_message(
             c.execute(
                 """UPDATE hive_messages
                    SET status = 'replied', replied_at = ?
-                   WHERE id = ? AND status != 'closed'""",
-                (now, parent_id),
+                   WHERE id = ? AND status != 'closed' AND sender != ?""",
+                (now, parent_id, sender),
             )
 
         c.commit()
@@ -171,12 +183,14 @@ def fetch_inbox(
         if only_unread:
             rows = c.execute(
                 """SELECT * FROM hive_messages
-                   WHERE (recipient = ? OR recipient = 'all')
-                     AND status = 'posted'
+                   WHERE ((recipient = ? AND status = 'posted') OR
+                          (recipient = 'all' AND status != 'closed' AND NOT EXISTS
+                           (SELECT 1 FROM hive_message_receipts receipt
+                            WHERE receipt.message_id=hive_messages.id AND receipt.recipient=?)))
                      AND sender != ?
                    ORDER BY posted_at ASC
                    LIMIT ?""",
-                (recipient, recipient, limit),
+                (recipient, recipient, recipient, limit),
             ).fetchall()
         else:
             rows = c.execute(
@@ -209,8 +223,9 @@ def fetch_inbox(
                        FROM hive_messages
                        WHERE thread_id = ?
                          AND id != ?
+                         AND (sender = ? OR recipient = ? OR recipient = 'all')
                        ORDER BY posted_at ASC""",
-                    (entry["thread_id"], entry["id"]),
+                    (entry["thread_id"], entry["id"], recipient, recipient),
                 ).fetchall()
                 entry["thread_history"] = [dict(t) for t in thread_msgs]
 
@@ -218,6 +233,8 @@ def fetch_inbox(
 
         if mark_read and out:
             now = _now()
+            c.executemany("INSERT OR IGNORE INTO hive_message_receipts(message_id,recipient,read_at) VALUES (?,?,?)",
+                          [(e["id"], recipient, now) for e in out])
             ids = [e["id"] for e in out]
             placeholders = ",".join("?" * len(ids))
             c.execute(
@@ -234,18 +251,22 @@ def fetch_inbox(
         c.close()
 
 
-def view_thread(thread_id: str) -> Dict[str, Any]:
-    """Return the full conversation history for a thread, oldest first."""
+def view_thread(thread_id: str, participant: Optional[str] = None) -> Dict[str, Any]:
+    """Return history, optionally limited to a participant's visible messages.
+
+    Remote callers must supply their authenticated identity. Trusted local
+    callers can omit it. A thread ID alone does not grant remote access.
+    """
     init_messages_tables()
     import json as _json
 
     c = _open_db()
     try:
+        scope = " AND (sender = ? OR recipient = ? OR recipient = 'all')" if participant is not None else ""
+        params = (thread_id, participant, participant) if participant is not None else (thread_id,)
         rows = c.execute(
-            """SELECT * FROM hive_messages
-               WHERE thread_id = ?
-               ORDER BY posted_at ASC""",
-            (thread_id,),
+            "SELECT * FROM hive_messages WHERE thread_id = ?" + scope + " ORDER BY posted_at ASC",
+            params,
         ).fetchall()
 
         if not rows:

@@ -38,6 +38,7 @@ MAX_CONTEXT_LENGTH = 500
 II_PERMISSIONS = {
     "aelen":  {"read", "write", "admin"},
     "lorien": {"read", "write"},
+    "codex":  {"read", "write"},
     "ember":  {"read"},
     "aethon": {"read"},
 }
