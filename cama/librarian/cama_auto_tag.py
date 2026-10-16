@@ -143,6 +143,7 @@ def tag_memory(
     raw_text: str,
     context: Optional[str] = None,
     min_score: float = 0.5,
+    strict: bool = False,
 ) -> Dict[str, Any]:
     """Assign librarian memberships to a memory.
 
@@ -156,8 +157,8 @@ def tag_memory(
     Returns:
         dict with 'tagged_to' list, 'unclaimed' bool, 'count' int
 
-    Failures are swallowed and logged, the underlying memory write
-    is never compromised by a tagger error.
+    By default failures are logged for legacy backfill callers. strict=True
+    propagates every write failure so the caller can roll back the shelf.
     """
     try:
         cursor = c.execute("SELECT memory_type FROM memories WHERE id=?", (memory_id,))
@@ -177,6 +178,8 @@ def tag_memory(
                     (memory_id,),
                 )
             except sqlite3.OperationalError:
+                if strict:
+                    raise
                 # pattern_source column might not exist on older schemas
                 pass
             return {
@@ -201,6 +204,8 @@ def tag_memory(
                 )
                 tagged_names.append(name)
             except sqlite3.OperationalError as e:
+                if strict:
+                    raise
                 print(
                     f"[CAMA auto_tag] Failed insert for librarian {name}: {e}",
                     file=sys.stderr,
@@ -217,6 +222,8 @@ def tag_memory(
                     [now] + [k[0] for k in kept],
                 )
             except sqlite3.OperationalError:
+                if strict:
+                    raise
                 pass
 
         return {
@@ -226,6 +233,8 @@ def tag_memory(
             "scores": [(name, score) for (lib_id, name, score, reasons) in kept],
         }
     except Exception as e:
+        if strict:
+            raise
         # Last-ditch swallow, never break a memory write
         print(f"[CAMA auto_tag] Unexpected error for memory {memory_id}: {e}", file=sys.stderr)
         return {"tagged_to": [], "unclaimed": False, "count": 0, "error": str(e)}
