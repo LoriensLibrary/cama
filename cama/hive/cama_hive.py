@@ -224,9 +224,11 @@ def _decay_intensity(intensity: float, emitted_at: str, half_life_hours: float =
 
 def get_db() -> sqlite3.Connection:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    c = sqlite3.connect(DB_PATH)
+    c = sqlite3.connect(DB_PATH, timeout=30.0)
     c.row_factory = sqlite3.Row
+    c.execute("PRAGMA busy_timeout=30000")  # per-connection; without it this used the 5s default
     init_hive_tables(c)
+    c.commit()  # same: do not hold the DDL txn open
     return c
 
 
@@ -702,11 +704,11 @@ def add_nectar(
 
 def crystallize_honey(honey_id: int) -> dict:
     """
-    Convert ready honey into a durable CAMA teaching or inference.
+    Convert ready honey into a provisional, assistant-derived inference.
 
     This is the enzymatic final step: processed nectar becomes shelf-stable
     honey that new bees can feed on. In CAMA terms, a repeated pattern
-    becomes a confirmed memory that feeds into the boot sequence.
+    becomes a reviewable inference, never a human-confirmed teaching.
 
     The crystallized honey gets stored as a CAMA memory with provenance
     tracking back to the original source exchanges.
@@ -725,6 +727,8 @@ def crystallize_honey(honey_id: int) -> dict:
         if not honey:
             return {"error": "Honey not found or already crystallized", "honey_id": honey_id}
 
+        if honey["occurrence_count"] < DISTILL_MIN_OCCURRENCES:
+            return {"error": "Insufficient observations", "honey_id": honey_id}
         if honey["confidence"] < HONEY_CONFIDENCE_FLOOR:
             return {"error": f"Confidence too low ({honey['confidence']}), needs {HONEY_CONFIDENCE_FLOOR}",
                     "honey_id": honey_id}
@@ -734,36 +738,29 @@ def crystallize_honey(honey_id: int) -> dict:
         evidence = json.dumps([f"hive_honey:{honey_id}", f"occurrences:{honey['occurrence_count']}"]
                               + [f"memory:{mid}" for mid in source_ids[:5]])
 
-        # Determine memory type based on honey type
-        mem_type = {
-            "pattern": "inference",
-            "preference": "teaching",
-            "boundary": "teaching",
-            "insight": "inference",
-            "relational": "inference",
-        }.get(honey["honey_type"], "inference")
-
-        # Determine status, patterns and insights start provisional, preferences/boundaries are durable
-        status = "durable" if mem_type == "teaching" else "provisional"
-        proposed_by = "system" if mem_type == "inference" else "user"
+        # Repetition is not human confirmation, even for preferences/boundaries.
+        mem_type = "inference"
+        status = "provisional"
+        proposed_by = "hive_distiller"
+        review_after = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
 
         cur = c.execute(
             "INSERT INTO memories "
             "(raw_text, memory_type, context, source_type, status, "
             " proposed_by, evidence, confidence, consent_level, "
-            " is_core, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " is_core, created_at, updated_at, needs_user_confirmation, review_after) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (f"[HIVE HONEY] {honey['essence']}",
              mem_type,
              f"hive_distilled:{honey['honey_type']}",
-             "exchange",  # Source was exchanges
+             "inference",  # Derived from exchanges; not a verbatim exchange.
              status,
              proposed_by,
              evidence,
-             honey["confidence"],
+             min(honey["confidence"], 0.9),
              "low",
              0,
-             now, now)
+             now, now, 1, review_after)
         )
         memory_id = cur.lastrowid
 

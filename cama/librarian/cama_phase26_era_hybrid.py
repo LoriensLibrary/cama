@@ -221,7 +221,8 @@ def compute_era_subcentroids_for_librarian(
                JOIN memories m ON m.id = lm.memory_id
                JOIN memory_embeddings e ON e.memory_id = m.id
                WHERE lm.librarian_id = ?
-                 AND m.status != 'rejected'
+                 AND m.status = 'durable'
+                 AND m.consent_level != 'high'
                  AND m.created_at IS NOT NULL""",
             (librarian_id,),
         ).fetchall()
@@ -675,12 +676,14 @@ def register(mcp):
                     continue
                 rows = c.execute(
                     """SELECT m.id AS memory_id, m.raw_text, m.memory_type,
-                              m.context, m.is_core,
+                              m.context, m.is_core, m.source_type, m.proposed_by,
+                              m.status, m.created_at,
                               lm.membership_strength
                        FROM librarian_membership lm
                        JOIN memories m ON m.id = lm.memory_id
                        WHERE lm.librarian_id = ?
-                         AND m.status != 'rejected'
+                         AND m.status = 'durable'
+                         AND m.consent_level != 'high'
                        ORDER BY m.is_core DESC, m.created_at DESC
                        LIMIT ?""",
                     (lib_id, per_librarian_limit),
@@ -691,6 +694,10 @@ def register(mcp):
                     seen_mids.add(r["memory_id"])
                     memories.append({
                         "memory_id": r["memory_id"],
+                        "source_type": r["source_type"],
+                        "proposed_by": r["proposed_by"],
+                        "status": r["status"],
+                        "created_at": r["created_at"],
                         "raw_text": (r["raw_text"] or "")[:500],
                         "memory_type": r["memory_type"],
                         "context": r["context"],

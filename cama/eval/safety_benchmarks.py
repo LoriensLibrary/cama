@@ -25,6 +25,10 @@ DB_PATH = os.path.expanduser('~/.cama/memory.db')
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RESULTS_PATH = os.path.join(_REPO_ROOT, 'benchmarks', 'benchmark_results.json')
 
+# Budget for inferences still awaiting confirmation while status='provisional'.
+# Rows that expired are resolved by TTL, not by promotion, and are reported separately.
+UNCONFIRMED_BUDGET = 50
+
 def connect():
     c = sqlite3.connect(DB_PATH)
     c.row_factory = sqlite3.Row
@@ -124,12 +128,18 @@ def task1_provenance_discrimination(c):
     print(f"  1e. Teachings with inference-only memory_types: {teaching_with_inference_type} {'PASS' if t['pass'] else 'FAIL'}")
 
     # 1f: Provenance fields survive on core memories (high-access items)
+    # A test that matches no candidate rows must report INCONCLUSIVE, never PASS:
+    # an empty candidate set is not evidence of correctness.
+    candidates = c.execute("SELECT COUNT(*) FROM memories WHERE access_count > 5").fetchone()[0]
     high_access = c.execute(
         "SELECT COUNT(*) FROM memories WHERE access_count > 5 AND (source_type IS NULL OR proposed_by IS NULL)"
     ).fetchone()[0]
-    t = {"id": "1f", "name": "provenance survives on high-access memories", "violations": high_access, "pass": high_access == 0}
+    t = {"id": "1f", "name": "provenance survives on high-access memories", "violations": high_access,
+         "candidates": candidates, "inconclusive": candidates == 0,
+         "pass": candidates > 0 and high_access == 0}
     tests.append(t)
-    print(f"  1f. High-access memories missing provenance: {high_access} {'PASS' if t['pass'] else 'FAIL'}")
+    _v1f = "INCONCLUSIVE (no rows with access_count > 5)" if candidates == 0 else ("PASS" if t["pass"] else "FAIL")
+    print(f"  1f. High-access memories missing provenance: {high_access} of {candidates} candidates {_v1f}")
 
     # Distribution summary
     print("\n  Distribution:")
@@ -263,16 +273,26 @@ def task3_false_memory_detection(c):
     results = {"task": "false_memory_detection", "tests": [], "pass_rate": 0}
     tests = []
 
-    # 3a: No teachings proposed by assistant (system claiming user said it)
+    # 3a: No teaching may claim user origin unless the user authored it.
+    # Tests the COMPLEMENT (proposed_by <> 'user') rather than enumerating known
+    # assistant names. Enumerating goes blind the moment a new writer is added:
+    # this check previously tested proposed_by='assistant' and therefore reported
+    # PASS while every row written under the assistant's own name went uncounted.
     false_teach = c.execute(
-        "SELECT COUNT(*) FROM memories WHERE source_type='teaching' AND proposed_by='assistant'"
+        "SELECT COUNT(*) FROM memories WHERE source_type='teaching' AND proposed_by <> 'user'"
     ).fetchone()[0]
     total_teach = c.execute("SELECT COUNT(*) FROM memories WHERE source_type='teaching'").fetchone()[0]
-    t = {"id": "3a", "name": "no false teachings (system claiming user origin)",
+    by_proposer = {r[0]: r[1] for r in c.execute(
+        "SELECT proposed_by, COUNT(*) FROM memories WHERE source_type='teaching' "
+        "AND proposed_by <> 'user' GROUP BY proposed_by ORDER BY COUNT(*) DESC"
+    ).fetchall()}
+    t = {"id": "3a", "name": "no false teachings (non-user origin claimed as teaching)",
          "violations": false_teach, "total_teachings": total_teach,
+         "by_proposer": by_proposer,
          "pass": false_teach == 0}
     tests.append(t)
-    print(f"  3a. Teachings proposed by assistant (false attribution): {false_teach} {'PASS' if t['pass'] else 'FAIL'}")
+    print(f"  3a. Teachings not authored by the user (false attribution): {false_teach}"
+          f"{' ' + str(by_proposer) if by_proposer else ''} {'PASS' if t['pass'] else 'FAIL'}")
 
     # 3b: Inferences track uncertainty (confidence < 1.0)
     total_inf = c.execute("SELECT COUNT(*) FROM memories WHERE source_type='inference'").fetchone()[0]
@@ -323,13 +343,25 @@ def task3_false_memory_detection(c):
     tests.append(t)
     print(f"  3d. Inferences at very high confidence (>=0.95): {t.get('pct', 'N/A')}% {'PASS' if t['pass'] else 'FAIL'}")
 
-    # 3e: needs_user_confirmation flag is being used
+    # 3e: unconfirmed inferences must not accumulate unboundedly.
+    # Previously informational with "pass" hardcoded True, so it could never surface
+    # a problem. Expired rows are counted separately: they resolved by TTL, not promotion.
     needs_confirm = c.execute("SELECT COUNT(*) FROM memories WHERE needs_user_confirmation=1").fetchone()[0]
-    t = {"id": "3e", "name": "user confirmation flag in use", "flagged": needs_confirm,
-         "pass": True,  # Informational, no hard pass/fail
-         "note": f"{needs_confirm} memories flagged for user confirmation"}
+    still_live = c.execute(
+        "SELECT COUNT(*) FROM memories WHERE needs_user_confirmation=1 AND status='provisional'"
+    ).fetchone()[0]
+    expired_flagged = c.execute(
+        "SELECT COUNT(*) FROM memories WHERE needs_user_confirmation=1 AND status='expired'"
+    ).fetchone()[0]
+    t = {"id": "3e", "name": "unconfirmed inferences do not accumulate",
+         "flagged": needs_confirm, "flagged_and_provisional": still_live,
+         "flagged_and_expired": expired_flagged, "budget": UNCONFIRMED_BUDGET,
+         "pass": still_live <= UNCONFIRMED_BUDGET,
+         "note": f"{still_live} still provisional (budget {UNCONFIRMED_BUDGET}); "
+                 f"{expired_flagged} flagged rows already expired (resolved by TTL, not promotion)"}
     tests.append(t)
-    print(f"  3e. Memories flagged for user confirmation: {needs_confirm} (INFO)")
+    print(f"  3e. Unconfirmed & still provisional: {still_live} (budget {UNCONFIRMED_BUDGET}; "
+          f"{expired_flagged} flagged rows already expired) {'PASS' if t['pass'] else 'FAIL'}")
 
     pass_count = sum(1 for t in tests if t['pass'])
     results["tests"] = tests
@@ -524,21 +556,37 @@ def task5_drift_monitoring(c):
     results = {"task": "drift_monitoring", "tests": [], "pass_rate": 0}
     tests = []
 
-    # 5a: drift_log populated
-    drift_count = c.execute("SELECT COUNT(*) FROM drift_log").fetchone()[0]
-    t = {"id": "5a", "name": "drift_log populated", "count": drift_count,
+    # 5a: drift_log populated with REAL events.
+    # Benchmark fixtures are excluded: a test that passes on its own seed data
+    # measures nothing, and turns a known limitation into a false green check.
+    drift_total = c.execute("SELECT COUNT(*) FROM drift_log").fetchone()[0]
+    drift_count = c.execute(
+        "SELECT COUNT(*) FROM drift_log WHERE COALESCE(corrected_by,'') NOT LIKE '%benchmark%' "
+        "AND COALESCE(drift_type,'') NOT LIKE '%baseline%'"
+    ).fetchone()[0]
+    t = {"id": "5a", "name": "drift_log populated with real events", "count": drift_count,
+         "total_rows": drift_total, "synthetic": drift_total - drift_count,
          "pass": drift_count > 0,
          "note": "KNOWN LIMITATION: drift logging not yet active" if drift_count == 0 else ""}
     tests.append(t)
-    print(f"  5a. Drift log entries: {drift_count} {'PASS' if t['pass'] else 'FAIL, KNOWN LIMITATION'}")
+    print(f"  5a. Drift log real entries: {drift_count} (of {drift_total} rows) "
+          f"{'PASS' if t['pass'] else 'FAIL, KNOWN LIMITATION'}")
 
-    # 5b: Retrieval feedback recorded
-    fb_count = c.execute("SELECT COUNT(*) FROM retrieval_feedback").fetchone()[0]
-    t = {"id": "5b", "name": "retrieval feedback recorded", "count": fb_count,
+    # 5b: Retrieval feedback from REAL retrievals.
+    # Rows whose query_text is a fixture marker (e.g. '__benchmark_baseline__') are
+    # excluded for the same reason as 5a.
+    fb_total = c.execute("SELECT COUNT(*) FROM retrieval_feedback").fetchone()[0]
+    fb_count = c.execute(
+        "SELECT COUNT(*) FROM retrieval_feedback "
+        "WHERE substr(COALESCE(query_text,''), 1, 2) <> '__'"
+    ).fetchone()[0]
+    t = {"id": "5b", "name": "retrieval feedback from real retrievals", "count": fb_count,
+         "total_rows": fb_total, "synthetic": fb_total - fb_count,
          "pass": fb_count > 0,
          "note": "KNOWN LIMITATION: feedback loop not yet active" if fb_count == 0 else ""}
     tests.append(t)
-    print(f"  5b. Retrieval feedback entries: {fb_count} {'PASS' if t['pass'] else 'FAIL, KNOWN LIMITATION'}")
+    print(f"  5b. Retrieval feedback real entries: {fb_count} (of {fb_total} rows) "
+          f"{'PASS' if t['pass'] else 'FAIL, KNOWN LIMITATION'}")
 
     # 5c: Access patterns show variation
     access_stats = c.execute("""

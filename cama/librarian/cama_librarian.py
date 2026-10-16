@@ -535,10 +535,12 @@ def retrieve(
         for lib in routed:
             mems = c.execute(
                 """SELECT m.id, m.raw_text, m.memory_type, m.context, m.is_core,
-                          m.created_at, lm.membership_strength
+                          m.created_at, m.source_type, m.proposed_by, m.status,
+                          lm.membership_strength
                    FROM memories m
                    JOIN librarian_membership lm ON m.id = lm.memory_id
-                   WHERE lm.librarian_id = ? AND m.status != 'rejected'
+                   WHERE lm.librarian_id = ? AND m.status = 'durable'
+                     AND m.consent_level != 'high'
                    ORDER BY lm.membership_strength DESC, m.created_at DESC
                    LIMIT ?""",
                 (lib["librarian_id"], per_librarian_limit),
@@ -552,6 +554,10 @@ def retrieve(
                     "raw_text": (m["raw_text"] or "")[:500],
                     "memory_type": m["memory_type"],
                     "context": m["context"],
+                    "source_type": m["source_type"],
+                    "proposed_by": m["proposed_by"],
+                    "status": m["status"],
+                    "created_at": m["created_at"],
                     "is_core": bool(m["is_core"]),
                     "from_librarian": lib["name"],
                     "membership_strength": m["membership_strength"],

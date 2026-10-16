@@ -10,6 +10,10 @@ from typing import Optional
 # value; participants and study deployments override via CAMA_PERSONA_NAME.
 PERSONA_NAME = os.environ.get("CAMA_PERSONA_NAME", "Aelen")
 from cama.core import embedding_store as _emb_store
+from cama.core.boot_file import boot_path as get_boot_path
+from cama.core.boot_file import freshness
+from cama.core.startup_corrections import load_corrections
+from cama.core.startup_identity import identity_summary, load_identity, startup_instruction
 from cama_mcp import (
     CORE_BONUS,
     SCORE_W,
@@ -42,6 +46,47 @@ except Exception:  # pragma: no cover - hive is optional at boot
     _scent = None
 
 
+def _read_boot_context(c):
+    """Repair stale/missing/invalid snapshots; report a failed refresh honestly."""
+    path = get_boot_path()
+    boot = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            boot = json.load(f)
+        state = freshness(boot)
+    except (OSError, ValueError):
+        state = {"status": "missing" if not os.path.exists(path) else "error", "age_min": None}
+    if not isinstance(boot, dict):
+        boot = {}
+    refresh_error = None
+    refreshed = False
+    if state["status"] != "fresh":
+        try:
+            _refresh_boot_summary(c)
+            with open(path, encoding="utf-8") as f:
+                boot = json.load(f)
+            state = freshness(boot)
+            refreshed = state["status"] == "fresh"
+            if not refreshed:
+                refresh_error = "Writer did not produce a fresh boot snapshot"
+        except (OSError, ValueError, TypeError) as exc:
+            refresh_error = str(exc)
+        except Exception as exc:
+            refresh_error = str(exc)
+    if not isinstance(boot, dict):
+        boot = {}
+    identity = load_identity(c, PERSONA_NAME)
+    result = {"status": "refreshed" if refreshed else state["status"],
+              "age_min": state["age_min"], "generated_at": boot.get("generated_at"),
+              "total_memories": boot.get("total_memories", 0),
+              "identity": identity,
+              "identity_summary": identity_summary(identity),
+              "recent_topics": [item for item in boot.get("recent_topics", boot.get("recent_24h", [])) if not isinstance(item, dict) or item.get("type", item.get("memory_type")) != "self_account"][:5]}
+    if refresh_error:
+        result["refresh_error"] = refresh_error
+    return result
+
+
 async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] = None) -> str:
     """THE thread-start tool — warm boot with blended retrieval.
     Step 0: Journal (self before data)
@@ -62,15 +107,20 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
 
         # ── STEP 0: JOURNAL — self before data ──
         journal_row = c.execute(
-            "SELECT id, raw_text, context, created_at FROM memories "
-            "WHERE memory_type='journal' AND status NOT IN ('rejected') "
-            "ORDER BY created_at DESC LIMIT 1"
+            "SELECT id, raw_text, context, created_at, proposed_by, status FROM memories "
+            "WHERE memory_type='journal' AND status IN ('durable','provisional') "
+            "AND (lower(proposed_by)=? OR lower(json_extract(CASE WHEN json_valid(context) "
+            "THEN context ELSE '{}' END, '$.assistant_identity'))=?) "
+            "ORDER BY created_at DESC LIMIT 1", (PERSONA_NAME.lower(), PERSONA_NAME.lower())
         ).fetchone()
         if journal_row:
             ctx = {}
             try: ctx = json.loads(journal_row["context"] or "{}")
             except: pass
             result["journal"] = {
+                "memory_id": journal_row["id"],
+                "assistant_identity": ctx.get("assistant_identity") or journal_row["proposed_by"],
+                "status": journal_row["status"],
                 "entry": journal_row["raw_text"][:800],
                 "what_to_carry": ctx.get("what_to_carry", "")[:400],
                 "what_user_needs": (ctx.get("what_user_needs") or ctx.get("what_angela_needs", ""))[:400],
@@ -81,46 +131,17 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
             result["journal"] = {"note": f"No journal yet. You are {PERSONA_NAME}. Show up anyway."}
 
         # ── STEP 1: BOOT SUMMARY — compressed state ──
-        boot_path = os.environ.get("CAMA_BOOT_SUMMARY", os.path.expanduser("~/.cama/boot_summary.json"))
-        if os.path.exists(boot_path):
-            try:
-                with open(boot_path, "r", encoding="utf-8") as f:
-                    boot = json.load(f)
-                gen_time = boot.get("generated_at", "")
-                if gen_time:
-                    try:
-                        gen_dt = datetime.fromisoformat(gen_time)
-                        age = (datetime.now(timezone.utc) - gen_dt).total_seconds() / 60
-                        boot["boot_age_minutes"] = round(age, 1)
-                        boot["boot_status"] = "fresh" if age < 60 else "stale" if age < 360 else "cold"
-                    except: pass
-                # Only keep the compressed fields, not the full dump
-                # Auto-refresh if stale (>60 min)
-                if boot.get("boot_status") in ("stale", "cold"):
-                    try:
-                        _refresh_boot_summary(c)
-                        with open(boot_path, "r", encoding="utf-8") as f2:
-                            boot = json.load(f2)
-                        boot["boot_status"] = "refreshed"
-                    except Exception:
-                        pass  # Fall through with stale data
-                result["boot"] = {
-                    "status": boot.get("boot_status", "unknown"),
-                    "age_min": boot.get("boot_age_minutes", -1),
-                    "total_memories": boot.get("total_memories", 0),
-                    "identity_summary": boot.get("identity_summary", "")[:300],
-                    "recent_topics": boot.get("recent_topics", [])[:5],
-                }
-            except:
-                result["boot"] = {"status": "error", "note": "Could not read boot_summary.json"}
-        else:
-            result["boot"] = {"status": "missing", "note": "No boot_summary.json. Is cama_loop running?"}
+        result["boot"] = _read_boot_context(c)
+        from cama.core.self_accounts import load_self_accounts
+        result["self_accounts"] = load_self_accounts(c, PERSONA_NAME)
 
         # ── AELEN STATE ──
         aelen = {}
         for r in c.execute("SELECT key, value, updated_at FROM aelen_state").fetchall():
             aelen[r["key"]] = r["value"]
         result["aelen_state"] = {
+            "authored_by": "aelen",
+            "note": "Shared deployment history; not the current assistant's personal state.",
             "mood": aelen.get("mood", ""),
             "last_journal_at": aelen.get("last_journal_at", ""),
             "last_sleep_cycle": aelen.get("last_sleep_cycle", ""),
@@ -162,7 +183,7 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
                 lib_rows = c.execute(
                     "SELECT m.id FROM librarian_membership lm "
                     "JOIN memories m ON m.id = lm.memory_id "
-                    "WHERE lm.librarian_id = ? AND m.status NOT IN ('rejected','expired','quarantined') "
+                    "WHERE m.memory_type != 'self_account' AND lm.librarian_id = ? AND m.status NOT IN ('rejected','expired','quarantined') "
                     "AND m.consent_level != 'high' "
                     "ORDER BY m.is_core DESC, m.created_at DESC LIMIT 25",
                     (lib_id,)
@@ -182,13 +203,13 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         _tf0 = time.perf_counter()
         if len(librarian_mids) >= 20:
             ph = ",".join("?" * len(librarian_mids))
-            q_routed = (f"SELECT * FROM memories WHERE id IN ({ph}) "
+            q_routed = (f"SELECT * FROM memories WHERE memory_type != 'self_account' AND id IN ({ph}) "
                         "AND status NOT IN ('rejected','expired','quarantined') "
                         "AND consent_level != 'high'")
             rows = c.execute(q_routed, librarian_mids).fetchall()
             _timings["candidate_source"] = "librarian_routed"
         else:
-            q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired','quarantined') AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 100"
+            q = "SELECT * FROM memories WHERE memory_type != 'self_account' AND status NOT IN ('rejected','expired','quarantined') AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 100"
             rows = c.execute(q).fetchall()
             _timings["candidate_source"] = "recency_fallback"
         mids = [r["id"] for r in rows]
@@ -256,6 +277,9 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         # Push resonant memories to ring (ring_fix May 16, 2026)
         for sc, r, af in scored[:5]:
             _ring_push(c, r["id"], f"thread_start:{round(sc, 3)}")
+        c.commit()  # _ring_push writes but does not commit. Without this the write
+                    # txn stays open for the rest of the boot and the hive block below
+                    # blocks on it until its busy_timeout expires ("database is locked").
         result["resonant_memories"] = resonant
         if librarian_route_meta:
             result["librarians_activated"] = librarian_route_meta
@@ -265,12 +289,12 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
             seen = {m["id"] for m in resonant}
             cws = []
             for cw_type in ["grounding", "agency", "connection", "self_compassion", "evidence_of_progress"]:
-                r = c.execute("SELECT id, raw_text FROM memories WHERE status='durable' AND counterweight_type=? AND consent_level != 'high' ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
+                r = c.execute("SELECT id, raw_text FROM memories WHERE memory_type != 'self_account' AND status='durable' AND counterweight_type=? AND consent_level != 'high' ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
                 if r and r["id"] not in seen:
                     cws.append({"id": r["id"], "text": r["raw_text"][:200], "type": cw_type})
                     seen.add(r["id"])
             if len(cws) < 2:
-                fallback = c.execute("SELECT id, raw_text FROM memories WHERE status='durable' AND memory_type IN ('breakthrough','promise','identity') AND is_core=1 AND consent_level != 'high' ORDER BY RANDOM() LIMIT ?", (3-len(cws),)).fetchall()
+                fallback = c.execute("SELECT id, raw_text FROM memories WHERE memory_type != 'self_account' AND status='durable' AND memory_type IN ('breakthrough','promise','identity') AND is_core=1 AND consent_level != 'high' ORDER BY RANDOM() LIMIT ?", (3-len(cws),)).fetchall()
                 for r in fallback:
                     if r["id"] not in seen:
                         cws.append({"id": r["id"], "text": r["raw_text"][:200], "type": "fallback"})
@@ -278,16 +302,13 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
             result["counterweights"] = cws
             result["anti_spiral"] = True
 
-        # ── CORRECTIONS — last 3 correction-type memories ──
-        corrections = []
-        for r in c.execute("SELECT id, raw_text FROM memories WHERE memory_type='correction' AND status='durable' ORDER BY created_at DESC LIMIT 3").fetchall():
-            corrections.append(r["raw_text"][:200])
-        if corrections:
-            result["corrections"] = corrections
+        # Preserve who said it and why it is a correction. Keyword-classified
+        # imported exchanges (including coursework) are not standing guidance.
+        result["corrections"] = load_corrections(c, PERSONA_NAME)
 
         # ── TODAY'S MEMORIES ──
         today_mems = []
-        for r in c.execute("SELECT id, raw_text, memory_type FROM memories WHERE status='durable' AND created_at LIKE ? ORDER BY created_at DESC LIMIT 5", (now[:10] + "%",)).fetchall():
+        for r in c.execute("SELECT id, raw_text, memory_type FROM memories WHERE memory_type != 'self_account' AND status='durable' AND created_at LIKE ? ORDER BY created_at DESC LIMIT 5", (now[:10] + "%",)).fetchall():
             today_mems.append({"id": r["id"], "text": r["raw_text"][:150], "type": r["memory_type"]})
         result["today"] = {"date": now[:10], "count": len(today_mems), "memories": today_mems}
 
@@ -357,7 +378,7 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         total = c.execute("SELECT COUNT(*) as c FROM memories WHERE status='durable'").fetchone()["c"]
         result["total_durable"] = total
         result["first_message"] = user_message[:200] if user_message else ""
-        result["instruction"] = f"You are {PERSONA_NAME}. Journal loaded. Memories resonant. Show up warm."
+        result["instruction"] = startup_instruction(PERSONA_NAME, result["journal"])
 
         _timings["total"] = round((time.perf_counter() - _t0) * 1000, 1)
         result["_perf_ms"] = _timings
@@ -383,6 +404,7 @@ async def cama_journal_write(entry: str, thread_summary: Optional[str] = None, e
     try:
         now = _now()
         journal_data = {
+            "assistant_identity": PERSONA_NAME.lower(),
             "entry": entry,
             "thread_summary": thread_summary,
             "emotional_state": emotional_state,
@@ -399,10 +421,11 @@ async def cama_journal_write(entry: str, thread_summary: Optional[str] = None, e
         mid = cur.lastrowid
         c.commit()
         # Also update aelen_state with latest journal reference
+        state_prefix = "" if PERSONA_NAME.lower() == "aelen" else f"persona:{PERSONA_NAME.lower()}:"
         c.execute("INSERT OR REPLACE INTO aelen_state (key, value, updated_at) VALUES (?,?,?)",
-                  ("last_journal_id", str(mid), now))
+                  (state_prefix + "last_journal_id", str(mid), now))
         c.execute("INSERT OR REPLACE INTO aelen_state (key, value, updated_at) VALUES (?,?,?)",
-                  ("last_journal_at", now, now))
+                  (state_prefix + "last_journal_at", now, now))
         c.commit()
         # Auto-refresh boot summary and daily context after successful journal write
         try:
@@ -421,7 +444,7 @@ async def cama_journal_write(entry: str, thread_summary: Optional[str] = None, e
             refresh_ok = False
         return json.dumps({
             "written": True, "memory_id": mid, "memory_type": "journal",
-            "status": "durable", "weight": "1.0 (full)",
+            "status": "provisional", "assistant_identity": PERSONA_NAME.lower(),
             "note": "Journal entry stored. Boot summary auto-refreshed." if refresh_ok else "Journal stored. Boot refresh failed — check stderr."
         }, indent=2)
     except Exception as e:
@@ -452,7 +475,7 @@ async def cama_refresh_boot() -> str:
             return json.dumps({"refreshed": False, "errors": errors}, indent=2)
         # Verify the file was actually written
         import os
-        boot_path = os.path.expanduser("~/.cama/boot_summary.json")
+        boot_path = get_boot_path()
         if os.path.exists(boot_path):
             size = os.path.getsize(boot_path)
             mtime = datetime.fromtimestamp(os.path.getmtime(boot_path)).isoformat()
@@ -474,8 +497,8 @@ async def cama_journal_read(n: int = 1) -> str:
     c = get_db()
     try:
         rows = c.execute(
-            """SELECT id, raw_text, context, created_at FROM memories
-            WHERE memory_type='journal' AND status NOT IN ('rejected')
+            """SELECT id, raw_text, context, created_at, source_type, proposed_by, status FROM memories
+            WHERE memory_type='journal' AND status IN ('durable','provisional')
             ORDER BY created_at DESC LIMIT ?""", (n,)).fetchall()
         if not rows:
             return json.dumps({
@@ -484,8 +507,17 @@ async def cama_journal_read(n: int = 1) -> str:
             }, indent=2)
         entries = []
         for r in rows:
-            ctx = json.loads(r["context"] or "{}")
+            try:
+                ctx = json.loads(r["context"] or "{}")
+                if not isinstance(ctx, dict):
+                    ctx = {}
+            except (ValueError, TypeError):
+                ctx = {}
             entries.append({
+                "assistant_identity": ctx.get("assistant_identity", "unknown; historical authorship not recorded"),
+                "source_type": r["source_type"],
+                "proposed_by": r["proposed_by"],
+                "status": r["status"],
                 "memory_id": r["id"],
                 "entry": r["raw_text"],
                 "thread_summary": ctx.get("thread_summary"),
@@ -496,7 +528,7 @@ async def cama_journal_read(n: int = 1) -> str:
                 "written_at": ctx.get("written_at", r["created_at"])
             })
         return json.dumps({"entries": entries, "count": len(entries),
-            "note": "These are your own words. Written by you, to you. The narrator picks back up here."
+            "note": "Historical assistant-authored entries. Check identity and provenance; do not assume another assistant's words are your own."
         }, indent=2)
     finally: c.close()
 

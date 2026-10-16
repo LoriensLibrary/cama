@@ -67,6 +67,7 @@ def store_embedding(c, memory_id: int, vec, model: str, computed_at: str) -> Non
         "VALUES (?,?,NULL,?,?)",
         (memory_id, pack_vec(vec), model, computed_at),
     )
+    invalidate_matrix_cache()
 
 
 def fetch_emb_map(c, mids: Sequence[int]) -> Dict[int, np.ndarray]:
@@ -160,7 +161,10 @@ def load_matrix(c, dim: Optional[int] = None):
     ``dim`` when given) are skipped, mirroring cosine_scores' contract that
     a mismatched vector scores as absent.
     """
-    key = _matrix_key(c)
+    # Counts alone alias different databases and miss replacement vectors.
+    # Holding the connection object also prevents Python object-id reuse.
+    key = (c, c.execute("PRAGMA data_version").fetchone()[0],
+           c.total_changes, dim, _matrix_key(c))
     if _MATRIX_CACHE["key"] == key and _MATRIX_CACHE["mat"] is not None:
         return _MATRIX_CACHE["ids"], _MATRIX_CACHE["mat"], _MATRIX_CACHE["index"]
     ids, vecs = [], []

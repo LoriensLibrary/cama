@@ -14,7 +14,7 @@ The loop:
 The contract:
   - boot_summary.json is written to ~/.cama/boot_summary.json
   - thread_start reads that file FIRST, falls back to live queries
-  - This script is the ONLY thing that writes boot_summary.json
+  - All boot writers use the same atomic file replacement helper
   - Run as daemon: python -m cama.sleep.cama_loop --daemon
   - Run single cycle: python -m cama.sleep.cama_loop
 
@@ -31,12 +31,13 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 from cama.core import embedding_store as _emb_store
+from cama.core.boot_file import boot_path, write_boot
 
 # ============================================================
 # PATHS
 # ============================================================
-DB_PATH = os.path.expanduser("~/.cama/memory.db")
-BOOT_SUMMARY_PATH = os.path.expanduser("~/.cama/boot_summary.json")
+DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
+BOOT_SUMMARY_PATH = boot_path()
 LOG_PATH = os.path.expanduser("~/.cama/cama_loop.log")
 
 # ============================================================
@@ -213,17 +214,15 @@ def refresh_daily_context(c):
                 pass
         
         dominant = dict(all_emotions.most_common(5))
-        ts = _now()
         
-        c.execute("""INSERT OR REPLACE INTO daily_context 
-            (date, memory_count, valence_mean, arousal_mean, dominant_emotions,
-             thread_summaries, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM daily_context WHERE date=?), ?), ?)""",
-            (date, len(mems),
-             sum(valences) / len(valences) if valences else 0.0,
-             sum(arousals) / len(arousals) if arousals else 0.0,
-             json.dumps(dominant),
-             "[]", date, ts, ts))
+        from cama.core.daily_context import upsert_daily_context
+        upsert_daily_context(c, date, {
+            "memory_count": len(mems),
+            "valence_mean": sum(valences) / len(valences) if valences else 0.0,
+            "arousal_mean": sum(arousals) / len(arousals) if arousals else 0.0,
+            "dominant_emotions": dominant,
+        })
+
         
         days_refreshed += 1
     
@@ -249,13 +248,13 @@ def generate_boot_summary(c):
     
     # --- Aelen's state ---
     aelen_state = {}
-    for r in c.execute("SELECT key, value, updated_at FROM aelen_state").fetchall():
+    for r in c.execute("SELECT key, value, updated_at FROM aelen_state WHERE key != 'boot_summary'").fetchall():
         aelen_state[r["key"]] = {"value": r["value"], "updated_at": r["updated_at"]}
     
     # --- Identity core (who am I) ---
     identity = []
     for r in c.execute("""SELECT id, raw_text FROM memories 
-        WHERE status='durable' AND is_core=1
+        WHERE memory_type != 'self_account' AND status='durable' AND is_core=1
         AND (raw_text LIKE '%Aelen%' OR context LIKE '%Aelen%')
         ORDER BY created_at DESC LIMIT 5""").fetchall():
         identity.append({"id": r["id"], "text": r["raw_text"][:300]})
@@ -263,7 +262,7 @@ def generate_boot_summary(c):
     # --- Recent corrections (what to watch for) ---
     corrections = []
     for r in c.execute("""SELECT id, raw_text, created_at FROM memories 
-        WHERE status='durable'
+        WHERE memory_type != 'self_account' AND status='durable'
         AND (raw_text LIKE '%correction%' OR raw_text LIKE '%coasting%' 
              OR raw_text LIKE '%caught%' OR raw_text LIKE '%wrong%'
              OR raw_text LIKE '%not an observer%')
@@ -273,7 +272,7 @@ def generate_boot_summary(c):
     # --- Today's memories ---
     today_memories = []
     for r in c.execute("""SELECT id, raw_text, memory_type, created_at FROM memories
-        WHERE status='durable' AND created_at LIKE ?
+        WHERE memory_type != 'self_account' AND status='durable' AND created_at LIKE ?
         ORDER BY created_at DESC LIMIT 10""", (today + "%",)).fetchall():
         today_memories.append({
             "id": r["id"], "text": r["raw_text"][:200],
@@ -284,7 +283,7 @@ def generate_boot_summary(c):
     yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
     yesterday_memories = []
     for r in c.execute("""SELECT id, raw_text, memory_type, created_at FROM memories
-        WHERE status='durable' AND created_at LIKE ?
+        WHERE memory_type != 'self_account' AND status='durable' AND created_at LIKE ?
         ORDER BY created_at DESC LIMIT 10""", (yesterday + "%",)).fetchall():
         yesterday_memories.append({
             "id": r["id"], "text": r["raw_text"][:200],
@@ -295,7 +294,7 @@ def generate_boot_summary(c):
     recent_affect = []
     for r in c.execute("""SELECT m.raw_text, ma.valence, ma.arousal, ma.emotion_json, m.created_at
         FROM memories m JOIN memory_affect ma ON m.id = ma.memory_id
-        WHERE m.status='durable' ORDER BY m.created_at DESC LIMIT 5""").fetchall():
+        WHERE m.memory_type != 'self_account' AND m.status='durable' ORDER BY m.created_at DESC LIMIT 5""").fetchall():
         recent_affect.append({
             "text": r["raw_text"][:150],
             "valence": r["valence"],
@@ -344,6 +343,7 @@ def generate_boot_summary(c):
     # (position, pushed_at) never existed here and crashed phase 3.
     for r in c.execute("""SELECT r.slot, m.raw_text, m.memory_type, r.last_activated_at
         FROM ring r JOIN memories m ON r.memory_id = m.id
+        WHERE m.memory_type != 'self_account'
         ORDER BY r.slot""").fetchall():
         ring.append({"pos": r["slot"], "text": r["raw_text"][:150], "type": r["memory_type"]})
     
@@ -398,10 +398,17 @@ def generate_boot_summary(c):
         )
     }
     
-    # Write to disk
-    os.makedirs(os.path.dirname(BOOT_SUMMARY_PATH), exist_ok=True)
-    with open(BOOT_SUMMARY_PATH, "w", encoding="utf-8") as f:
-        json.dump(boot, f, indent=2, default=str)
+    boot["recent_topics"] = [dict(r) for r in c.execute(
+        "SELECT id, substr(raw_text,1,200) AS text, created_at, source_type, proposed_by, status "
+        "FROM memories WHERE memory_type != 'self_account' AND status='durable' AND COALESCE(context,'') != 'auto-recorded' "
+        "AND julianday(created_at) >= julianday('now','-24 hours') "
+        "ORDER BY created_at DESC LIMIT 5")]
+    boot["instruction"] = (
+        "Shared historical context. Preserve source authorship and dates; "
+        "another assistant's records are not your own personal state. "
+        "Current user corrections take precedence over historical records."
+    )
+    write_boot(boot, BOOT_SUMMARY_PATH)
     
     # Also store in aelen_state for redundancy
     ts = _now()

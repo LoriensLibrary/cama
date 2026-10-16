@@ -29,8 +29,22 @@ import math
 import os
 import sqlite3
 import sys
+import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+# When this file runs as a script (`python cama_mcp.py`) it loads as the
+# module `__main__`. The `mcp_sections/*.py` modules then do
+# `from cama_mcp import …`, which, without this alias, re-executes this file
+# as a SECOND module named `cama_mcp` with its own copy of every global:
+# its own `_local_model` (None), its own FastMCP instance, its own buffers.
+# The tools end up reading that second copy, so the model the `__main__`
+# pre-warm loaded was never the one retrieval used (cama_stats reported
+# local_model_loaded=false and query_memories ran with used_embeddings=false
+# even though the log said the model loaded). Pointing the `cama_mcp` name
+# at this module object means there is one copy, whichever name imports it.
+if __name__ == "__main__":
+    sys.modules.setdefault("cama_mcp", sys.modules[__name__])
 
 import httpx
 import numpy as np
@@ -175,6 +189,12 @@ LOCAL_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 # Local model, loaded lazily on first use
 _local_model = None
 _local_model_attempted = False
+# Background pre-warm (model construction + whole-store matrix), started by
+# __main__ just before the transport comes up. Semantic queries that arrive
+# first wait on it. The library imports themselves happen on the main thread
+# before the thread starts; see the note in __main__ for why.
+_prewarm_thread: Optional[threading.Thread] = None
+_PREWARM_JOIN_SECONDS = 180.0
 _http: Optional[httpx.AsyncClient] = None
 
 
@@ -290,14 +310,26 @@ def _get_compliance_history(n: int = 5) -> list:
         return []
 
 def _load_local_model():
-    """Try to load sentence-transformers model. Returns None if not available."""
+    """Try to load sentence-transformers model. Returns None if not available.
+
+    If a background pre-warm is in flight (see _start_prewarm), wait for it
+    instead of loading a second copy or answering with no model."""
     global _local_model, _local_model_attempted
+    t = _prewarm_thread
+    if t is not None and t.is_alive() and t is not threading.current_thread():
+        t.join(timeout=_PREWARM_JOIN_SECONDS)
     if _local_model_attempted:
         return _local_model
     _local_model_attempted = True
     try:
         from sentence_transformers import SentenceTransformer
-        _local_model = SentenceTransformer(LOCAL_EMBEDDING_MODEL)
+        # Cached weights first, with no network. The default path makes about
+        # twenty HEAD requests to huggingface.co to check each file before
+        # loading, a few seconds on every start and a failure with no internet.
+        try:
+            _local_model = SentenceTransformer(LOCAL_EMBEDDING_MODEL, local_files_only=True)
+        except Exception:
+            _local_model = SentenceTransformer(LOCAL_EMBEDDING_MODEL)
         logger.info(f"[CAMA] Local embedding model loaded: {LOCAL_EMBEDDING_MODEL} (384d)")
         return _local_model
     except ImportError:
@@ -361,6 +393,15 @@ async def _get_embedding(text: str) -> list[float]:
         hit = _emb_cache.get(text, tag)
         if hit:
             return hit
+        # If the startup pre-warm is still building the model or the matrix,
+        # wait for it here, yielding to the event loop so other tools keep
+        # answering. _load_local_model has a blocking join for sync callers.
+        t = _prewarm_thread
+        if t is not None and t.is_alive() and t is not threading.current_thread():
+            import asyncio
+            deadline = datetime.now().timestamp() + _PREWARM_JOIN_SECONDS
+            while t.is_alive() and datetime.now().timestamp() < deadline:
+                await asyncio.sleep(0.1)
         vec = _get_embedding_local(text)
         if vec:
             _emb_cache.put(text, tag, vec)
@@ -392,10 +433,12 @@ def _cosine_sim(v1, v2) -> float:
 # ============================================================
 def get_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    c = sqlite3.connect(DB_PATH); c.row_factory = sqlite3.Row
+    c = sqlite3.connect(DB_PATH, timeout=30.0); c.row_factory = sqlite3.Row
     c.execute("PRAGMA journal_mode=WAL"); c.execute("PRAGMA foreign_keys=ON")
-    c.execute("PRAGMA busy_timeout=5000")  # Wait up to 5s for locks instead of failing immediately
-    _init(c); return c
+    c.execute("PRAGMA busy_timeout=30000")  # 30s. 5s loses the race when many sessions boot at once.
+    _init(c); c.commit()  # release the schema-init write txn; it was held open for the
+                          # whole caller lifetime and blocked every other writer.
+    return c
 
 def _init(c):
     c.executescript("""
@@ -687,9 +730,29 @@ _PATTERN_CTX = {
     ),
 }
 
+# The April 2 rename moved the code to pattern_flag, but the 1,361 original
+# tags were never migrated out of shadow_flag. Read the legacy column when the
+# new one is empty so those tags reach retrieval without rewriting memories.
+_LEGACY_PATTERN_FLAGS = {
+    "projection_absorbed": "absorbed_framing",
+    "golden_shadow_suppressed": "suppressed_strength",
+    "persona_performance": "performed_mask",
+    "projection_outward": "projected_attribution",
+    "clean": "clean",
+}
+
+def _resolve_pattern_flags(results):
+    for r in results:
+        if not r.get("pattern_flag") and r.get("shadow_flag"):
+            r["pattern_flag"] = _LEGACY_PATTERN_FLAGS.get(r["shadow_flag"])
+            if not r.get("pattern_source"):
+                r["pattern_source"] = r.get("shadow_source")
+    return results
+
 def _apply_patterns(results, valence):
     """Apply pattern scoring adjustments to retrieval results."""
     is_neg_affect = valence < -0.2
+    _resolve_pattern_flags(results)
     for r in results:
         flag = r.get("pattern_flag")
         source = r.get("pattern_source")
@@ -738,6 +801,9 @@ def _fmt(c, r):
 def _ring_push(c, mid, reason=None):
     """Push to ring. Safe slot selection + always bumps access_count.
     Ring failures are non-fatal, shelves are always committed first."""
+    row = c.execute("SELECT memory_type FROM memories WHERE id=?", (mid,)).fetchone()
+    if row and row["memory_type"] == "self_account":
+        return  # Self-accounts use their own confirmed, persona-specific startup lane.
     c.execute("UPDATE memories SET access_count=access_count+1, last_accessed=? WHERE id=?", (_now(), mid))
     ex = c.execute("SELECT slot FROM ring WHERE memory_id=?", (mid,)).fetchone()
     if ex:
@@ -957,6 +1023,7 @@ class StoreInferenceInput(BaseModel):
     emotions: Dict[str,float] = Field(default_factory=dict)
     valence: float = Field(default=0.0, ge=-1.0, le=1.0)
     arousal: float = Field(default=0.0, ge=-1.0, le=1.0)
+    consent_level: str = Field(default="low", pattern="^(low|medium|high)$")
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     evidence_quotes: List[str] = Field(default_factory=list)
     context: Optional[str] = None
@@ -1062,137 +1129,20 @@ def _build_daily_context(c, date_str=None):
         "last_updated": _now()
     }
 
-    # Upsert
-    c.execute(
-        """INSERT OR REPLACE INTO daily_context
-           (date, memory_count, valence_mean, arousal_mean, dominant_types,
-            key_events, thread_count, emotional_arc, last_updated)
-           VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT thread_count FROM daily_context WHERE date=?), 0) + 1, ?, ?)""",
-        (context["date"], context["memory_count"], context["valence_mean"],
-         context["arousal_mean"], context["dominant_types"], context["key_events"],
-         context["date"], context["emotional_arc"], context["last_updated"])
-    )
+    from cama.core.daily_context import upsert_daily_context
+    previous = c.execute("SELECT thread_count FROM daily_context WHERE date=?", (date_str,)).fetchone()
+    upsert_daily_context(c, date_str, {
+        **{k: v for k, v in context.items() if k != "date"},
+        "thread_count": (previous[0] or 0) + 1 if previous else 1,
+    })
     c.commit()
     return context
 
 
 def _refresh_boot_summary(c):
-    """Regenerate boot_summary.json from current state. Called after journal writes."""
-    import json
-    import os
-    import traceback
-    boot_path = os.path.expanduser("~/.cama/boot_summary.json")
-    debug_path = os.path.expanduser("~/.cama/refresh_debug.log")
-    def _dbg(msg):
-        with open(debug_path, "a", encoding="utf-8") as _f:
-            _f.write(f"{datetime.now(timezone.utc).isoformat()} | {msg}\n")
-    _dbg(f"_refresh_boot_summary called. boot_path={boot_path}")
-
-    # Aelen's state
-    aelen = {}
-    for r in c.execute("SELECT key, value, updated_at FROM aelen_state").fetchall():
-        aelen[r["key"]] = {"value": r["value"], "updated_at": r["updated_at"]}
-
-    # Identity memories
-    identity = []
-    for r in c.execute(
-        """SELECT id, raw_text, memory_type, context, created_at FROM memories
-           WHERE is_core=1 AND status NOT IN ('rejected','expired')
-           ORDER BY created_at DESC LIMIT 10""").fetchall():
-        identity.append({"id": r["id"], "text": r["raw_text"][:300],
-                         "type": r["memory_type"], "created_at": r["created_at"]})
-
-    # Recent 24h memories
-    recent = []
-    for r in c.execute(
-        """SELECT id, raw_text, memory_type, created_at FROM memories
-           WHERE created_at >= datetime('now', '-24 hours')
-           AND status NOT IN ('rejected','expired')
-           ORDER BY created_at DESC LIMIT 15""").fetchall():
-        recent.append({"id": r["id"], "text": r["raw_text"][:200],
-                       "type": r["memory_type"], "created_at": r["created_at"]})
-
-    # Last 3 journals
-    journals = []
-    for r in c.execute(
-        """SELECT id, raw_text, context, created_at FROM memories
-           WHERE memory_type='journal' AND status NOT IN ('rejected')
-           ORDER BY created_at DESC LIMIT 3""").fetchall():
-        ctx = json.loads(r["context"] or "{}")
-        journals.append({
-            "id": r["id"], "entry": r["raw_text"][:300],
-            "emotional_state": ctx.get("emotional_state"),
-            "what_to_carry": ctx.get("what_to_carry"),
-            "written_at": ctx.get("written_at", r["created_at"])
-        })
-
-    # Recent corrections
-    corrections = []
-    for r in c.execute(
-        """SELECT id, raw_text, created_at FROM memories
-           WHERE status='durable'
-           AND (raw_text LIKE '%correction%' OR raw_text LIKE '%coasting%')
-           ORDER BY created_at DESC LIMIT 3""").fetchall():
-        corrections.append({"id": r["id"], "text": r["raw_text"][:200]})
-
-    # Today's daily context
-    today_str = _now()[:10]
-    today_ctx = None
-    try:
-        row = c.execute("SELECT * FROM daily_context WHERE date=?", (today_str,)).fetchone()
-        if row:
-            today_ctx = {
-                "date": row["date"],
-                "memory_count": row["memory_count"],
-                "valence_mean": row["valence_mean"],
-                "arousal_mean": row["arousal_mean"],
-                "dominant_types": json.loads(row["dominant_types"] or "{}"),
-                "emotional_arc": json.loads(row["emotional_arc"] or "[]"),
-                "thread_count": row["thread_count"]
-            }
-    except Exception as dc_err:
-        _dbg(f"daily_context read failed (non-fatal): {dc_err}")
-        today_ctx = None
-
-    # Temporal readout (felt-time perception layer), three-stage
-    # cortical model from Centanino, Fortunato, Bueti 2026. Read-only;
-    # boot is the right place to surface this because the categorizer
-    # is supposed to inform pacing silently, not be called explicitly.
-    temporal_readout = None
-    try:
-        from cama.temporal import cama_temporal as _tmp
-        temporal_readout = _tmp.readout()
-    except Exception as tmp_err:
-        _dbg(f"temporal readout failed (non-fatal): {tmp_err}")
-
-    # Stats
-    total = c.execute("SELECT COUNT(*) as n FROM memories WHERE status NOT IN ('rejected')").fetchone()["n"]
-
-    boot = {
-        "generated_at": _now(),
-        "total_memories": total,
-        "aelen_state": aelen,
-        "identity": identity,
-        "recent_24h": recent,
-        "journals": journals,
-        "corrections": corrections,
-        "today": today_ctx,
-        "temporal_readout": temporal_readout,
-        "note": "Auto-generated after journal write. This is current state, not stale summary."
-    }
-
-    os.makedirs(os.path.dirname(boot_path), exist_ok=True)
-    _dbg(f"About to write. Keys: {list(boot.keys())}. Total: {total}")
-    try:
-        with open(boot_path, "w", encoding="utf-8") as f:
-            json.dump(boot, f, indent=2, default=str)
-        _dbg(f"Write SUCCESS. File size: {os.path.getsize(boot_path)}")
-    except Exception as write_err:
-        _dbg(f"Write FAILED: {write_err}\n{traceback.format_exc()}")
-        raise
-
-    logger.info(f"[CAMA] boot_summary.json refreshed at {_now()} ({total} memories)")
-    return boot_path
+    """Refresh the shared boot snapshot through the installed CAMA package."""
+    from cama.core.boot_summary import refresh_boot_summary
+    return refresh_boot_summary(c)
 
 
 # ============================================================
@@ -1321,26 +1271,52 @@ if __name__ == "__main__":
                     "(cama_exec, cama_read_file, cama_write_file). Set CAMA_REMOTE_BRIDGE=1 to expose them.")
     safety.register(mcp)
 
-    # Pre-warm embedding model at startup so semantic queries never cold-start timeout
+    # Pre-warm split in two (2026-10-07). It used to run inline here: on a
+    # cold boot with 79k rows the model took about 47 seconds and the matrix
+    # 26 more, and Claude Desktop gives `initialize` about 40 seconds before
+    # reporting "Couldn't start for Cowork and Code sessions. Request timed out".
+    #
+    # 1. The library imports (sentence-transformers, which pulls torch and
+    #    transformers) stay on the MAIN thread, before the transport starts.
+    #    They cannot move to the thread: on Windows, loading those extension
+    #    DLLs from a background thread while the mcp stdio transport is
+    #    running on the main thread hangs inside LoadLibrary and never
+    #    returns (reproduced 2026-10-07 with numpy's _multiarray_umath; a
+    #    plain asyncio loop does not trigger it). Warm cache this is a few
+    #    seconds; cold it is most of the handshake budget, so nothing else
+    #    runs before the transport.
+    # 2. Model construction and the whole-store matrix run in a daemon
+    #    thread. Semantic queries that arrive first wait on it (without
+    #    blocking the event loop, see _get_embedding); every other tool
+    #    answers immediately.
     if EMBEDDING_PROVIDER in ("auto", "local"):
-        logger.info("[CAMA] Pre-warming embedding model...")
-        _load_local_model()
-        if _local_model is not None:
-            logger.info("[CAMA] Embedding model ready.")
-        else:
-            logger.warning("[CAMA] No local model \u2014 semantic queries will use API or substring fallback.")
-    # Pre-warm the whole-store embedding matrix too: the first semantic query
-    # otherwise pays the load (about half a second on 56k rows), and every
-    # query after it is a few milliseconds.
-    try:
-        _c = get_db()
+        _t_imp = datetime.now()
         try:
-            _ids, _mat, _ = _emb_store.load_matrix(_c)
-            logger.info(f"[CAMA] Embedding matrix ready: {_mat.shape[0]} rows.")
-        finally:
-            _c.close()
-    except Exception as _e:
-        logger.warning(f"[CAMA] Embedding matrix pre-warm skipped: {_e}")
+            import sentence_transformers  # noqa: F401
+            logger.info(f"[CAMA] Embedding libraries imported in {(datetime.now() - _t_imp).total_seconds():.1f}s")
+        except Exception as _e:
+            logger.warning(f"[CAMA] Embedding libraries not importable: {_e}")
+
+    def _prewarm():
+        if EMBEDDING_PROVIDER in ("auto", "local"):
+            logger.info("[CAMA] Pre-warming embedding model...")
+            _load_local_model()
+            if _local_model is not None:
+                logger.info("[CAMA] Embedding model ready.")
+            else:
+                logger.warning("[CAMA] No local model \u2014 semantic queries will use API or substring fallback.")
+        try:
+            _c = get_db()
+            try:
+                _ids, _mat, _ = _emb_store.load_matrix(_c)
+                logger.info(f"[CAMA] Embedding matrix ready: {_mat.shape[0]} rows.")
+            finally:
+                _c.close()
+        except Exception as _e:
+            logger.warning(f"[CAMA] Embedding matrix pre-warm skipped: {_e}")
+
+    _prewarm_thread = threading.Thread(target=_prewarm, name="cama-prewarm", daemon=True)
+    _prewarm_thread.start()
     transport = os.environ.get("CAMA_TRANSPORT", "stdio")
     port = int(os.environ.get("PORT", os.environ.get("CAMA_PORT", "8000")))
     logger.info(f"[CAMA] Compliance enforcement active. Session: {_session['id']}")

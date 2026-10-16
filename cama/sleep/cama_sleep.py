@@ -373,18 +373,17 @@ def consolidate_memories(c) -> dict:
         if edges_this_cycle >= MAX_EDGES_PER_CYCLE:
             break
     
-    # Duplicate detection: auto-expire copies within this batch
-    texts = [(r["id"], r["raw_text"][:100].lower().strip()) for r in anchors if r["raw_text"]]
+    # Suggest exact duplicates for review. A shared 100-character opening
+    # does not make two memories duplicates, and the daemon cannot withdraw
+    # user teachings or historical exchanges on its own authority.
+    texts = [(r["id"], r["raw_text"]) for r in anchors if r["raw_text"]]
     seen = {}
-    ts = _now()
+    stats["duplicate_candidates"] = []
     for mid, txt in texts:
         if len(txt) < 10:
             continue
         if txt in seen:
-            newer = max(mid, seen[txt])
-            c.execute("UPDATE memories SET status='expired', updated_at=? WHERE id=? AND status='durable'",
-                      (ts, newer))
-            stats["duplicates_expired"] += 1
+            stats["duplicate_candidates"].append([seen[txt], mid])
             seen[txt] = min(mid, seen[txt])
         else:
             seen[txt] = mid
@@ -425,17 +424,14 @@ def refresh_daily_context(c) -> dict:
         
         dominant = dict(all_emotions.most_common(5))
         
-        ts = _now()
-        c.execute("""INSERT OR REPLACE INTO daily_context 
-            (date, memory_count, valence_mean, arousal_mean, dominant_emotions,
-             created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, COALESCE(
-                (SELECT created_at FROM daily_context WHERE date=?), ?), ?)""",
-            (date, len(mems),
-             sum(valences) / len(valences) if valences else 0.0,
-             sum(arousals) / len(arousals) if arousals else 0.0,
-             json.dumps(dominant),
-             date, ts, ts))
+        from cama.core.daily_context import upsert_daily_context
+        upsert_daily_context(c, date, {
+            "memory_count": len(mems),
+            "valence_mean": sum(valences) / len(valences) if valences else 0.0,
+            "arousal_mean": sum(arousals) / len(arousals) if arousals else 0.0,
+            "dominant_emotions": dominant,
+        })
+
         
         stats["days_refreshed"] += 1
     
@@ -468,10 +464,12 @@ def refresh_boot_summary(c) -> dict:
     
     ts = _now()
     c.execute("""INSERT OR REPLACE INTO aelen_state (key, value, updated_at)
-        VALUES ('boot_summary', ?, ?)""", (json.dumps(boot), ts))
+        VALUES ('sleep_refresh_summary', ?, ?)""", (json.dumps(boot), ts))
     
     c.commit()
-    return {"boot_refreshed": True}
+    from cama.core.boot_summary import refresh_boot_summary as write_snapshot
+    path = write_snapshot(c)
+    return {"boot_refreshed": True, "path": path}
 
 
 # ============================================================
@@ -643,14 +641,8 @@ def ingest_new_threads(c) -> dict:
         from cama.ingest.cama_import_threads import import_new_threads, state_path_for
     except ImportError as e:
         return {"written": 0, "files_walked": 0, "note": f"importer unavailable: {e}"}
-    encoder = None
     try:
-        from sentence_transformers import SentenceTransformer
-        encoder = SentenceTransformer("all-MiniLM-L6-v2")
-    except Exception:
-        pass  # rows still land; Phase 5 backfills their vectors next cycle
-    try:
-        return import_new_threads(c, embed=encoder is not None, encoder=encoder,
+        return import_new_threads(c, embed=True,
                                   state_path=state_path_for(DB_PATH))
     except Exception as e:
         logging.warning(f"Thread ingest failed: {e}")
@@ -660,12 +652,13 @@ def ingest_new_threads(c) -> dict:
 # ============================================================
 # PHASE 7: HEARTBEAT
 # ============================================================
-def write_heartbeat(c) -> dict:
+def write_heartbeat(c, degraded: bool = False) -> dict:
     ts = _now()
     c.execute("""INSERT OR REPLACE INTO aelen_state (key, value, updated_at)
         VALUES ('last_sleep_cycle', ?, ?)""", (ts, ts))
+    status = "degraded, last cycle has errors; inspect sleep_log" if degraded else "resting, last cycle completed successfully (v2.1)"
     c.execute("""INSERT OR REPLACE INTO aelen_state (key, value, updated_at)
-        VALUES ('sleep_status', 'resting, last cycle completed successfully (v2.1)', ?)""", (ts,))
+        VALUES ('sleep_status', ?, ?)""", (status, ts))
     c.commit()
     return {"heartbeat": ts}
 
@@ -691,11 +684,7 @@ def run_sleep_cycle():
                      f"Comparisons: {result['comparisons']}, "
                      f"Dupes expired: {result['duplicates_expired']}")
         
-        logging.info("Phase 2: REFRESH, updating daily context and boot summary...")
-        dc_result = refresh_daily_context(c)
-        boot_result = refresh_boot_summary(c)
-        actions["refresh"] = {**dc_result, **boot_result}
-        logging.info(f"  Days refreshed: {dc_result['days_refreshed']}")
+        # Refresh after ingestion so the next session sees this cycle's new turns.
         
         logging.info("Phase 3: DREAM, synthesizing today's emotional landscape...")
         dream = write_dream_entry(c)
@@ -721,8 +710,25 @@ def run_sleep_cycle():
         logging.info(f"  Files walked: {ingest_result.get('files_walked', 0)}, "
                      f"New exchanges: {ingest_result.get('written', 0)}")
 
+        try:
+            from cama.librarian.cama_auto_tag import backfill
+            actions["librarians"] = backfill(limit=500, conn=c)
+        except Exception as exc:
+            actions["librarians"] = {"error": str(exc)}
+
+        logging.info("REFRESH, preparing continuity after ingestion...")
+        try:
+            dc_result = refresh_daily_context(c)
+            boot_result = refresh_boot_summary(c)
+            actions["refresh"] = {**dc_result, **boot_result}
+        except Exception as exc:
+            actions["refresh"] = {"boot_refreshed": False, "error": str(exc)}
+
         logging.info("Phase 7: HEARTBEAT, marking presence...")
-        hb = write_heartbeat(c)
+        degraded = any(isinstance(v, dict) and (v.get("error") or v.get("errors") or
+                       v.get("status") == "degraded") for v in actions.values())
+        actions["status"] = "degraded" if degraded else "ok"
+        hb = write_heartbeat(c, degraded=degraded)
         actions["heartbeat"] = hb
         
         cycle_end = _now()
@@ -826,3 +832,4 @@ if __name__ == "__main__":
         result = run_sleep_cycle()
         print("\nCycle result:")
         print(json.dumps(result, indent=2, default=str))
+        sys.exit(1 if result.get("error") or result.get("status") == "degraded" else 0)

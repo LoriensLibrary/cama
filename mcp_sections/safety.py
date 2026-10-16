@@ -3,6 +3,8 @@
 import json
 import os
 
+from cama.core.boot_file import boot_path as get_boot_path
+from cama.core.boot_file import freshness
 from cama_mcp import (
     _calc_compliance_score,
     _compliance_warning,
@@ -16,7 +18,7 @@ from cama_mcp import (
 
 async def cama_health() -> str:
     """Bridge health check. Call before trusting any state."""
-    boot_path = os.path.expanduser("~/.cama/boot_summary.json")
+    boot_path = get_boot_path()
     c = get_db()
     try:
         result = {}
@@ -24,44 +26,88 @@ async def cama_health() -> str:
         total = c.execute("SELECT COUNT(*) as c FROM memories WHERE status='durable'").fetchone()["c"]
         result["total_durable"] = total
         # Boot summary
-        if os.path.exists(boot_path):
-            import json as j2
-            with open(boot_path,"r") as f:
-                boot = j2.load(f)
-            gen = boot.get("generated_at","")
-            result["boot_summary_exists"] = True
-            result["boot_generated_at"] = gen
-            if gen:
-                try:
-                    from datetime import datetime, timezone
-                    gen_dt = datetime.fromisoformat(gen)
-                    age = (datetime.now(timezone.utc) - gen_dt).total_seconds() / 60
-                    result["boot_age_minutes"] = round(age, 1)
-                    result["boot_status"] = "fresh" if age < 60 else "stale" if age < 360 else "cold"
-                except: result["boot_status"] = "unknown"
-        else:
-            result["boot_summary_exists"] = False
-            result["boot_status"] = "missing"
+        result["boot_summary_exists"] = os.path.exists(boot_path)
+        result["boot_status"] = "missing"
+        if result["boot_summary_exists"]:
+            try:
+                with open(boot_path, "r", encoding="utf-8") as f:
+                    boot = json.load(f)
+                age = freshness(boot)
+                result["boot_generated_at"] = boot.get("generated_at")
+                result["boot_age_minutes"] = age["age_min"]
+                result["boot_status"] = age["status"]
+            except (OSError, ValueError, AttributeError, TypeError) as exc:
+                result["boot_status"] = "error"
+                result["boot_error"] = str(exc)
         # Daily context
         dc = c.execute("SELECT COUNT(*) as c FROM daily_context").fetchone()["c"]
         result["daily_context_rows"] = dc
         today = _now()[:10]
         dc_today = c.execute("SELECT COUNT(*) as c FROM daily_context WHERE date=?", (today,)).fetchone()["c"]
         result["daily_context_today"] = dc_today > 0
+        memories_today = c.execute(
+            "SELECT COUNT(*) FROM memories WHERE status='durable' AND created_at LIKE ?",
+            (today + "%",),
+        ).fetchone()[0]
+        result["durable_memories_today"] = memories_today
+        result["daily_context_required"] = memories_today > 0
         # Last heartbeat
         hb = c.execute("SELECT value, updated_at FROM aelen_state WHERE key='last_loop_cycle'").fetchone()
         result["last_loop_cycle"] = hb["value"] if hb else None
+        cycle = c.execute("SELECT cycle_end, actions_taken FROM sleep_log ORDER BY id DESC LIMIT 1").fetchone()
+        result["last_sleep_cycle"] = cycle["cycle_end"] if cycle else None
+        result["heartbeat_source"] = "sleep_log" if cycle else "last_loop_cycle"
+        result["last_background_cycle"] = result["last_sleep_cycle"] or result["last_loop_cycle"]
+        if cycle:
+            try:
+                actions = json.loads(cycle["actions_taken"] or "{}")
+                if not isinstance(actions, dict):
+                    actions = {"status": "degraded"}
+            except (TypeError, ValueError):
+                actions = {"status": "degraded"}
+            result["last_ingest"] = actions.get("ingest", {})
+            result["sleep_status"] = actions.get("status", "unknown")
+            result["last_refresh"] = actions.get("refresh", {})
         # Embeddings
         emb = c.execute("SELECT COUNT(*) as c FROM memory_embeddings").fetchone()["c"]
         no_emb = c.execute("SELECT COUNT(*) as c FROM memories m LEFT JOIN memory_embeddings e ON m.id=e.memory_id WHERE e.memory_id IS NULL AND m.status='durable'").fetchone()["c"]
         result["embeddings_total"] = emb
         result["embeddings_missing"] = no_emb
+        archive_table = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                                  "AND name='transcript_archives'").fetchone()
+        if archive_table:
+            archived = c.execute("SELECT COUNT(*),COUNT(DISTINCT conversation_id) "
+                                 "FROM transcript_archives WHERE platform='chatgpt'").fetchone()
+            indexed = c.execute(
+                "SELECT COUNT(*), SUM(EXISTS(SELECT 1 FROM memory_embeddings e WHERE e.memory_id=m.id)), "
+                "SUM(EXISTS(SELECT 1 FROM librarian_membership l WHERE l.memory_id=m.id)) "
+                "FROM memories m WHERE source_msg_id LIKE 'oa:%'"
+            ).fetchone()
+            result["chatgpt_transcripts"] = {
+                "archived_conversations": archived[1], "source_snapshots": archived[0],
+                "indexed_exchange_snapshots": indexed[0], "embedded": indexed[1] or 0,
+                "librarian_assigned": indexed[2] or 0,
+                "scope": "Available local exports; attachment bytes are not fetched from references.",
+            }
+        routing = c.execute(
+            "SELECT COUNT(*), SUM(CASE WHEN pattern_source='unclaimed' THEN 1 ELSE 0 END) "
+            "FROM memories m WHERE status='durable' AND NOT EXISTS "
+            "(SELECT 1 FROM librarian_membership l WHERE l.memory_id=m.id)"
+        ).fetchone()
+        result["librarian_unassigned"] = routing[0]
+        result["librarian_unclaimed"] = routing[1] or 0
+        result["librarian_pending"] = routing[0] - (routing[1] or 0)
+        result["librarian_note"] = "Unclaimed records were processed without a matching topic; they remain searchable. Pending records still need processing."
         # Warnings
         warnings = []
-        if result.get("boot_status") in ("stale","cold","missing"):
-            warnings.append(f"Boot summary is {result.get('boot_status')} — run `python -m cama.sleep.cama_loop`")
-        if not result.get("daily_context_today"):
-            warnings.append("No daily_context for today — loop may not have run")
+        if result.get("sleep_status") == "degraded":
+            warnings.append("Last sleep cycle reported failures; inspect last_ingest and sleep_log")
+        if result["librarian_pending"]:
+            warnings.append(f"{result['librarian_pending']} durable memories await librarian processing")
+        if result.get("boot_status") != "fresh":
+            warnings.append(f"Boot summary is {result.get('boot_status')} — use cama_refresh_boot or run the sleep cycle")
+        if result["daily_context_required"] and not result["daily_context_today"]:
+            warnings.append("Today has durable memories but no daily_context — refresh is pending")
         if no_emb > 100:
             warnings.append(f"{no_emb} memories missing embeddings")
         result["warnings"] = warnings

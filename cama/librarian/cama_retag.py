@@ -87,6 +87,16 @@ def _keyword_matches(text: str, keywords: List[str]) -> tuple:
     return score, matched
 
 
+def _membership_score(name, memory_type, text, keywords, context=None):
+    """Type indexes use metadata even when a bulk retag is requested."""
+    if name.endswith("_self_account"):
+        from cama.core.self_accounts import matches_leaf
+        return (1.0, ["metadata:author_subject"]) if matches_leaf(name, memory_type, context) else (0.0, [])
+    if name.startswith("type_"):
+        return (1.0, ["metadata:memory_type"]) if name == f"type_{memory_type}" else (0.0, [])
+    return _keyword_matches(text, keywords)
+
+
 def retag_for_librarian(
     name: str,
     min_score: float = 0.5,
@@ -116,7 +126,7 @@ def retag_for_librarian(
             keywords = json.loads(lib["routing_keywords"]) if lib["routing_keywords"] else []
         except (json.JSONDecodeError, TypeError):
             keywords = []
-        if not keywords:
+        if not keywords and not name.startswith("type_"):
             return {
                 "error": f"Librarian '{name}' has no routing_keywords. "
                 f"Use cama_lib_update_keywords first."
@@ -140,14 +150,14 @@ def retag_for_librarian(
         now = _now()
 
         rows = c.execute(
-            """SELECT id, raw_text, context FROM memories
+            """SELECT id, raw_text, context, memory_type FROM memories
                WHERE status != 'rejected' AND raw_text IS NOT NULL"""
         )
         for r in rows:
             scanned += 1
             mid = r["id"]
             text = (r["raw_text"] or "") + " " + (r["context"] or "")
-            score, kws = _keyword_matches(text, keywords)
+            score, kws = _membership_score(name, r["memory_type"], text, keywords, r["context"])
             if score < min_score:
                 continue
             matched += 1
@@ -226,11 +236,11 @@ def retag_all_unclaimed(
                 kws = json.loads(L["routing_keywords"]) if L["routing_keywords"] else []
             except (json.JSONDecodeError, TypeError):
                 kws = []
-            if kws:
+            if kws or L["name"].startswith("type_"):
                 lib_kws.append((L["id"], L["name"], kws))
 
         rows = c.execute(
-            """SELECT id, raw_text, context FROM memories
+            """SELECT id, raw_text, context, memory_type FROM memories
                WHERE pattern_source = 'unclaimed'
                  AND status != 'rejected'
                  AND raw_text IS NOT NULL
@@ -250,7 +260,7 @@ def retag_all_unclaimed(
             text = (r["raw_text"] or "") + " " + (r["context"] or "")
             matched_libs = []
             for (lib_id, lib_name, kws) in lib_kws:
-                score, _ = _keyword_matches(text, kws)
+                score, _ = _membership_score(lib_name, r["memory_type"], text, kws, r["context"])
                 if score >= min_score:
                     matched_libs.append((lib_id, score))
 
