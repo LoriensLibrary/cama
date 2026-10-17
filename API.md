@@ -128,6 +128,8 @@ Content-Type: application/json
 
 **Inference write behavior:** if `source_type=inference` (regardless of `proposed_by`), the response includes `status=provisional` and `review_after=<utc-iso-30-days-out>`. The memory is not retrievable as a durable hit until promoted via `PATCH /v1/memories/{id}/confirm`.
 
+**Trust scan:** every write runs the same write-time trust decision as the MCP store path (`cama.core.cama_trust`). Text shaped like an instruction to the AI (ignore-previous-instructions, a named bridge tool, a boot trigger, an exfiltration or network-egress directive, role-injection markup, an encoded payload) is stored with `status=quarantined` whatever its provenance, and the decision is recorded in the guard log. A quarantined row is excluded from search and from the boot path; `PATCH /v1/memories/{id}/confirm` releases it to durable under the same consent-token flow as a provisional inference. `status=quarantined` is a member of the `MemoryStatus` enum.
+
 ### 4.2 `GET /v1/memories/{id}`: read one memory
 
 ```http
@@ -160,6 +162,8 @@ X-Consent-Token: cons_01HXY...
 The consent token must come from a successful `POST /v1/consent/grant` for this same dyad + memory ID within the last 5 minutes. **403 Forbidden** if the token is missing, expired, or doesn't bind to this memory.
 
 This is the architectural mechanism enforcing "AI cannot self-promote teachings." The token is one-shot, promoting consumes it.
+
+Only a `provisional` or `quarantined` row can be confirmed. A `rejected` row is kept for audit and an `expired` row was resolved by its TTL; confirming either returns **409 Conflict** with `cama.violated_contract = status_not_confirmable` and leaves the row unchanged. The status check and the promotion are one guarded `UPDATE`, so a row that changes state between read and write is not promoted either.
 
 ### 4.5 `POST /v1/search`: blended retrieval
 
@@ -362,6 +366,7 @@ Defined `cama.violated_contract` values (closed set, in OpenAPI):
 | `payload_too_large` | Memory text exceeds 64 KB |
 | `dyad_locked` | Dyad is in the middle of a destructive operation (delete in progress) |
 | `degraded_mode` | Operation requires a feature unavailable in degraded mode |
+| `status_not_confirmable` | `PATCH /confirm` on a row that is neither provisional nor quarantined |
 
 The SDK uses `cama.violated_contract` for structured retries and developer-facing messages.
 

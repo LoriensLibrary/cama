@@ -31,43 +31,15 @@ from cama.sdk import (
 # Test fixtures, re-use the API contract-test schema setup
 # ---------------------------------------------------------------------------
 def _init_memory_schema(db_path: Path) -> None:
-    c = sqlite3.connect(str(db_path))
-    c.executescript("""
-        CREATE TABLE IF NOT EXISTS memories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            raw_text TEXT,
-            memory_type TEXT,
-            context TEXT,
-            source_type TEXT NOT NULL,
-            status TEXT DEFAULT 'durable',
-            proposed_by TEXT NOT NULL,
-            consent_level TEXT DEFAULT 'medium',
-            review_after TEXT,
-            is_core INTEGER DEFAULT 0,
-            evidence TEXT,
-            counterweight_type TEXT,
-            dyad_id TEXT NOT NULL DEFAULT 'default',
-            updated_at TEXT,
-            created_at TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_memories_dyad ON memories(dyad_id);
-        CREATE TABLE IF NOT EXISTS memory_affect (
-            memory_id INTEGER PRIMARY KEY,
-            valence REAL, arousal REAL, dominance REAL,
-            emotion_json TEXT, confidence REAL,
-            computed_at TEXT, model TEXT
-        );
-        CREATE TABLE IF NOT EXISTS memory_embeddings (
-            memory_id INTEGER PRIMARY KEY,
-            embedding_json TEXT, model TEXT, computed_at TEXT
-        );
-        CREATE TABLE IF NOT EXISTS librarian_membership (
-            librarian_id INTEGER, memory_id INTEGER, membership_strength REAL,
-            assigned_by TEXT, assigned_at TEXT
-        );
-    """)
-    c.commit()
-    c.close()
+    """Build the production schema (cama_mcp._init plus the dyad column).
+
+    This module used to carry a hand-written subset of the memory table; it
+    drifted (no trust_score / trust_reason columns, nullable updated_at) and
+    passed against a schema no live CAMA has. See tests/schema_builder.py.
+    """
+    from schema_builder import init_production_memory_schema
+
+    init_production_memory_schema(db_path)
 
 
 @pytest.fixture
@@ -209,8 +181,8 @@ class TestCounterweightInjection:
         for cw in ["grounding", "agency", "self_compassion"]:
             c.execute(
                 "INSERT INTO memories (raw_text, memory_type, source_type, "
-                "proposed_by, status, counterweight_type, created_at) "
-                "VALUES (?,?,?,?,?,?,?)",
+                "proposed_by, status, counterweight_type, created_at, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
                 (
                     f"cw-{cw} anchor",
                     "experience",
@@ -219,18 +191,20 @@ class TestCounterweightInjection:
                     "durable",
                     cw,
                     "2026-01-01T00:00:00Z",
+                    "2026-01-01T00:00:00Z",
                 ),
             )
         # And a regular memory that matches the search
         c.execute(
             "INSERT INTO memories (raw_text, memory_type, source_type, "
-            "proposed_by, status, created_at) VALUES (?,?,?,?,?,?)",
+            "proposed_by, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
             (
                 "loss is heavy",
                 "experience",
                 "exchange",
                 "user",
                 "durable",
+                "2026-05-01T00:00:00Z",
                 "2026-05-01T00:00:00Z",
             ),
         )

@@ -14,6 +14,8 @@ import re
 import sqlite3
 from datetime import datetime, timezone
 
+from cama.core import cama_trust
+
 DB_PATH = os.environ.get("CAMA_DB_PATH", os.path.expanduser("~/.cama/memory.db"))
 
 # Load personal names from local config (not tracked by git)
@@ -195,13 +197,26 @@ def store_memories(memories, db_path, dry_run=False):
         try:
             ts = m["timestamp"] or datetime.now(timezone.utc).isoformat()
             evidence = json.dumps([{"quote": m["raw_text"][:200], "timestamp": ts}])
+            # Same write-time trust decision as the live store path, with the
+            # import marked untrusted explicitly: classify() treats any
+            # source_type 'teaching' as user-authored, and this importer labels
+            # the assistant's own words as teachings (review finding A-3, and
+            # safety benchmark 3a). Marking it untrusted keeps the source
+            # history (the row is still written) without granting it the
+            # authority of something the user said: every row lands
+            # quarantined for review, never durable.
+            trust = cama_trust.classify(m["source_type"], m["proposed_by"], m["raw_text"],
+                                        untrusted=True)
+            status = trust["status_override"] or m["status"]
 
             cur = conn.execute(
                 """INSERT INTO memories (raw_text, memory_type, context, source_type, status, proposed_by,
-                   evidence, confidence, is_core, created_at, updated_at, consent_level)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (m["raw_text"], m["memory_type"], m["context"], m["source_type"], m["status"],
-                 m["proposed_by"], evidence, m["confidence"], 1 if m["is_core"] else 0, ts, ts, "low")
+                   evidence, confidence, is_core, created_at, updated_at, consent_level,
+                   trust_score, trust_reason)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (m["raw_text"], m["memory_type"], m["context"], m["source_type"], status,
+                 m["proposed_by"], evidence, m["confidence"], 1 if m["is_core"] else 0, ts, ts, "low",
+                 trust["trust_score"], trust["reason"])
             )
             mid = cur.lastrowid
 
