@@ -159,6 +159,29 @@ def score(ranked: list[str], evidence: set[str]) -> dict:
     return out
 
 
+def _validate_query_vector(qid: str, vec, db_path: str) -> None:
+    """A query embedding that is empty, non-finite or the wrong width makes
+    blended fall back to non-semantic scoring and cosine return nothing,
+    silently. Fail the question instead."""
+    import math
+    import sqlite3
+
+    if not vec:
+        raise RuntimeError(f"{qid}: query embedding is empty; retrieval would silently degrade")
+    if any(not math.isfinite(float(x)) for x in vec):
+        raise RuntimeError(f"{qid}: query embedding contains non-finite values")
+    c = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        row = c.execute("SELECT embedding_blob FROM memory_embeddings WHERE embedding_blob IS NOT NULL LIMIT 1").fetchone()
+    finally:
+        c.close()
+    if row is None:
+        raise RuntimeError(f"{qid}: no stored embedding to compare the query embedding against")
+    stored_dim = len(row[0]) // 4  # float32 blobs, see cama.core.embedding_store.EMB_DTYPE
+    if stored_dim != len(vec):
+        raise RuntimeError(f"{qid}: query embedding has {len(vec)} dims, stored embeddings have {stored_dim}")
+
+
 def _remove_store(db: Path) -> None:
     for suffix in ("", "-wal", "-shm"):
         try:
@@ -244,6 +267,9 @@ async def run_question(item: dict, scratch: Path, top_k: int, modes: tuple[str, 
     evidence = set(item.get("answer_session_ids") or [])
     abstention = (not evidence) or str(qid).endswith("_abs")
     question_text = item["question"][:QUESTION_CHARS]
+    query_vec = await cama_mcp._get_embedding(question_text)
+    if require_embeddings:
+        _validate_query_vector(qid, query_vec, cama_mcp.DB_PATH)
     result = {
         "question_id": qid, "question_type": item.get("question_type"), "sessions": len(sessions),
         "exchanges": stored, "durable_exchanges": len(durable_ids), "embedded_exchanges": embedded,
@@ -267,7 +293,7 @@ async def run_question(item: dict, scratch: Path, top_k: int, modes: tuple[str, 
             import numpy as np
 
             from cama.core import embedding_store as es
-            qv = await cama_mcp._get_embedding(question_text)
+            qv = query_vec
             c = cama_mcp.get_db()
             try:
                 mids, mat, _ = es.load_matrix(c)
