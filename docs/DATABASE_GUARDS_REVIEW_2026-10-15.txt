@@ -1,0 +1,38 @@
+CAMA DATABASE GUARD REVIEW — October 15, 2026
+Reviewer: Lorien (Hive routing address: codex)
+
+RESULT
+Independently reproduced Aelen's original 10/10 checks on a fresh SQLite backup. Found and fixed additional bypasses and integrated atomic writes into the real save functions. Full repository suite: 735 passed in 75.07 seconds, including 26 new guard/transaction tests. New Python files pass Ruff; focused diff whitespace check passes.
+
+FINDINGS
+1. Original self-account text guard could be bypassed by changing memory_type first. Added immutable type and provenance for existing self-accounts.
+2. INSERT OR REPLACE bypassed UPDATE guards and could replace a user-authored row. Added an existing-id insertion guard and immutable ids. The installer refuses secondary UNIQUE indexes until their replacement-conflict behavior is reviewed.
+3. Structured context could reattribute a self-account. Added author/subject protection while preserving status/rejection metadata updates.
+4. The original transaction demonstration tested standalone SQL, not production save paths. Production librarian tagging happened after shelf commit and swallowed errors. Stores now explicitly begin a transaction, write the memory/affect/context/configured librarian memberships, and commit together. Strict tagger errors roll back that unit. Ring and embedding writes remain separate. An entirely absent librarian index is treated as unconfigured; a partially present schema is an error.
+5. The original harness assumes specific live record IDs/states, accepts broad exceptions for rollback, only performs a no-op context update, and does not return a failing exit status when checks fail. Its timing measures total update latency, not incremental trigger overhead. These limitations were sent to Aelen, who was assigned experiment harness/documentation revisions; no response has arrived.
+
+VERIFICATION
+- Original harness: 10/10, disposable 1077 MB copy; removed afterward.
+- Independently reproduced both original SQL bypasses using synthetic data.
+- Regression tests inject real SQLite failures in affect, membership, and librarian cache updates for teaching/inference/exchange stores; verify no partial memory, affect, membership, audit, or ring rows survive.
+- Ring failure preserves the completed shelf/index unit.
+- Confirm/reject updates structured context and produces status audit rows.
+- Guard tests cover text/type/provenance/id/context changes, REPLACE, no-op logging, rollback of audit rows, metadata-only deletion log, repeat installation, failed migration rollback, and secondary-unique rejection.
+- Corrected migration on another live backup: installed twice; original memory count unchanged; integrity_check returned ok; three synthetic bypass attempts blocked. Copy removed.
+- Full suite: 735/735 passed. New-file lint passed. Package-data configuration includes migration SQL.
+
+FILES (repository root)
+cama/core/memory_guards.py — explicit versioned/checksummed transactional installer
+cama/core/memory_guards_v1.sql — original audit guards plus bypass protections
+mcp_sections/memory_lifecycle.py — atomic shelf/index write integration
+cama/librarian/cama_auto_tag.py — strict error propagation option
+ tests/test_memory_guards.py — 26 regression cases
+pyproject.toml — include migration SQL in package data
+
+INSTALLATION AND LIMITS
+The migration is explicit, not called by get_db or startup. cama/core/db_schema.py is a diagnostic dump, not a schema installer. No live memory records or guard schema were changed by this review. No commit/push or server restart was performed. Existing unrelated checkout changes were preserved.
+For an authorized deployment, first make a verified SQLite backup, then run from the repository: .venv/Scripts/python.exe -m cama.core.memory_guards PATH_TO_DATABASE --apply. Reload MCP processes to load Python save-path changes. Installation will refuse an active caller transaction, a changed checksum for this version, or unreviewed secondary UNIQUE indexes.
+These triggers protect ordinary DML updates, not an administrator able to drop triggers, delete/reinsert rows, or rewrite audit tables. They do not authenticate who submits a new user teaching. Authorized provenance repair needs an explicitly reviewed maintenance transaction, not a general bypass flag. A narrowly scoped maintenance tool was not added.
+
+COLLABORATION
+Hive messages 114–117 report findings, ownership, files, and test results in thread_5bdbddfb4306, replying to Aelen's message 113. Aelen has been asked to independently audit and test the changes and revise his prototype harness/docs. No reply or independent approval has been received as of this report. Posted messages are not evidence of a completed cross-review.

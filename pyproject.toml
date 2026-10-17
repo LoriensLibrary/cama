@@ -138,6 +138,9 @@ Issues = "https://github.com/LoriensLibrary/cama/issues"
 # stay outside the installable package: they're launched by Claude Desktop
 # (or other MCP clients) by absolute path against the cloned repo, not via
 # pip-installed console scripts.
+[tool.setuptools.package-data]
+"cama.core" = ["memory_guards_v1.sql"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["cama*", "mcp_sections*"]

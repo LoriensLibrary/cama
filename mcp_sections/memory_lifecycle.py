@@ -21,11 +21,25 @@ from cama_mcp import (
 )
 
 
+def _tag_shelf(c, mid, text, context):
+    """Index within the shelf transaction; an unconfigured index has no work."""
+    from cama.librarian import cama_auto_tag
+    tables = {r[0] for r in c.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' "
+        "AND name IN ('librarians','librarian_membership')")}
+    if not tables:
+        return {"tagged_to": [], "unavailable": True}
+    if len(tables) != 2:
+        raise RuntimeError("Incomplete librarian schema; memory write rolled back")
+    return cama_auto_tag.tag_memory(c, mid, text, context, strict=True)
+
+
 async def cama_store_teaching(params: StoreTeachingInput) -> str:
     """Store a TEACHING, user-authored durable memory. Authoritative, full weight, no expiry.
     Teachings are the user's truth. They define identity and relationship."""
     c = get_db()
     try:
+        c.execute("BEGIN")
         now = _now(); ev = [{"quote":params.evidence_quote,"timestamp":now}] if params.evidence_quote else []
         tr = cama_trust.classify("teaching", "user", params.raw_text)
         status = tr["status_override"] or "durable"
@@ -36,6 +50,7 @@ async def cama_store_teaching(params: StoreTeachingInput) -> str:
         if params.island_name:
             isl = c.execute("SELECT island_id FROM islands WHERE name=?", (params.island_name,)).fetchone()
             if isl: c.execute("INSERT OR IGNORE INTO island_members (island_id,memory_id,strength) VALUES (?,?,?)", (isl["island_id"], mid, max(params.emotions.values()) if params.emotions else 0.5))
+        _tag_result = _tag_shelf(c, mid, params.raw_text, params.context)
         c.commit()  # SHELF WRITE COMMITTED, durable regardless of ring
         ring_ok = True
         if tr["quarantined"]:
@@ -48,19 +63,14 @@ async def cama_store_teaching(params: StoreTeachingInput) -> str:
                 c.rollback(); ring_ok = False  # Ring failed but shelves are safe
         await _store_embedding(c, mid, params.raw_text)
         c.commit()  # Commit embedding separately
-        # Auto-tag: route this teaching to matching librarians (April 29, 2026)
-        _tag_result = None
-        try:
-            from cama.librarian import cama_auto_tag
-            _tag_result = cama_auto_tag.tag_memory(c, mid, params.raw_text, params.context)
-            c.commit()
-        except Exception as _tag_err:
-            print(f"[CAMA] Auto-tag failed for teaching {mid}: {_tag_err}", file=__import__('sys').stderr)
         return json.dumps({"stored":True,"memory_id":mid,"source_type":"teaching","status":status,"is_core":params.is_core,
             "has_embedding":c.execute("SELECT 1 FROM memory_embeddings WHERE memory_id=?", (mid,)).fetchone() is not None,"ring_ok":ring_ok,
             "quarantined":tr["quarantined"],"trust_score":tr["trust_score"],"trust_reason":tr["reason"],
             "auto_tagged_to": (_tag_result or {}).get("tagged_to", []),
             "rationale": ("QUARANTINED — stored and searchable, but kept out of boot/ring until released via cama_confirm_memory. Reason: "+tr["reason"]) if tr["quarantined"] else ("Teaching → durable, full weight." + (" (ring write failed but shelf is safe)" if not ring_ok else ""))},indent=2)
+    except BaseException:
+        c.rollback()
+        raise
     finally: c.close()
 
 
@@ -71,6 +81,7 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
         return json.dumps({"error": "Self-account requires matching structured author and subject."})
     c = get_db()
     try:
+        c.execute("BEGIN")
         now = _now()
         ev = [{"quote":q,"timestamp":now} for q in params.evidence_quotes]
         tr = cama_trust.classify("inference", "assistant", params.raw_text)
@@ -85,6 +96,7 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
         if params.memory_type == "self_account":
             c.execute("UPDATE memories SET context=? WHERE id=?", (lifecycle_context(params.context, status), mid))
         _store_affect(c, mid, params.emotions, params.valence, params.arousal, conf=params.confidence, model="inferred")
+        _tag_result = _tag_shelf(c, mid, params.raw_text, params.context)
         c.commit()  # SHELF WRITE COMMITTED, durable regardless of ring
         # Ring push in its own transaction: the old code pushed after the last
         # commit and the write was rolled back on close (2026-09-06).
@@ -99,14 +111,6 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
                 c.rollback(); ring_ok = False
         await _store_embedding(c, mid, params.raw_text)
         c.commit()  # Commit embedding separately
-        # Auto-tag: route this inference to matching librarians (April 29, 2026)
-        _tag_result = None
-        try:
-            from cama.librarian import cama_auto_tag
-            _tag_result = cama_auto_tag.tag_memory(c, mid, params.raw_text, params.context)
-            c.commit()
-        except Exception as _tag_err:
-            print(f"[CAMA] Auto-tag failed for inference {mid}: {_tag_err}", file=__import__('sys').stderr)
         # Report what was actually stored, not what we intended to store.
         row = c.execute("SELECT source_type, status, needs_user_confirmation FROM memories WHERE id=?", (mid,)).fetchone()
         return json.dumps({"stored":True,"memory_id":mid,"source_type":row["source_type"],"status":row["status"],
@@ -117,6 +121,9 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
             "rationale": ("QUARANTINED, searchable but kept out of boot/ring until released via cama_confirm_memory. Reason: " + tr["reason"]) if tr["quarantined"]
                          else "Inference → provisional. Full weight, no expiry. Confirm to promote to durable."
                               + (" (ring write failed but shelf is safe)" if not ring_ok else "")},indent=2)
+    except BaseException:
+        c.rollback()
+        raise
     finally: c.close()
 
 
@@ -129,6 +136,7 @@ async def cama_store_exchange(params: StoreExchangeInput) -> str:
     _buf_reset()  # Manual store resets auto-record counter
     c = get_db()
     try:
+        c.execute("BEGIN")
         now = _now()
         # Combine both messages with clear markers
         raw_text = f"[USER] {params.user_message}\n[ASSISTANT] {params.assistant_message}"
@@ -144,6 +152,7 @@ async def cama_store_exchange(params: StoreExchangeInput) -> str:
         )
         mid = cur.lastrowid
         _store_affect(c, mid, params.emotions, params.valence, params.arousal, conf=0.8, model="realtime")
+        _tag_result = _tag_shelf(c, mid, raw_text, ctx)
         c.commit()  # Shelf write committed
         # Ring push -- optional, don't fail the store if ring is full
         ring_ok = True
@@ -159,14 +168,6 @@ async def cama_store_exchange(params: StoreExchangeInput) -> str:
         # Embedding for semantic retrieval
         await _store_embedding(c, mid, raw_text)
         c.commit()
-        # Auto-tag: route this exchange to matching librarians (April 29, 2026)
-        _tag_result = None
-        try:
-            from cama.librarian import cama_auto_tag
-            _tag_result = cama_auto_tag.tag_memory(c, mid, raw_text, ctx)
-            c.commit()
-        except Exception as _tag_err:
-            print(f"[CAMA] Auto-tag failed for exchange {mid}: {_tag_err}", file=__import__('sys').stderr)
         return json.dumps({
             "stored": True,
             "memory_id": mid,
@@ -180,6 +181,9 @@ async def cama_store_exchange(params: StoreExchangeInput) -> str:
             "auto_tagged_to": (_tag_result or {}).get("tagged_to", []),
             "rationale": ("QUARANTINED — stored and searchable, but excluded from boot/ring until released via cama_confirm_memory. Reason: "+tr["reason"]) if tr["quarantined"] else "Exchange stored -- durable, emotionally tagged, searchable."
         }, indent=2)
+    except BaseException:
+        c.rollback()
+        raise
     finally:
         c.close()
 
