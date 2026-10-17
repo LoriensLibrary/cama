@@ -40,6 +40,7 @@ def _env_defaults(scratch: Path) -> None:
     os.environ.setdefault("CAMA_BOOT_SUMMARY", str(scratch / "boot_summary.json"))
     os.environ.setdefault("EMBEDDING_PROVIDER", "local")
     os.environ.setdefault("CAMA_RING_SIZE", "5")
+    os.environ.setdefault("CAMA_GUARD_SILENT", "1")  # benchmark text trips the poisoning guard on purpose
 
 
 def _parse_date(value: str) -> str:
@@ -130,6 +131,7 @@ async def run_question(item: dict, scratch: Path, top_k: int, modes: tuple[str, 
     try:
         c.executemany("UPDATE memories SET created_at=? WHERE context=?", session_dates)
         c.commit()
+        quarantined = c.execute("SELECT COUNT(*) FROM memories WHERE status='quarantined'").fetchone()[0]
     finally:
         c.close()
     ingest_s = time.perf_counter() - t0
@@ -137,7 +139,7 @@ async def run_question(item: dict, scratch: Path, top_k: int, modes: tuple[str, 
     evidence = set(item.get("answer_session_ids") or [])
     abstention = (not evidence) or str(qid).endswith("_abs")
     result = {"question_id": qid, "question_type": item.get("question_type"), "sessions": len(sessions),
-              "exchanges": stored, "evidence_sessions": len(evidence), "abstention": abstention,
+              "exchanges": stored, "quarantined": quarantined, "evidence_sessions": len(evidence), "abstention": abstention,
               "ingest_seconds": round(ingest_s, 2), "modes": {}}
 
     for mode in modes:
@@ -180,6 +182,8 @@ def summarize(results: list[dict], modes: tuple[str, ...]) -> dict:
     summary = {"questions": len(results), "scored": len(scored),
                "abstention_skipped": len(results) - len(scored),
                "mean_ingest_seconds": round(sum(r["ingest_seconds"] for r in results) / max(1, len(results)), 2),
+               "quarantined_exchanges": sum(r.get("quarantined", 0) for r in results),
+               "total_exchanges": sum(r["exchanges"] for r in results),
                "modes": {}}
     for mode in modes:
         m = {"overall": {}, "by_type": {}}
