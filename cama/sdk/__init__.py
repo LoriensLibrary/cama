@@ -46,6 +46,7 @@ from cama.sdk.errors import (
     CamaPayloadTooLargeError,
     CamaProvenanceError,
     CamaRateLimitError,
+    CamaStatusNotConfirmableError,
 )
 from cama.sdk.types import (
     Affect,
@@ -75,6 +76,7 @@ __all__ = [
     "CamaConfirmHeaderMissingError",
     "CamaPayloadTooLargeError",
     "CamaOriginNotAllowedError",
+    "CamaStatusNotConfirmableError",
     "CamaKeyError",
     "CamaRateLimitError",
     "CamaDegradedModeError",

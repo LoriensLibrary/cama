@@ -50,7 +50,7 @@ MemoryType = Literal[
 ]
 
 # status: row lifecycle state
-MemoryStatus = Literal["durable", "provisional", "expired", "rejected"]
+MemoryStatus = Literal["durable", "provisional", "expired", "rejected", "quarantined"]
 
 # consent_level: how much weight the memory carries in retrieval
 ConsentLevel = Literal["low", "medium", "high"]

@@ -43,6 +43,7 @@ from cama.api.deps import (
 from cama.api.errors import CamaAPIError, CamaContract
 from cama.api.schemas import MemoryCreateRequest, MemoryResponse
 from cama.api.webhooks import notify
+from cama.core import cama_trust
 from cama.core.time_utils import now_iso
 
 router = APIRouter(tags=["memories"])
@@ -84,6 +85,19 @@ def create_memory(
     else:
         forced_status = "durable"
         review_after = None
+    # The same write-time trust decision the MCP store path makes
+    # (mcp_sections.memory_lifecycle via cama_trust): text shaped like an
+    # instruction to the AI is written quarantined, never durable or
+    # provisional, and the decision is recorded in the guard log. The HTTP
+    # surface used to skip this entirely.
+    trust = cama_trust.classify(payload.source_type, payload.proposed_by, payload.text)
+    if trust["quarantined"] and trust["reason"] != "unknown_provenance":
+        forced_status = "quarantined"
+    # An enum-valid provenance pair the trust layer has no lane for (today:
+    # proposed_by=system with source_type=inference or journal) keeps the
+    # contract status above; the low trust score and reason are still
+    # recorded on the row. Content hits and explicitly untrusted lanes
+    # quarantine regardless.
 
     # created_at and updated_at are both NOT NULL in the canonical schema
     # (cama_mcp._init). One timestamp for both so a freshly created memory
@@ -96,8 +110,9 @@ def create_memory(
             INSERT INTO memories
                 (raw_text, memory_type, context, source_type, status,
                  proposed_by, consent_level, review_after, is_core,
-                 evidence, created_at, updated_at, dyad_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 evidence, created_at, updated_at, dyad_id,
+                 trust_score, trust_reason)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.text,
@@ -113,6 +128,8 @@ def create_memory(
                 created,
                 created,
                 ctx.dyad_id,
+                trust["trust_score"],
+                trust["reason"],
             ),
         )
         memory_id = cur.lastrowid
@@ -225,12 +242,18 @@ def memory_confirm(
     x_consent_token: str | None = Header(default=None, alias="X-Consent-Token"),
     ctx: AuthContext = Depends(require_auth),
 ) -> MemoryResponse:
-    """Promote a provisional inference to durable.
+    """Promote a provisional inference to durable, or release a quarantined
+    memory to durable.
 
     Requires a one-shot HMAC-signed consent token bound to
     ``(dyad_id, memory_id, action="promote_to_durable")``. The token
     flow lives in ``routers/consent.py``; this endpoint is the only
     way a provisional row's status changes to ``"durable"``.
+
+    Only ``provisional`` and ``quarantined`` rows can be confirmed. A
+    rejected or expired row stays as it is (409
+    ``status_not_confirmable``); rejection is kept for audit and expiry
+    is resolved by TTL, and neither is undone by a consent token.
     """
     if not x_consent_token:
         raise CamaAPIError(401, CamaContract.CONSENT_TOKEN_REQUIRED)
@@ -248,16 +271,31 @@ def memory_confirm(
         ).fetchone()
         if row is None:
             raise CamaAPIError(404, CamaContract.DYAD_SCOPE)
-        c.execute(
+        was_quarantined = row["status"] == "quarantined"
+        # Guarded UPDATE: the status check and the write are one statement,
+        # so a row that changes state between the read and the write is not
+        # promoted either.
+        cur = c.execute(
             "UPDATE memories SET status = 'durable', "
             "review_after = NULL, updated_at = ? "
-            "WHERE id = ? AND dyad_id = ?",
+            "WHERE id = ? AND dyad_id = ? "
+            "AND status IN ('provisional', 'quarantined')",
             (now_iso(), memory_id, ctx.dyad_id),
         )
+        if cur.rowcount != 1:
+            c.rollback()
+            raise CamaAPIError(
+                409, CamaContract.STATUS_NOT_CONFIRMABLE,
+                detail=f"memory {memory_id} has status {row['status']!r}; "
+                       "only provisional or quarantined rows can be confirmed",
+            )
         c.commit()
         row = c.execute(
             "SELECT * FROM memories WHERE id = ?", (memory_id,)
         ).fetchone()
     finally:
         c.close()
+    if was_quarantined:
+        cama_trust._audit("memory_quarantine_released", "info",
+                          {"memory_id": memory_id, "via": "api", "dyad_id": ctx.dyad_id})
     return row_to_memory(row, ctx.dyad_id)

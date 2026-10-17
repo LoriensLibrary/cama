@@ -116,6 +116,11 @@ class CamaOriginNotAllowedError(CamaError):
     """Consent endpoint called from a non-allowlisted Origin."""
 
 
+class CamaStatusNotConfirmableError(CamaError):
+    """``PATCH /v1/memories/{id}/confirm`` on a row that is neither
+    provisional nor quarantined (rejected or expired rows stay as they are)."""
+
+
 # ---------------------------------------------------------------------------
 # Contract-code dispatch
 # ---------------------------------------------------------------------------
@@ -136,6 +141,7 @@ _CONTRACT_TO_EXC: dict[str, type[CamaError]] = {
     "payload_too_large": CamaPayloadTooLargeError,
     "dyad_locked": CamaDyadLockedError,
     "degraded_mode": CamaDegradedModeError,
+    "status_not_confirmable": CamaStatusNotConfirmableError,
 }
 
 

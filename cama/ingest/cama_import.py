@@ -19,6 +19,8 @@ import sqlite3
 import sys
 from typing import Dict, List
 
+from cama.core import cama_trust
+
 # ============================================================
 # Config
 # ============================================================
@@ -279,24 +281,32 @@ def write_to_cama(memories: List[Dict], db_path: str, dry_run: bool = False):
         print("[WARN] Could not import cama_mcp._init, tables must already exist")
     
     stored = 0
+    quarantined = 0
     songs_stored = 0
     people_stored = set()
-    
+
     for m in memories:
         now = _now()
         status = "durable" if m["source_type"] == "teaching" else "provisional"
         needs_confirm = 0 if m["source_type"] == "teaching" else 1
         evidence = json.dumps([{"quote": m["raw_text"][:200], "timestamp": m["created_at"]}])
-        
+        # Same write-time trust decision as the live store path: text shaped like
+        # an instruction to the AI is quarantined, not written durable.
+        trust = cama_trust.classify(m["source_type"], m["proposed_by"], m["raw_text"])
+        status = trust["status_override"] or status
+        quarantined += int(trust["quarantined"])
+
         try:
             cursor = conn.execute(
-                """INSERT INTO memories 
-                   (raw_text, memory_type, context, source_type, status, proposed_by, evidence, 
-                    confidence, is_core, needs_user_confirmation, created_at, updated_at, rel_degree)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO memories
+                   (raw_text, memory_type, context, source_type, status, proposed_by, evidence,
+                    confidence, is_core, needs_user_confirmation, created_at, updated_at, rel_degree,
+                    trust_score, trust_reason)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (m["raw_text"], m["memory_type"], m["context"], m["source_type"], status,
                  m["proposed_by"], evidence, m["confidence"],
-                 1 if m["is_core"] else 0, needs_confirm, m["created_at"], now, 0)
+                 1 if m["is_core"] else 0, needs_confirm, m["created_at"], now, 0,
+                 trust["trust_score"], trust["reason"])
             )
             memory_id = cursor.lastrowid
             
@@ -365,6 +375,7 @@ def write_to_cama(memories: List[Dict], db_path: str, dry_run: bool = False):
     print("CAMA Import Complete")
     print(f"{'='*50}")
     print(f"Memories stored this run: {stored}")
+    print(f"Quarantined by the trust scan: {quarantined}")
     print(f"Songs detected: {songs_stored}")
     print(f"People detected: {len(people_stored)}")
     print("")

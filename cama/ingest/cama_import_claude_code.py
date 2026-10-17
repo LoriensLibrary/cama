@@ -49,6 +49,7 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import Dict, Iterator, List, Optional
 
+from cama.core import cama_trust
 from cama.ingest.cama_import import (
     detect_emotions,
     estimate_arousal,
@@ -295,7 +296,8 @@ def write_memories(
             pass  # Fall back to per-record encoding, with errors counted below.
     embedded = 0
     written = 0
-    extra = dict.fromkeys(("revisions", "tagged", "unclaimed", "tag_errors", "embedding_errors"), 0)
+    extra = dict.fromkeys(("revisions", "tagged", "unclaimed", "tag_errors", "embedding_errors",
+                           "quarantined"), 0)
     for m in fresh:
         # Serialize the final dedupe check and insertion across daemon/manual
         # importers. Historical duplicate source IDs prevent a unique index.
@@ -305,16 +307,24 @@ def write_memories(
                         (m["source_msg_id"],)).fetchone():
             skipped += 1
             continue
+        # The same write-time trust decision the live store path makes
+        # (mcp_sections.memory_lifecycle): a transcript turn shaped like an
+        # instruction to the AI is written quarantined, never durable, and the
+        # decision is recorded in the guard log. Imports used to skip this.
+        trust = cama_trust.classify(m["source_type"], m["proposed_by"], m["raw_text"])
+        status = trust["status_override"] or m["status"]
         cur = conn.execute(
             "INSERT INTO memories (raw_text, memory_type, context, source_type, "
             "status, proposed_by, evidence, confidence, consent_level, is_core, "
-            "source_msg_id, created_at, updated_at) "
-            "VALUES (?,?,?,?,?,?,'[]',1.0,?,0,?,?,?)",
+            "source_msg_id, created_at, updated_at, trust_score, trust_reason) "
+            "VALUES (?,?,?,?,?,?,'[]',1.0,?,0,?,?,?,?,?)",
             (m["raw_text"], m["memory_type"], m["context"], m["source_type"],
-             m["status"], m["proposed_by"], m["consent_level"],
-             m["source_msg_id"], m["created_at"], m["updated_at"]),
+             status, m["proposed_by"], m["consent_level"],
+             m["source_msg_id"], m["created_at"], m["updated_at"],
+             trust["trust_score"], trust["reason"]),
         )
         mid = cur.lastrowid
+        extra["quarantined"] += int(trust["quarantined"])
         conn.execute(
             "INSERT OR REPLACE INTO memory_affect (memory_id, valence, arousal, "
             "dominance, emotion_json, confidence, computed_at, model) "

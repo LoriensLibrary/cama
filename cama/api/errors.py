@@ -45,6 +45,7 @@ class CamaContract(str, Enum):
     CONSENT_CHALLENGE_INVALID = "consent_challenge_invalid"
     CONSENT_APPROVER_REQUIRED = "consent_approver_required"
     CONSENT_APPROVER_NOT_CONFIGURED = "consent_approver_not_configured"
+    STATUS_NOT_CONFIRMABLE = "status_not_confirmable"
 
 
 # Per-contract suggested fix text. Keeps human-facing guidance with
@@ -123,6 +124,11 @@ _FIX_TEXT: dict[CamaContract, str] = {
         "This deployment has no CAMA_CONSENT_APPROVER_SECRET set, so no "
         "credential can represent a human acceptance and consent cannot "
         "be granted. Set it on the consent UI and the API."
+    ),
+    CamaContract.STATUS_NOT_CONFIRMABLE: (
+        "Only a provisional or quarantined memory can be confirmed. A "
+        "rejected row is kept for audit and an expired row was resolved by "
+        "its TTL; neither is undone by a consent token."
     ),
 }
 
