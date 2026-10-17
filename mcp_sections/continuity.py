@@ -134,6 +134,8 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         result["boot"] = _read_boot_context(c)
         from cama.core.self_accounts import load_self_accounts
         result["self_accounts"] = load_self_accounts(c, PERSONA_NAME)
+        from cama.core.pending_confirmations import load_pending_confirmations
+        result["pending_confirmations"] = load_pending_confirmations(c)
 
         # ── AELEN STATE ──
         aelen = {}

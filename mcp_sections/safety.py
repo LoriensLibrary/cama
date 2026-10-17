@@ -98,6 +98,10 @@ async def cama_health() -> str:
         result["librarian_unclaimed"] = routing[1] or 0
         result["librarian_pending"] = routing[0] - (routing[1] or 0)
         result["librarian_note"] = "Unclaimed records were processed without a matching topic; they remain searchable. Pending records still need processing."
+        from cama.core.pending_confirmations import pending_summary
+        pending = pending_summary(c)
+        result["provisional_pending"] = pending["provisional"]
+        result["provisional_expiring_48h"] = pending["expiring_within_48h"]
         # Warnings
         warnings = []
         if result.get("sleep_status") == "degraded":
@@ -108,6 +112,8 @@ async def cama_health() -> str:
             warnings.append(f"Boot summary is {result.get('boot_status')} — use cama_refresh_boot or run the sleep cycle")
         if result["daily_context_required"] and not result["daily_context_today"]:
             warnings.append("Today has durable memories but no daily_context — refresh is pending")
+        if result["provisional_expiring_48h"]:
+            warnings.append(f"{result['provisional_expiring_48h']} provisional memories expire within 48 h without a decision; review with cama_review_pending")
         if no_emb > 100:
             warnings.append(f"{no_emb} memories missing embeddings")
         result["warnings"] = warnings
