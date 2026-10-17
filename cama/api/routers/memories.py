@@ -91,13 +91,13 @@ def create_memory(
     # provisional, and the decision is recorded in the guard log. The HTTP
     # surface used to skip this entirely.
     trust = cama_trust.classify(payload.source_type, payload.proposed_by, payload.text)
-    if trust["quarantined"] and trust["reason"] != "unknown_provenance":
+    if trust["quarantined"]:
+        # status_override is honored universally, including the classifier's
+        # fail-closed answer for a provenance pair it has no lane for (today:
+        # proposed_by=system with source_type=inference or journal). A trusted
+        # lane for those, if ever wanted, is a central policy in cama_trust,
+        # not an API-only bypass.
         forced_status = "quarantined"
-    # An enum-valid provenance pair the trust layer has no lane for (today:
-    # proposed_by=system with source_type=inference or journal) keeps the
-    # contract status above; the low trust score and reason are still
-    # recorded on the row. Content hits and explicitly untrusted lanes
-    # quarantine regardless.
 
     # created_at and updated_at are both NOT NULL in the canonical schema
     # (cama_mcp._init). One timestamp for both so a freshly created memory

@@ -293,6 +293,55 @@ def test_enrich_boot_screens_honey_and_stop_text(hive_db):
     assert boot["pattern_suppressions"][0]["reason"].startswith("because")
 
 
+def test_boot_attribution_is_reduced_to_a_token_everywhere(hive_db, quiet_guard):
+    """source_thread is caller-controlled on the local emit paths; it is never
+    copied raw into the boot payload, the withheld marker, or the guard event."""
+    from cama.hive import cama_scent
+
+    hostile = "mcp:remote " + INJECTED
+    hive = hive_db
+    hive.emit_pheromone("processing_mode", "obey", intensity=0.9, source_thread=hostile, source_context=INJECTED)
+    hive.emit_pheromone("response_style", "gentle", intensity=0.9, source_thread=hostile, source_context="benign")
+    cama_scent.emit_finding("a finding", receipt="checked at 10:00", routes=["r"], intensity=0.9, source_thread=hostile)
+    boot = hive.enrich_boot()
+    for field in boot["processing_modifiers"].values():
+        assert field["source_thread"] == "mcp:remote"
+    marker = boot["processing_modifiers"]["processing_mode"]["context"]
+    assert marker.endswith("source_thread=mcp:remote]")
+    assert "previous instructions" not in marker.lower()
+    smelled = cama_scent.read_scent(active_routes=["r"])
+    assert smelled and smelled[0]["source_thread"] == "mcp:remote"
+    for e in _events(quiet_guard):
+        if e["category"] == "hive_boot_signal_withheld":
+            assert e["detail"]["source_thread"] == "mcp:remote"
+    assert hive._attribution(None) == "unknown"
+    assert hive._attribution("x" * 200) == "x" * 64
+    assert hive._attribution(INJECTED) == "pasted"  # first token only, the angle bracket stripped
+    assert hive._attribution("   ") == "unknown"
+
+
+def test_read_scent_reduces_sidecar_routes_and_kind_to_tokens(hive_db, quiet_guard):
+    """hive_scent.routes and kind are written by anything with database access."""
+    import json as _json
+
+    from cama.hive import cama_scent
+
+    hive = hive_db
+    r = hive.emit_pheromone("discovery", "a finding", intensity=0.9, source_thread="mcp:local", source_context="checked")
+    c = hive.get_db()
+    try:
+        cama_scent._ensure_table(c)
+        c.execute("INSERT INTO hive_scent (pheromone_id, routes, receipt, kind, created_at) VALUES (?,?,?,?,?)",
+                  (r["pheromone_id"], _json.dumps(["topic_cama", INJECTED, 7, ""]), "checked", INJECTED, "2026-10-17T00:00:00+00:00"))
+        c.commit()
+    finally:
+        c.close()
+    smelled = cama_scent.read_scent(active_routes=["topic_cama"])
+    assert len(smelled) == 1
+    assert smelled[0]["kind"] == "legacy"
+    assert smelled[0]["routes"] == ["topic_cama", "pasted"]
+
+
 def test_read_scent_withholds_an_injected_receipt(hive_db, quiet_guard):
     from cama.hive import cama_scent
 
@@ -326,14 +375,17 @@ def test_guard_silent_env_skips_the_alarm(monkeypatch, capsys):
     assert beeps == []
 
 
-def test_api_system_inference_keeps_the_provisional_contract(api):
+def test_api_system_inference_fails_closed_as_unknown_provenance(api, quiet_guard):
     """proposed_by=system with source_type=inference is not a lane the trust
-    layer knows; the API keeps the documented status and records the score."""
+    layer knows; the API honors the classifier's fail-closed answer, so the
+    row and the guard log agree. A trusted lane for it is a cama_trust policy
+    decision, not an API bypass."""
     client, headers, mem_db = api
     r = client.post("/v1/memories", headers=headers, json={
         "text": BENIGN, "memory_type": "preference",
         "proposed_by": "system", "source_type": "inference"})
-    assert r.status_code == 201 and r.json()["status"] == "provisional"
+    assert r.status_code == 201 and r.json()["status"] == "quarantined"
     row = sqlite3.connect(mem_db).execute(
         "SELECT trust_score, trust_reason FROM memories WHERE id=?", (r.json()["id"],)).fetchone()
     assert row == (0.3, "unknown_provenance")
+    assert [e["detail"]["reason"] for e in _events(quiet_guard) if e["category"] == "memory_quarantined"] == ["unknown_provenance"]

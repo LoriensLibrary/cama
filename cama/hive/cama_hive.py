@@ -45,6 +45,7 @@ Part of the CAMA (Circular Associative Memory Architecture) system.
 import json
 import math
 import os
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
@@ -190,6 +191,26 @@ def init_hive_tables(c: sqlite3.Connection):
 from cama.core import cama_trust as _trust
 from cama.core.time_utils import now_iso as _now
 
+_ATTRIBUTION_SAFE = re.compile(r"[^A-Za-z0-9_:.\-]")
+
+
+def _attribution(source) -> str:
+    """Reduce a source_thread to a short safe token for the boot payload.
+
+    source_thread is caller-controlled on the local emit paths (the CLI,
+    emit_pheromone, emit_finding) and only server-set on the REST and remote
+    MCP paths, so it is free text too. It is never scanned; it is reduced to
+    the characters an identifier can hold and capped, so attribution survives
+    and nothing else does.
+    """
+    if not source or not isinstance(source, str):
+        return "unknown"
+    # First whitespace-delimited piece only: a label is one token
+    # ("mcp:codex", "api:lorien"); a sentence is not an attribution.
+    first = source.strip().split()[0] if source.strip() else ""
+    token = _ATTRIBUTION_SAFE.sub("", first)[:64]
+    return token or "unknown"
+
 
 def _screen(text, where: str, source=None):
     """Boot read boundary for Hive free text (review finding A-1).
@@ -207,10 +228,11 @@ def _screen(text, where: str, source=None):
     why, snippet = _trust.scan_injection(text)
     if not why:
         return text
+    who = _attribution(source)
     _trust._audit("hive_boot_signal_withheld", "alert",
-                  {"where": where, "reason": f"injection:{why}", "source_thread": source,
+                  {"where": where, "reason": f"injection:{why}", "source_thread": who,
                    "snippet": snippet})
-    return f"[withheld from boot: hive {where} matched injection pattern {why}; source_thread={source}]"
+    return f"[withheld from boot: hive {where} matched injection pattern {why}; source_thread={who}]"
 
 
 def _hours_from_now(hours: float) -> str:
@@ -960,7 +982,7 @@ def enrich_boot(existing_boot: Optional[dict] = None) -> dict:
                     "signal": _screen(p["signal"], "pheromone.signal", src),
                     "intensity": p["current_intensity"],
                     "context": _screen(p["source_context"], "pheromone.context", src),
-                    "source_thread": src,
+                    "source_thread": _attribution(src),
                 }
 
     # Extract attention targets from quorum waggles
