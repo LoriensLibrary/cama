@@ -25,6 +25,9 @@ async def cama_health() -> str:
         result["db_reachable"] = True
         total = c.execute("SELECT COUNT(*) as c FROM memories WHERE status='durable'").fetchone()["c"]
         result["total_durable"] = total
+        result["quarantined_pending"] = c.execute(
+            "SELECT COUNT(*) FROM memories WHERE status='quarantined'"
+        ).fetchone()[0]
         # Boot summary
         result["boot_summary_exists"] = os.path.exists(boot_path)
         result["boot_status"] = "missing"

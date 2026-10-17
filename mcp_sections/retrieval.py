@@ -44,7 +44,9 @@ async def cama_query_memories(params: QueryInput) -> str:
         # and the query strings they carried), not memory. Left in the pool it
         # matches its own query text by substring and outranks the memories
         # the query was about.
-        q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired') AND COALESCE(context,'') != 'auto-recorded'"; qp = []
+        # Quarantine is a visibility boundary. A zero score still reaches a
+        # sparse result set (or gains a core bonus) and would enter the ring.
+        q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired','quarantined') AND COALESCE(context,'') != 'auto-recorded'"; qp = []
         if not (params.filters and params.filters.get("memory_type") == "self_account"):
             q += " AND memory_type != 'self_account'"
         # Consent gating: exclude high-sensitivity unless explicitly requested
@@ -198,7 +200,7 @@ async def cama_search(query: str, limit: int = 10, include_provisional: bool = F
         rows = c.execute(
             f"SELECT *, (CASE WHEN {term} THEN 1 ELSE 0 END) AS phrase_match, "
             f"{match_score} AS match_hits FROM memories WHERE {where_clause} {sf} "
-            "AND status NOT IN ('rejected','expired') "
+            "AND status NOT IN ('rejected','expired','quarantined') "
             "AND COALESCE(context,'') != 'auto-recorded' "
             "ORDER BY phrase_match DESC, match_hits DESC, is_core DESC, updated_at DESC, id DESC LIMIT ?",
             [pattern(query)] + patterns + patterns + [limit]
