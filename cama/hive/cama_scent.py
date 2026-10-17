@@ -243,15 +243,27 @@ def read_scent(
             )
             if score <= 0.0:
                 continue
+            # Same read boundary as cama_hive.enrich_boot (review finding
+            # A-1): the signal and the receipt are free text another thread
+            # wrote, and this list lands in the boot payload.
+            # kind and routes come from the sidecar table, which anything with
+            # database access can write; they are reduced to tokens, never
+            # copied as free text.
+            src = p.get("source_thread")
+            kind = m.get("kind", "legacy")
+            if kind not in VALID_KINDS:
+                kind = "legacy"
+            routes = [cama_hive._attribution(r) for r in (m.get("routes") or [])[:20]
+                      if isinstance(r, str) and r.strip()]
             scored.append({
                 "id": pid,
-                "kind": m.get("kind", "legacy"),
+                "kind": kind,
                 "type": p.get("pheromone_type", p.get("type")),
-                "signal": p.get("signal"),
+                "signal": cama_hive._screen(p.get("signal"), "scent.signal", src),
                 "salience": score,
-                "routes": m.get("routes", []),
-                "receipt": m.get("receipt") or p.get("source_context"),
-                "source_thread": p.get("source_thread"),
+                "routes": routes,
+                "receipt": cama_hive._screen(m.get("receipt") or p.get("source_context"), "scent.receipt", src),
+                "source_thread": cama_hive._attribution(src),
             })
 
         scored.sort(key=lambda x: x["salience"], reverse=True)

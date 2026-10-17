@@ -840,8 +840,14 @@ def test_every_inference_is_provisional(client, live_key, author):
         'proposed_by': author, 'source_type': 'inference',
     })
     assert response.status_code == 201
-    assert response.json()['status'] == 'provisional'
     assert response.json()['review_after'] is not None
+    if author == 'system':
+        # No inference lane for system in cama_trust: the write-time trust
+        # decision fails closed and the API honors it (see
+        # tests/test_trust_boundaries.py). Still never durable.
+        assert response.json()['status'] == 'quarantined'
+    else:
+        assert response.json()['status'] == 'provisional'
 
 
 def test_no_approver_configuration_fails_closed(client, live_key, monkeypatch):

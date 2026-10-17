@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 ProposedBy = Literal["user", "assistant", "system"]
 SourceType = Literal["teaching", "inference", "exchange", "journal"]
-MemoryStatus = Literal["durable", "provisional", "expired", "rejected"]
+MemoryStatus = Literal["durable", "provisional", "expired", "rejected", "quarantined"]
 
 
 # ---------------------------------------------------------------------------

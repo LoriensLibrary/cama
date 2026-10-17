@@ -116,8 +116,15 @@ def _sanitize(msg: str, limit: int = 120) -> str:
 def alarm(message: str) -> None:
     """Fire a local alarm: audible beep (non-blocking) + a balloon toast +
     a stderr line. Durable record is the events.jsonl entry written by the caller.
-    Best-effort; never raises."""
+    Best-effort; never raises.
+
+    CAMA_GUARD_SILENT=1 keeps the durable record and the stderr line but skips
+    the beep and the balloon, for tests, benchmarks and batch imports that feed
+    untrusted text through the store on purpose."""
     safe = _sanitize(message)
+    if os.environ.get("CAMA_GUARD_SILENT", "").strip().lower() in ("1", "true", "yes"):
+        print(f"[CAMA guard] (silent) {safe}", file=sys.stderr)
+        return
     # Audible — MessageBeep returns immediately, won't stall the MCP event loop.
     try:
         if sys.platform == "win32":
