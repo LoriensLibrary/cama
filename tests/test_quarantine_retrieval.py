@@ -102,3 +102,26 @@ def test_empty_review_queue(isolated):
     assert result["results"] == []
     assert result["total_quarantined"] == 0
     assert result["next_after_id"] is None
+
+
+def test_review_queue_requires_sensitive_opt_in_and_bounds_previews(isolated):
+    c, _ = isolated
+    secret = add(c, "quarantined")
+    ordinary = add(c, "quarantined")
+    c.execute("UPDATE memories SET consent_level='high',raw_text=?,context=? WHERE id=?",
+              ("s" * 4000, "c" * 2000, secret))
+    c.commit()
+    default = json.loads(asyncio.run(memory_lifecycle.cama_list_quarantined()))
+    assert [r["id"] for r in default["results"]] == [ordinary]
+    assert default["total_quarantined"] == 1
+    assert default["next_after_id"] is None
+    preview = json.loads(asyncio.run(memory_lifecycle.cama_list_quarantined(include_sensitive=True)))
+    row = preview["results"][0]
+    assert row["id"] == secret and row["consent_level"] == "high"
+    assert row["raw_text"] == "s" * 1000 and row["raw_text_chars"] == 4000
+    assert row["raw_text_truncated"] and row["context_truncated"]
+    full = json.loads(asyncio.run(memory_lifecycle.cama_list_quarantined(include_sensitive=True, include_full_text=True)))
+    assert full["results"][0]["raw_text"] == "s" * 4000
+    assert not full["results"][0]["raw_text_truncated"]
+    without_consent = json.loads(asyncio.run(memory_lifecycle.cama_list_quarantined(include_full_text=True)))
+    assert [r["id"] for r in without_consent["results"]] == [ordinary]
