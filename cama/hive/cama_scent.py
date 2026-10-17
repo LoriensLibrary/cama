@@ -243,15 +243,19 @@ def read_scent(
             )
             if score <= 0.0:
                 continue
+            # Same read boundary as cama_hive.enrich_boot (review finding
+            # A-1): the signal and the receipt are free text another thread
+            # wrote, and this list lands in the boot payload.
+            src = p.get("source_thread")
             scored.append({
                 "id": pid,
                 "kind": m.get("kind", "legacy"),
                 "type": p.get("pheromone_type", p.get("type")),
-                "signal": p.get("signal"),
+                "signal": cama_hive._screen(p.get("signal"), "scent.signal", src),
                 "salience": score,
                 "routes": m.get("routes", []),
-                "receipt": m.get("receipt") or p.get("source_context"),
-                "source_thread": p.get("source_thread"),
+                "receipt": cama_hive._screen(m.get("receipt") or p.get("source_context"), "scent.receipt", src),
+                "source_thread": src,
             })
 
         scored.sort(key=lambda x: x["salience"], reverse=True)

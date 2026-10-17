@@ -275,8 +275,12 @@ def memory_confirm(
         # Guarded UPDATE: the status check and the write are one statement,
         # so a row that changes state between the read and the write is not
         # promoted either.
+        # Same reset as mcp_sections.memory_lifecycle.cama_confirm_memory:
+        # the person vouched for the row, so it leaves review with full trust.
         cur = c.execute(
             "UPDATE memories SET status = 'durable', "
+            "needs_user_confirmation = 0, confidence = 1.0, "
+            "trust_score = 1.0, trust_reason = 'user_released', "
             "review_after = NULL, updated_at = ? "
             "WHERE id = ? AND dyad_id = ? "
             "AND status IN ('provisional', 'quarantined')",

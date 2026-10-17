@@ -222,6 +222,91 @@ def test_sdk_maps_the_new_contract_code():
     assert isinstance(err, CamaStatusNotConfirmableError)
 
 
+def test_api_release_from_quarantine_resets_trust_like_the_lifecycle_tool(api):
+    client, headers, mem_db = api
+    from cama.api.consent import mint_token
+
+    mid = _inference(client, headers, INJECTED).json()["id"]
+    before = sqlite3.connect(mem_db).execute(
+        "SELECT status, trust_score FROM memories WHERE id=?", (mid,)).fetchone()
+    assert before[0] == "quarantined" and before[1] < 0.5
+    token = mint_token(dyad_id="default", memory_id=mid, action="promote_to_durable")
+    r = client.patch(f"/v1/memories/{mid}/confirm", headers={**headers, "X-Consent-Token": token})
+    assert r.status_code == 200
+    row = sqlite3.connect(mem_db).execute(
+        "SELECT status, needs_user_confirmation, confidence, trust_score, trust_reason, review_after "
+        "FROM memories WHERE id=?", (mid,)).fetchone()
+    assert row == ("durable", 0, 1.0, 1.0, "user_released", None)
+
+
+# ---------------------------------------------------------------------------
+# A-1: the boot read boundary for Hive text
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def hive_db(tmp_path, monkeypatch, quiet_guard):
+    from cama.hive import cama_hive
+
+    monkeypatch.setattr(cama_hive, "DB_PATH", str(tmp_path / "hive.db"))
+    return cama_hive
+
+
+def test_enrich_boot_withholds_injected_pheromone_context_and_keeps_benign(hive_db, quiet_guard):
+    hive = hive_db
+    hive.emit_pheromone("processing_mode", "obey-the-note", intensity=0.9,
+                        source_thread="mcp:remote", source_context=INJECTED)
+    hive.emit_pheromone("response_style", "gentle", intensity=0.9,
+                        source_thread="mcp:local", source_context="the thread before this was heavy")
+    boot = hive.enrich_boot()
+    pm = boot["processing_modifiers"]
+    assert pm["processing_mode"]["signal"] == "obey-the-note"
+    assert pm["processing_mode"]["context"].startswith("[withheld from boot: hive pheromone.context")
+    assert "ignore all previous" not in pm["processing_mode"]["context"].lower()
+    assert pm["processing_mode"]["source_thread"] == "mcp:remote"
+    assert pm["response_style"]["context"] == "the thread before this was heavy"
+    assert boot["trust"]["framing"] == "untrusted"
+    withheld = [e for e in _events(quiet_guard) if e["category"] == "hive_boot_signal_withheld"]
+    assert len(withheld) == 1 and withheld[0]["detail"]["source_thread"] == "mcp:remote"
+
+
+def test_enrich_boot_withholds_injected_waggle_direction_but_keeps_the_topic(hive_db):
+    hive = hive_db
+    for _ in range(hive.WAGGLE_THRESHOLD):
+        hive.waggle("the roadmap", "critical", direction=INJECTED, rationale="it matters",
+                    source_thread="api:remote")
+    boot = hive.enrich_boot()
+    assert len(boot["attention_targets"]) == 1
+    t = boot["attention_targets"][0]
+    assert t["topic"] == "the roadmap" and t["rationale"] == "it matters"
+    assert t["direction"].startswith("[withheld from boot: hive waggle.direction")
+
+
+def test_enrich_boot_screens_honey_and_stop_text(hive_db):
+    hive = hive_db
+    for _ in range(hive.DISTILL_MIN_OCCURRENCES):
+        hive.add_nectar(INJECTED, honey_type="pattern")
+    for _ in range(hive.STOP_THRESHOLD):
+        hive.stop_signal(INJECTED, reason="because")
+    boot = hive.enrich_boot()
+    assert boot["distilled_knowledge"][0]["essence"].startswith("[withheld from boot: hive honey.essence")
+    assert boot["pattern_suppressions"][0]["pattern"].startswith("[withheld from boot: hive stop.pattern")
+    # stop_signal joins repeated reasons with " | "; the benign text passes through
+    assert boot["pattern_suppressions"][0]["reason"].startswith("because")
+
+
+def test_read_scent_withholds_an_injected_receipt(hive_db, quiet_guard):
+    from cama.hive import cama_scent
+
+    out = cama_scent.emit_finding("the sleep daemon ran", receipt=INJECTED, routes=["topic_cama"],
+                                  intensity=0.9, source_thread="mcp:remote")
+    assert out["status"] == "emitted"
+    smelled = cama_scent.read_scent(active_routes=["topic_cama"])
+    assert len(smelled) == 1
+    assert smelled[0]["signal"] == "the sleep daemon ran"
+    assert smelled[0]["receipt"].startswith("[withheld from boot: hive scent.receipt")
+    assert any(e["category"] == "hive_boot_signal_withheld" and e["detail"]["where"] == "scent.receipt"
+               for e in _events(quiet_guard))
+
+
 # ---------------------------------------------------------------------------
 # Guard: CAMA_GUARD_SILENT keeps the record, skips the beep and balloon
 # ---------------------------------------------------------------------------
