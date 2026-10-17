@@ -47,3 +47,31 @@ def test_small_boot_remains_complete():
 def test_invalid_boot_is_reported_instead_of_sliced(payload):
     with pytest.raises(ValueError):
         budget_boot(payload)
+
+
+def test_small_continuity_sections_survive_an_over_budget_boot():
+    """Review finding K-5: aelen_state, hive and brain_layers were the first
+    sections dropped on every over-budget boot. They are reserved whole now."""
+    original={'instruction':'x',
+              'identity':{'teachings':[{'id':i,'source_type':'teaching','proposed_by':'user','text':'t'*300} for i in range(12)]},
+              'pending_confirmations':[{'id':i,'text':'p'*200} for i in range(12)],
+              'journal':{'entry':'j'*3000},
+              'resonant_memories':[{'id':i,'text':'m'*1500} for i in range(12)],
+              'hive':{'hive_active':True,'processing_modifiers':{'response_style':{'signal':'gentle','intensity':0.4}}},
+              'aelen_state':{'emotional_state':'steady','last_journal_memory_id':'52910'},
+              'brain_layers':'insights: 3 open; self-model: stable; intent: finish the review'}
+    encoded=budget_boot(original)
+    result=json.loads(encoded)
+    assert len(encoded.encode('utf-8'))<=16000
+    for key in ('hive','aelen_state','brain_layers'):
+        assert result[key]==original[key], key
+        assert result['coverage']['sections'][key]['status']=='included', key
+    assert result['coverage']['sections']['resonant_memories']['status'] in ('trimmed','dropped')
+
+
+def test_oversized_protected_section_falls_back_to_the_ladder():
+    original={'instruction':'x','journal':{'entry':'j'*20000},
+              'brain_layers':'b'*5000}
+    result=json.loads(budget_boot(original))
+    assert result['coverage']['sections']['brain_layers']['status'] in ('trimmed','included')
+    assert len(json.dumps(result['brain_layers']))<=700
