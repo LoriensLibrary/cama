@@ -2,7 +2,7 @@
 
 import json
 
-PRIORITY = ('instruction','identity','corrections','self_accounts','boot','journal','ring','resonant_memories',
+PRIORITY = ('instruction','identity','corrections','self_accounts','pending_confirmations','boot','journal','ring','resonant_memories',
             'recent_topics','librarians_activated','today','compliance','hive','aelen_state')
 
 # Lists in these sections keep at least this many items at every trim level.

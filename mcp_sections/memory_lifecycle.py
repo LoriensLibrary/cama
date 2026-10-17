@@ -1,5 +1,5 @@
 """Memory Lifecycle tools: store_teaching, store_inference, store_exchange,
-confirm_memory, reject_memory, delete_memory, expire_stale."""
+confirm_memory, reject_memory, review_pending, delete_memory, expire_stale."""
 
 import json
 from typing import Optional
@@ -229,6 +229,43 @@ async def cama_reject_memory(memory_id: int, reason: Optional[str] = None) -> st
     finally: c.close()
 
 
+async def cama_review_pending(confirm: Optional[list[int]] = None, reject: Optional[list[int]] = None,
+                              reason: Optional[str] = None) -> str:
+    """Decide several provisional memories at once, after reading the boot
+    pending_confirmations section and asking the user. Each id goes through the
+    single-record confirm or reject tool, so every guard and audit path applies and
+    one failure never blocks the rest. Only provisional or quarantined rows are
+    touched; anything else is reported as an error, not changed."""
+    confirm = [int(i) for i in (confirm or [])]
+    reject = [int(i) for i in (reject or [])]
+    overlap = sorted(set(confirm) & set(reject))
+    if overlap:
+        return json.dumps({"error": f"ids listed in both confirm and reject: {overlap}"})
+    results = {"confirmed": [], "rejected": [], "errors": []}
+    c = get_db()
+    try:
+        pending = {r[0] for r in c.execute("SELECT id FROM memories WHERE status IN ('provisional','quarantined')").fetchall()}
+    finally:
+        c.close()
+    for mid in confirm:
+        if mid not in pending:
+            results["errors"].append({"id": mid, "error": "Not a provisional or quarantined memory"}); continue
+        out = json.loads(await cama_confirm_memory(mid))
+        (results["errors"].append({"id": mid, **out}) if "error" in out else results["confirmed"].append(mid))
+    for mid in reject:
+        if mid not in pending:
+            results["errors"].append({"id": mid, "error": "Not a provisional or quarantined memory"}); continue
+        out = json.loads(await cama_reject_memory(mid, reason))
+        (results["errors"].append({"id": mid, **out}) if "error" in out else results["rejected"].append(mid))
+    c = get_db()
+    try:
+        from cama.core.pending_confirmations import pending_summary
+        results["remaining"] = pending_summary(c)
+    finally:
+        c.close()
+    return json.dumps(results, indent=2)
+
+
 async def cama_delete_memory(memory_id: int) -> str:
     """Permanently delete a memory. Part of trust, easy delete."""
     c = get_db()
@@ -275,6 +312,10 @@ def register(mcp):
         name="cama_reject_memory",
         annotations={"title":"Reject Memory","readOnlyHint":False,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},
     )(cama_reject_memory)
+    mcp.tool(
+        name="cama_review_pending",
+        annotations={"title":"Review Pending","readOnlyHint":False,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},
+    )(cama_review_pending)
     mcp.tool(
         name="cama_delete_memory",
         annotations={"title":"Delete Memory","readOnlyHint":False,"destructiveHint":True,"idempotentHint":True,"openWorldHint":False},

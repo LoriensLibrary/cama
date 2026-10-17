@@ -114,6 +114,13 @@ def refresh_boot_summary(c):
     except Exception as tmp_err:
         _dbg(f"temporal readout failed (non-fatal): {tmp_err}")
 
+    pending = None
+    try:
+        from cama.core.pending_confirmations import pending_summary
+        pending = pending_summary(c)
+    except Exception as pend_err:
+        _dbg(f"pending summary failed (non-fatal): {pend_err}")
+
     # Stats
     total = c.execute("SELECT COUNT(*) as n FROM memories WHERE status NOT IN ('rejected')").fetchone()["n"]
 
@@ -128,6 +135,7 @@ def refresh_boot_summary(c):
         "corrections": corrections,
         "today": today_ctx,
         "temporal_readout": temporal_readout,
+        "pending_confirmations": pending,
         "note": "Snapshot of stored records. Preserve authorship and dates; shared history is not the current assistant's personal state."
     }
 
