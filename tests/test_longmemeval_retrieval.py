@@ -174,3 +174,36 @@ def test_output_is_written_atomically(tmp_path):
     lme._write_atomic(target, {"a": 1})
     assert json.loads(target.read_text(encoding="utf-8")) == {"a": 1}
     assert not (tmp_path / "out.json.tmp").exists()
+
+
+def test_failed_query_embedding_fails_the_question(scratch, monkeypatch):
+    root, m = scratch
+    if m._load_local_model() is None:
+        pytest.skip("local embedding model not available")
+    m.EMBEDDING_PROVIDER = "local"
+    real = m._get_embedding
+    state = {"calls": 0}
+
+    async def flaky(text):
+        state["calls"] += 1
+        vec = await real(text)
+        return [] if text.startswith("What breed") else vec  # ingestion succeeds, the query embedding fails
+
+    monkeypatch.setattr(m, "_get_embedding", flaky)
+    with pytest.raises(RuntimeError, match="query embedding is empty"):
+        asyncio.run(lme.run_question(_item(qid="q-qvec"), root, top_k=20, modes=("blended", "cosine")))
+    assert state["calls"] >= 4  # three exchanges embedded, then the query
+
+
+def test_wrong_width_query_embedding_is_rejected(tmp_path):
+    import sqlite3
+    db = tmp_path / "w.db"
+    c = sqlite3.connect(db)
+    c.execute("CREATE TABLE memory_embeddings (memory_id INTEGER, embedding_json TEXT, embedding_blob BLOB, model TEXT, computed_at TEXT)")
+    c.execute("INSERT INTO memory_embeddings VALUES (1, NULL, ?, 'm', 't')", (bytes(384 * 4),))
+    c.commit(); c.close()
+    with pytest.raises(RuntimeError, match="dims"):
+        lme._validate_query_vector("q", [0.1, 0.2], str(db))
+    with pytest.raises(RuntimeError, match="non-finite"):
+        lme._validate_query_vector("q", [float("nan")] * 384, str(db))
+    lme._validate_query_vector("q", [0.1] * 384, str(db))
