@@ -168,7 +168,8 @@ def _remove_store(db: Path) -> None:
 
 
 async def run_question(item: dict, scratch: Path, top_k: int, modes: tuple[str, ...],
-                       keep_db: bool = False) -> dict:
+                       keep_db: bool = False, strict_dates: bool = True,
+                       require_embeddings: bool | None = None) -> dict:
     import cama_mcp
     from mcp_sections import memory_lifecycle, retrieval
 
@@ -186,7 +187,16 @@ async def run_question(item: dict, scratch: Path, top_k: int, modes: tuple[str, 
     sids = item["haystack_session_ids"]
     raw_dates = item.get("haystack_dates") or [None] * len(sessions)
     session_dts = [parse_date(d) for d in raw_dates]
-    question_dt = parse_date(item.get("question_date")) or max((d for d in session_dts if d), default=anchor)
+    question_dt = parse_date(item.get("question_date"))
+    if strict_dates:
+        missing = [sid for sid, d in zip(sids, session_dts) if d is None]
+        if missing or question_dt is None or len(session_dts) != len(sessions):
+            raise ValueError(f"{qid}: unparsable dates (question_date={item.get('question_date')!r}, "
+                             f"sessions missing={missing[:5]}); this benchmark needs every date")
+    if question_dt is None:
+        question_dt = max((d for d in session_dts if d), default=anchor)
+    if require_embeddings is None:
+        require_embeddings = cama_mcp.EMBEDDING_PROVIDER != "none"
     budget = max(1, min(top_k, ROW_BUDGET_MAX))
 
     t0 = time.perf_counter()
@@ -222,8 +232,13 @@ async def run_question(item: dict, scratch: Path, top_k: int, modes: tuple[str, 
         c.commit()
         guard_flagged = c.execute("SELECT COUNT(*) FROM memories WHERE status='quarantined'").fetchone()[0]
         durable_ids = {r[0] for r in c.execute("SELECT id FROM memories WHERE status='durable'")}
+        embedded = c.execute("SELECT COUNT(*) FROM memory_embeddings e JOIN memories m ON m.id=e.memory_id "
+                             "WHERE m.status='durable'").fetchone()[0]
     finally:
         c.close()
+    if require_embeddings and embedded != len(durable_ids):
+        raise RuntimeError(f"{qid}: {embedded} of {len(durable_ids)} durable exchanges have embeddings; "
+                           "retrieval would silently degrade")
     ingest_s = time.perf_counter() - t0
 
     evidence = set(item.get("answer_session_ids") or [])
@@ -231,7 +246,8 @@ async def run_question(item: dict, scratch: Path, top_k: int, modes: tuple[str, 
     question_text = item["question"][:QUESTION_CHARS]
     result = {
         "question_id": qid, "question_type": item.get("question_type"), "sessions": len(sessions),
-        "exchanges": stored, "durable_exchanges": len(durable_ids), "guard_flagged": guard_flagged,
+        "exchanges": stored, "durable_exchanges": len(durable_ids), "embedded_exchanges": embedded,
+        "guard_flagged": guard_flagged,
         "truncated_turns": truncated_turns, "question_truncated": len(item["question"]) > QUESTION_CHARS,
         "evidence_sessions": len(evidence), "abstention": abstention,
         "row_budget": budget, "ingest_seconds": round(ingest_s, 2),
@@ -313,6 +329,21 @@ def summarize(results: list[dict], modes: tuple[str, ...]) -> dict:
     return summary
 
 
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _write_atomic(path: Path, payload: dict) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=1)
+    os.replace(tmp, path)
+
+
 def _git_revision() -> str | None:
     try:
         root = Path(__file__).resolve().parents[2]
@@ -335,7 +366,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     scratch = Path(args.scratch or tempfile.mkdtemp(prefix="cama_lme_")).resolve()
-    prepare_environment(scratch, provider="local")
+    cama_mcp = prepare_environment(scratch, provider="local")
 
     with open(args.data, encoding="utf-8") as fh:
         items = json.load(fh)
@@ -346,8 +377,11 @@ def main(argv=None) -> int:
     modes = tuple(m.strip() for m in args.modes.split(",") if m.strip())
 
     provenance = {"dataset": str(Path(args.data).resolve()), "dataset_bytes": os.path.getsize(args.data),
+                  "dataset_sha256": _sha256(Path(args.data)), "benchmark_sha256": _sha256(Path(__file__)),
                   "revision": _git_revision(), "note": args.note, "scratch": str(scratch),
-                  "embedding_provider": "local", "turn_chars": TURN_CHARS, "question_chars": QUESTION_CHARS,
+                  "embedding_provider": "local", "embedding_model": cama_mcp.LOCAL_EMBEDDING_MODEL,
+                  "row_budget": max(1, min(args.top_k, ROW_BUDGET_MAX)),
+                  "turn_chars": TURN_CHARS, "question_chars": QUESTION_CHARS,
                   "started_at": datetime.now(timezone.utc).isoformat()}
     results = []
     out_path = Path(args.out)
@@ -359,9 +393,8 @@ def main(argv=None) -> int:
         line = " ".join(f"{m}:frac@5={r['modes'][m].get('frac@5', 'abs')}" for m in modes)
         print(f"[{i}/{len(items)}] {r['question_id']} {r['question_type']} sessions={r['sessions']} "
               f"exch={r['exchanges']} flagged={r['guard_flagged']} ingest={r['ingest_seconds']}s {line}", flush=True)
-        with open(out_path, "w", encoding="utf-8") as fh:
-            json.dump({"provenance": provenance, "summary": summarize(results, modes),
-                       "elapsed_seconds": round(time.time() - started, 1), "results": results}, fh, indent=1)
+        _write_atomic(out_path, {"provenance": provenance, "summary": summarize(results, modes),
+                                 "elapsed_seconds": round(time.time() - started, 1), "results": results})
     print(json.dumps(summarize(results, modes), indent=2))
     return 0
 
