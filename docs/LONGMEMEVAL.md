@@ -53,7 +53,7 @@ Tests: `tests/test_longmemeval_retrieval.py` (twelve cases: isolation, hashed st
 
 - Retrieval only. A high recall here says the right sessions come back, not that an answer would be right.
 - One embedding model, small and local. Vendors quoting higher numbers typically use larger hosted embedders and sometimes a different metric (recall-at-5 over verbatim storage is not accuracy).
-- The blend's affect and recency terms were tuned for a person's own history, not for this benchmark's synthetic dates and emotionally flat sessions. The cosine column exists to make their effect visible.
+- The blend's affect and recency terms were tuned for a person's own history, not for this benchmark's synthetic dates and emotionally flat sessions. No `current_affect` is supplied with the query, so the affect distance is constant across candidates and the blend's departure from cosine on this data comes from the relational and recency terms only. The cosine column makes that departure visible; it does not isolate which term causes it.
 - Dates in LongMemEval are synthetic. The shift preserves intervals, which is what the recency term uses.
 - The store path's librarian tagging has no librarians in an empty scratch store, so routing is not exercised.
 
@@ -64,7 +64,7 @@ Tests: `tests/test_longmemeval_retrieval.py` (twelve cases: isolation, hashed st
 
 ## Results
 
-Run of 2026-10-17, revision `b1bf859`, dataset `longmemeval_s_cleaned.json` (SHA-256 `d6f21ea9d60a0d56...`), `all-MiniLM-L6-v2`, row budget 20, laptop CPU. 500 questions, 470 scored, 30 abstention skipped. 124,362 exchanges ingested, 124,127 durable, 235 guard-flagged, 717 turns clipped, 0 questions clipped. Wall time 4,914 s; mean ingest 9.65 s per question (the first third shared the CPU with another run); mean query 39 ms blended, 10 ms cosine. Independently recomputed from the results file by Lorien (all 500 ids, evidence ids, dates, hash, per-question and summary values; verification sha `4c2b3c45...`).
+Run of 2026-10-17, revision `b1bf859`, dataset `longmemeval_s_cleaned.json` (SHA-256 `d6f21ea9d60a0d56...`), `all-MiniLM-L6-v2`, row budget 20, laptop CPU. 500 questions, 470 scored, 30 abstention skipped. 124,362 exchanges ingested, 124,127 durable, 235 guard-flagged, 717 turns clipped, 0 questions clipped. Wall time 4,914 s; mean ingest 9.65 s per question (the first third shared the CPU with another run); mean query 39 ms blended, 10 ms cosine, both excluding the question embedding, which is computed once per question before either retriever runs. Independently recomputed from the results file by Lorien (all 500 ids, evidence ids, dates, hash, per-question and summary values; the results file's SHA-256 is `4c2b3c45...`, recorded in Lorien's `VERIFICATION_2026-10-17.txt`).
 
 | type | n | blended R@5 | blended R@10 | cosine R@5 | cosine R@10 |
 |---|---|---|---|---|---|
@@ -76,7 +76,7 @@ Run of 2026-10-17, revision `b1bf859`, dataset `longmemeval_s_cleaned.json` (SHA
 | temporal-reasoning | 127 | 0.891 | 0.950 | 0.887 | 0.938 |
 | overall | 470 | 0.9452 | 0.9775 | 0.9431 | 0.9741 |
 
-Overall `all@5` 0.8872 for both modes; `any@5` 0.9809 blended, 0.9787 cosine. Fifteen scored questions differ in `frac@5` between the modes (8 better under blended, 7 worse); four differ at @10 (4 better, 2 worse, per Lorien's recount).
+Overall `all@5` 0.8872 for both modes; `any@5` 0.9809 blended, 0.9787 cosine. Fifteen scored questions differ in `frac@5` between the modes (8 better under blended, 7 worse); six differ at @10 (4 better, 2 worse, per Lorien's recount).
 
 ### Ranking comparison between the modes
 
@@ -92,11 +92,11 @@ Computed from the saved top-10 session lists. "Exact order" is list equality; "t
 | single-session-assistant | 56 | 3.6% | 42.9% | 0.929 | 0.953 | 0.0% |
 | all | 500 | 21.2% | 45.0% | 0.920 | 0.951 | 6.0% |
 
-Fixed-k overlap over all 500 questions: 0.918 at k=5, 0.778 at k=10 (Lorien, `final-verification.json`).
+Fixed-k overlap over all 500 questions: 0.918 at k=5, 0.778 at k=10 (Lorien, `final-verification.json`). Neither convention is wrong once defined; fixed-k penalizes short returned lists even when they are identical, so the two figures are not a disagreement.
 
 ### What the blend does on this data
 
-With real session intervals the blend reorders the top five on 55 percent of questions and changes the first session on 6 percent, most often on knowledge-update (17.9 percent), where the newest session holds the answer and the recency term is what lifts it. Its net effect on recall is small and positive: +0.2 points at R@5 and +0.3 at R@10 over raw cosine, concentrated in temporal reasoning at R@10 (0.950 against 0.938). A run at the first revision, with flat dates, showed the two modes reordering only below rank 5 and identical recall; that run is retained with a sidecar marking it invalid as a comparison.
+With real session intervals the blend reorders the top five on 55 percent of questions and changes the first session on 6 percent, most often on knowledge-update (17.9 percent). That pattern is consistent with the recency term acting where the newest session holds the answer, but the saved ranks show a different order, not the isolated cause; an ablation or per-question score decomposition would be needed to attribute it, and both modes already recall 1.000 on that type, so no benefit is claimed there. The blend's net effect on recall is small and positive: +0.2 points at R@5 and +0.3 at R@10 over raw cosine, concentrated in temporal reasoning at R@10 (0.950 against 0.938). A run at the first revision, with flat dates, showed the two modes reordering only below rank 5 and identical recall; that run is retained with a sidecar marking it invalid as a comparison.
 
 ### Prediction logged before the run
 
