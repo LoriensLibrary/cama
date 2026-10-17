@@ -16,7 +16,6 @@ from cama_mcp import (
     _buf_flush_if_ready,
     _buf_track,
     _fmt,
-    _get_affect,
     _get_embedding,
     _is_neg,
     _pattern_trigger,
@@ -46,6 +45,8 @@ async def cama_query_memories(params: QueryInput) -> str:
         # matches its own query text by substring and outranks the memories
         # the query was about.
         q = "SELECT * FROM memories WHERE status NOT IN ('rejected','expired') AND COALESCE(context,'') != 'auto-recorded'"; qp = []
+        if not (params.filters and params.filters.get("memory_type") == "self_account"):
+            q += " AND memory_type != 'self_account'"
         # Consent gating: exclude high-sensitivity unless explicitly requested
         if not (params.filters and params.filters.get("include_sensitive") == "true"):
             q += " AND consent_level != 'high'"
@@ -138,7 +139,7 @@ async def cama_query_memories(params: QueryInput) -> str:
             cw_types = ["grounding", "agency", "connection", "self_compassion", "evidence_of_progress"]
             for cw_type in cw_types:
                 # First try explicitly tagged counterweights
-                r = c.execute(f"SELECT * FROM memories WHERE status='durable' AND counterweight_type=?{_sens} ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
+                r = c.execute(f"SELECT * FROM memories WHERE memory_type != 'self_account' AND status='durable' AND counterweight_type=?{_sens} ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
                 if r and r["id"] not in seen:
                     m = _fmt(c, r); m["rationale"] = f"COUNTERWEIGHT({cw_type})"; cw.append(m); seen.add(r["id"])
             # If we got fewer than 2 typed counterweights, fall back to untyped core/breakthrough
@@ -162,47 +163,89 @@ async def cama_query_memories(params: QueryInput) -> str:
     finally: c.close()
 
 
-async def cama_search(query: str, limit: int = 10, include_provisional: bool = False) -> str:
-    """Keyword search the shelves."""
+async def cama_search(query: str, limit: int = 10, include_provisional: bool = False, include_sensitive: bool = False) -> str:
+    """Literal keyword search; exact phrases rank before partial matches.
+
+    Partial matches remain available, with match coverage in each result.
+    Operational telemetry is not conversation evidence.
+    """
     _session_tick()  # compliance
+    query = " ".join(query.split())
+    if not query or limit <= 0:
+        return json.dumps({"results": [], "count": 0})
+    if len(query) > 2000:
+        return json.dumps({"results": [], "count": 0, "error": "Query exceeds 2000 characters"})
+    limit = min(limit, 100)
     _buf_track("search", query)
     _buf_flush_if_ready()
     c = get_db()
     try:
         sf = "" if include_provisional else "AND status='durable'"
-        # Word-split search: each word must appear somewhere in raw_text (AND logic)
-        words = [w for w in query.strip().split() if len(w) >= 2]
-        if not words:
-            words = [query.strip()]
-        if len(words) == 1:
-            where_clause = "raw_text LIKE ?"
-            match_score = "(CASE WHEN raw_text LIKE ? THEN 1 ELSE 0 END)"
-            params_score = [f"%{words[0]}%"]
-            params_where = [f"%{words[0]}%"]
-        else:
-            where_clause = "(" + " OR ".join(["raw_text LIKE ?" for _ in words]) + ")"
-            match_score = "(" + " + ".join(["(CASE WHEN raw_text LIKE ? THEN 1 ELSE 0 END)" for _ in words]) + ")"
-            params_score = [f"%{w}%" for w in words]
-            params_where = [f"%{w}%" for w in words]
-        all_params = params_score + params_where
-        all_params.append(limit)
+        if not include_sensitive:
+            sf += " AND NOT (memory_type='self_account' AND consent_level='high')"
+        words = list(dict.fromkeys(query.lower().split()))
+        if len(words) > 32:
+            return json.dumps({"results": [], "count": 0, "error": "Use at most 32 distinct search terms"})
+
+        def pattern(value):
+            # SQL parameters prevent injection; escaping also makes % and _ literal.
+            return "%" + value.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+
+        term = "raw_text LIKE ? ESCAPE '!'"
+        where_clause = "(" + " OR ".join([term] * len(words)) + ")"
+        match_score = " + ".join([f"(CASE WHEN {term} THEN 1 ELSE 0 END)"] * len(words))
+        patterns = [pattern(word) for word in words]
         rows = c.execute(
-            f"SELECT *, {match_score} as match_hits FROM memories WHERE {where_clause} {sf} "
-            f"AND status NOT IN ('rejected','expired') "
-            f"ORDER BY match_hits DESC, is_core DESC, updated_at DESC LIMIT ?",
-            all_params
+            f"SELECT *, (CASE WHEN {term} THEN 1 ELSE 0 END) AS phrase_match, "
+            f"{match_score} AS match_hits FROM memories WHERE {where_clause} {sf} "
+            "AND status NOT IN ('rejected','expired') "
+            "AND COALESCE(context,'') != 'auto-recorded' "
+            "ORDER BY phrase_match DESC, match_hits DESC, is_core DESC, updated_at DESC, id DESC LIMIT ?",
+            [pattern(query)] + patterns + patterns + [limit]
         ).fetchall()
-        return json.dumps({"results":[_fmt(c,r) for r in rows],"count":len(rows)},indent=2)
+        return json.dumps({"results":[{**_fmt(c,r), "query_terms": len(words),
+                            "match_kind": "phrase" if r["phrase_match"] else
+                            "all_terms" if r["match_hits"] == len(words) else "partial"}
+                           for r in rows],"count":len(rows)},indent=2)
     finally: c.close()
 
 
-async def cama_get_ring() -> str:
-    """Console, what's live in working memory."""
+async def cama_get_ring(limit: int = 30, max_chars: int = 24000) -> str:
+    """Bounded working-memory excerpts with provenance and coverage.
+
+    Stored memories are unchanged. Output reports excerpts and omitted IDs;
+    use search to retrieve a source passage in full when needed.
+    """
     _session_tick()  # compliance
     c = get_db()
     try:
-        rows = c.execute("SELECT r.slot,r.activation,r.last_activated_at,r.reason, r.activation * (0.5 * (1.0 / (1.0 + (julianday('now') - julianday(r.last_activated_at))))) as effective_activation, m.* FROM ring r JOIN memories m ON r.memory_id=m.id WHERE m.status NOT IN ('rejected','expired') ORDER BY effective_activation DESC").fetchall()
-        return json.dumps({"ring":[{**dict(r),"affect":_get_affect(c,r["id"])} for r in rows],"capacity":RING_SIZE,"occupied":len(rows)},indent=2)
+        limit = max(1, min(int(limit), RING_SIZE))
+        max_chars = max(2000, min(int(max_chars), 48000))
+        rows = c.execute("SELECT r.slot,r.activation,r.last_activated_at,r.reason, r.activation * (0.5 * (1.0 / (1.0 + (julianday('now') - julianday(r.last_activated_at))))) as effective_activation, m.* FROM ring r JOIN memories m ON r.memory_id=m.id WHERE m.memory_type != 'self_account' AND m.status NOT IN ('rejected','expired','quarantined') ORDER BY effective_activation DESC").fetchall()
+        fields = ("id", "slot", "activation", "effective_activation", "last_activated_at", "reason",
+                  "raw_text", "context", "source_type", "proposed_by", "memory_type", "status",
+                  "created_at", "source_msg_id", "evidence", "consent_level")
+        ring = []
+        for row in rows[:limit]:
+            item = {key: row[key] for key in fields}
+            clipped = []
+            for key, value in item.items():
+                if isinstance(value, str) and len(value) > 600:
+                    item[key] = value[:600]
+                    clipped.append(key)
+            item["excerpted_fields"] = clipped
+            ring.append(item)
+        payload = {"ring": ring, "capacity": RING_SIZE, "occupied": len(rows),
+                   "coverage": {"max_chars": max_chars, "shown": len(ring),
+                                "omitted_ids": [r["id"] for r in rows[len(ring):]],
+                                "source_records_unchanged": True}}
+        while True:
+            encoded = json.dumps(payload, ensure_ascii=True)
+            if len(encoded) <= max_chars:
+                return encoded
+            removed = ring.pop()
+            payload["coverage"]["omitted_ids"].insert(0, removed["id"])
+            payload["coverage"]["shown"] = len(ring)
     finally: c.close()
 
 
@@ -227,7 +270,7 @@ async def cama_read_room(params: ReadRoomInput) -> str:
         crisis_alert = None
         if _crisis_detected(params.current_affect, params.context or ""):
             crisis_alert = CRISIS_MESSAGE
-        mems = c.execute("SELECT * FROM memories WHERE status='durable' AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 300").fetchall()
+        mems = c.execute("SELECT * FROM memories WHERE memory_type != 'self_account' AND status='durable' AND consent_level != 'high' ORDER BY is_core DESC, updated_at DESC LIMIT 300").fetchall()
         mids = [r["id"] for r in mems]; affects = _batch_affects(c, mids)
         scored = []
         for r in mems:
@@ -244,7 +287,7 @@ async def cama_read_room(params: ReadRoomInput) -> str:
         if neg:
             seen = {m["id"] for m in top}
             for cw_type in ["grounding", "agency", "connection", "self_compassion", "evidence_of_progress"]:
-                r = c.execute("SELECT * FROM memories WHERE status='durable' AND counterweight_type=? AND consent_level != 'high' ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
+                r = c.execute("SELECT * FROM memories WHERE memory_type != 'self_account' AND status='durable' AND counterweight_type=? AND consent_level != 'high' ORDER BY RANDOM() LIMIT 1", (cw_type,)).fetchone()
                 if r and r["id"] not in seen:
                     cw.append({**_fmt(c,r),"role":f"counterweight({cw_type})"}); seen.add(r["id"])
             if len(cw) < 2:

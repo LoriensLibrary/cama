@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 import sqlite3
@@ -50,7 +51,6 @@ from typing import Dict, Iterator, List, Optional
 
 from cama.ingest.cama_import import (
     detect_emotions,
-    detect_memory_type,
     estimate_arousal,
     estimate_valence,
 )
@@ -188,7 +188,9 @@ def build_memory(turn: Dict) -> Dict:
     created = _iso(turn["timestamp"])
     return {
         "raw_text": raw,
-        "memory_type": detect_memory_type(raw),
+        # Preserve the observed event type. Keyword guesses over both speakers
+        # were turning coursework and assistant apologies into user corrections.
+        "memory_type": "exchange",
         "context": f"[thread:{turn['session_id']}] {turn['entrypoint']}",
         "source_type": "exchange",
         "status": "durable",
@@ -249,18 +251,60 @@ def write_memories(
     retrieval is worse than before the import.
     """
     seen = existing_source_ids(conn)
-    fresh = [m for m in memories if m["source_msg_id"] not in seen]
+    fresh = []
+    batch_seen = set()
+    for original in memories:
+        m = dict(original)
+        signature = (m["source_msg_id"], m["raw_text"])
+        if signature in batch_seen:
+            continue
+        batch_seen.add(signature)
+        if m["source_msg_id"] in seen:
+            old = conn.execute("SELECT raw_text FROM memories WHERE source_msg_id=? LIMIT 1",
+                               (m["source_msg_id"],)).fetchone()
+            if old and old[0] == m["raw_text"]:
+                continue
+            # Active transcripts grow after their first import. Keep the
+            # earlier snapshot immutable and add a source-linked revision.
+            base = m["source_msg_id"]
+            digest = hashlib.sha256(m["raw_text"].encode("utf-8")).hexdigest()[:20]
+            m["source_msg_id"] = f"{base}:rev:{digest}"
+            m["context"] += f" [revision_of:{base}]"
+            if m["source_msg_id"] in seen:
+                continue
+        seen.add(m["source_msg_id"])
+        fresh.append(m)
     skipped = len(memories) - len(fresh)
     if not apply:
         return {"written": 0, "would_write": len(fresh), "skipped": skipped,
                 "embedded": 0}
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_memories_source_msg_id ON memories(source_msg_id)")
 
     # A caller that already holds a loaded model (the sleep daemon) passes it
     # in; otherwise load one only when there is something to embed.
     model = encoder if encoder is not None else (_encoder() if embed and fresh else None)
+    vectors = {}
+    if model is not None and len(fresh) > 1:
+        try:
+            batch = model.encode([m["raw_text"][:512] for m in fresh],
+                                 batch_size=64, normalize_embeddings=True,
+                                 show_progress_bar=False)
+            if len(batch.shape) == 2 and batch.shape[0] == len(fresh):
+                vectors = {m["source_msg_id"]: v.tolist() for m, v in zip(fresh, batch)}
+        except Exception:
+            pass  # Fall back to per-record encoding, with errors counted below.
     embedded = 0
     written = 0
+    extra = dict.fromkeys(("revisions", "tagged", "unclaimed", "tag_errors", "embedding_errors"), 0)
     for m in fresh:
+        # Serialize the final dedupe check and insertion across daemon/manual
+        # importers. Historical duplicate source IDs prevent a unique index.
+        if not conn.in_transaction:
+            conn.execute("BEGIN IMMEDIATE")
+        if conn.execute("SELECT 1 FROM memories WHERE source_msg_id=? LIMIT 1",
+                        (m["source_msg_id"],)).fetchone():
+            skipped += 1
+            continue
         cur = conn.execute(
             "INSERT INTO memories (raw_text, memory_type, context, source_type, "
             "status, proposed_by, evidence, confidence, consent_level, is_core, "
@@ -282,13 +326,21 @@ def write_memories(
             try:
                 from cama.core import embedding_store as _emb_store
 
-                vec = model.encode(m["raw_text"][:512], normalize_embeddings=True,
-                                   show_progress_bar=False).tolist()
+                vec = vectors.get(m["source_msg_id"])
+                if vec is None:
+                    vec = model.encode(m["raw_text"][:512], normalize_embeddings=True,
+                                       show_progress_bar=False).tolist()
                 _emb_store.store_embedding(conn, mid, vec, "all-MiniLM-L6-v2",
                                            m["created_at"])
                 embedded += 1
             except Exception:
-                pass  # an un-embedded row is still a stored row
+                extra["embedding_errors"] += 1
+        from cama.librarian.cama_auto_tag import tag_memory
+        tagged = tag_memory(conn, mid, m["raw_text"], m["context"])
+        extra["tag_errors"] += int(bool(tagged.get("error")))
+        extra["tagged"] += int(tagged.get("count", 0) > 0)
+        extra["unclaimed"] += int(bool(tagged.get("unclaimed")))
+        extra["revisions"] += int(":rev:" in m["source_msg_id"])
         written += 1
         # Commit in batches. The live database is shared with a running MCP
         # server and the sleep daemon; one transaction held open across a
@@ -298,7 +350,7 @@ def write_memories(
             conn.commit()
     conn.commit()
     return {"written": written, "would_write": 0, "skipped": skipped,
-            "embedded": embedded}
+            "embedded": embedded, **extra}
 
 
 def collect(

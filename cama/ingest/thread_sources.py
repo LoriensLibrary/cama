@@ -67,6 +67,7 @@ def codex_turns(path: str) -> Iterator[Dict]:
     pending_ts = ""
     reply: list = []
     first = True
+    seen_items = set()
 
     def flush():
         if pending and pending.strip():
@@ -100,6 +101,26 @@ def codex_turns(path: str) -> Iterator[Dict]:
                 continue
             payload = rec.get("payload") or {}
             kind = payload.get("type")
+            if kind == "item_completed":
+                item = payload.get("item") or {}
+                item_type = item.get("type")
+                if item_type not in ("UserMessage", "AgentMessage"):
+                    continue
+                item_id = item.get("id")
+                if item_id and item_id in seen_items:
+                    continue
+                if item_id:
+                    seen_items.add(item_id)
+                # These are UI conversation events, not raw model payloads.
+                # Tool results, injected instructions and reasoning stay out.
+                content = item.get("content") or []
+                message = content if isinstance(content, str) else "\n".join(
+                    b.get("text", "") for b in content
+                    if isinstance(b, dict) and b.get("type") in ("text", "Text")
+                    and isinstance(b.get("text"), str)
+                )
+                kind = "user_message" if item_type == "UserMessage" else "agent_message"
+                payload = {"message": message}
             if kind == "user_message":
                 turn = flush()
                 if turn:
@@ -136,14 +157,19 @@ def _openai_text(message: dict) -> str:
 
 
 def openai_export_turns(
-    path: str, skip_conversation_ids: Optional[Set[str]] = None
+    path: str, skip_conversation_ids: Optional[Set[str]] = None, *, strict: bool = False
 ) -> Iterator[Dict]:
     skip = skip_conversation_ids or set()
     try:
-        data = json.load(open(path, encoding="utf-8"))
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
     except (ValueError, OSError):
+        if strict:
+            raise
         return
     if not isinstance(data, list):
+        if strict:
+            raise ValueError("OpenAI export must be a list of conversations")
         return
 
     for convo in data:
@@ -156,14 +182,30 @@ def openai_export_turns(
         if not isinstance(mapping, dict):
             continue
 
+        # Follow the selected branch when present. Sorting the whole mapping
+        # splices alternate answers and edited prompts into a false exchange.
+        current = convo.get("current_node")
+        selected = None
+        if current in mapping:
+            selected = set()
+            while current is not None:
+                if current in selected or current not in mapping:
+                    raise ValueError(f"Invalid conversation branch in {cid}")
+                selected.add(current)
+                current = (mapping[current] or {}).get("parent")
         rows = []
         for node_id, node in mapping.items():
+            if selected is not None and node_id not in selected:
+                continue
             msg = (node or {}).get("message")
             if not isinstance(msg, dict):
                 continue
             role = ((msg.get("author") or {}).get("role")) or msg.get("role")
             if role not in ("user", "assistant"):
                 continue  # system and tool authors are machinery
+            if role == "assistant" and (msg.get("channel") not in (None, "final", "commentary")
+                                        or msg.get("recipient") not in (None, "all")):
+                continue
             text = _openai_text(msg)
             if not text:
                 continue
@@ -253,12 +295,17 @@ def _lmstudio_timestamp(path: str, data: dict) -> str:
         return ""
 
 
-def lmstudio_turns(path: str) -> Iterator[Dict]:
+def lmstudio_turns(path: str, *, strict: bool = False) -> Iterator[Dict]:
     try:
-        data = json.load(open(path, encoding="utf-8"))
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
     except (ValueError, OSError):
+        if strict:
+            raise
         return
     if not isinstance(data, dict):
+        if strict:
+            raise ValueError("LM Studio archive must be a conversation object")
         return
     session_id = data.get("name") or os.path.splitext(os.path.basename(path))[0]
     timestamp = _lmstudio_timestamp(path, data)
@@ -273,8 +320,10 @@ def lmstudio_turns(path: str) -> Iterator[Dict]:
             continue
         # LM Studio nests the actual turn under `versions` in newer files.
         if "versions" in msg and isinstance(msg.get("versions"), list) and msg["versions"]:
-            inner = msg["versions"][msg.get("currentlySelected", 0) if
-                                    isinstance(msg.get("currentlySelected"), int) else 0]
+            selected = msg.get("currentlySelected", 0)
+            if not isinstance(selected, int) or not 0 <= selected < len(msg["versions"]):
+                selected = 0
+            inner = msg["versions"][selected]
             if isinstance(inner, dict):
                 msg = {**inner, "role": msg.get("role", inner.get("role"))}
         role = msg.get("role")

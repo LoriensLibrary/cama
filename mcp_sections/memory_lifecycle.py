@@ -5,6 +5,7 @@ import json
 from typing import Optional
 
 from cama.core import cama_trust
+from cama.core.self_accounts import account_author, lifecycle_context
 from cama_mcp import (
     StoreExchangeInput,
     StoreInferenceInput,
@@ -55,9 +56,8 @@ async def cama_store_teaching(params: StoreTeachingInput) -> str:
             c.commit()
         except Exception as _tag_err:
             print(f"[CAMA] Auto-tag failed for teaching {mid}: {_tag_err}", file=__import__('sys').stderr)
-        from cama_mcp import EMBEDDING_API_KEY
         return json.dumps({"stored":True,"memory_id":mid,"source_type":"teaching","status":status,"is_core":params.is_core,
-            "has_embedding":bool(EMBEDDING_API_KEY),"ring_ok":ring_ok,
+            "has_embedding":c.execute("SELECT 1 FROM memory_embeddings WHERE memory_id=?", (mid,)).fetchone() is not None,"ring_ok":ring_ok,
             "quarantined":tr["quarantined"],"trust_score":tr["trust_score"],"trust_reason":tr["reason"],
             "auto_tagged_to": (_tag_result or {}).get("tagged_to", []),
             "rationale": ("QUARANTINED — stored and searchable, but kept out of boot/ring until released via cama_confirm_memory. Reason: "+tr["reason"]) if tr["quarantined"] else ("Teaching → durable, full weight." + (" (ring write failed but shelf is safe)" if not ring_ok else ""))},indent=2)
@@ -67,6 +67,8 @@ async def cama_store_teaching(params: StoreTeachingInput) -> str:
 async def cama_store_inference(params: StoreInferenceInput) -> str:
     """Store an INFERENCE, provisional hypothesis. Full weight, no expiry, confirmable to durable.
     Inferences are hypotheses that persist. Confirm promotes to durable. Reject zeroes them."""
+    if params.memory_type == "self_account" and not account_author(params.context):
+        return json.dumps({"error": "Self-account requires matching structured author and subject."})
     c = get_db()
     try:
         now = _now()
@@ -79,13 +81,16 @@ async def cama_store_inference(params: StoreInferenceInput) -> str:
         cur = c.execute("INSERT INTO memories (raw_text,memory_type,context,source_type,status,proposed_by,evidence,confidence,review_after,needs_user_confirmation,is_core,trust_score,trust_reason,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         (params.raw_text, params.memory_type, params.context, "inference", status, "assistant", json.dumps(ev), params.confidence, None, 1, 0, tr["trust_score"], tr["reason"], now, now))
         mid = cur.lastrowid
+        c.execute("UPDATE memories SET consent_level=? WHERE id=?", (params.consent_level, mid))
+        if params.memory_type == "self_account":
+            c.execute("UPDATE memories SET context=? WHERE id=?", (lifecycle_context(params.context, status), mid))
         _store_affect(c, mid, params.emotions, params.valence, params.arousal, conf=params.confidence, model="inferred")
         c.commit()  # SHELF WRITE COMMITTED, durable regardless of ring
         # Ring push in its own transaction: the old code pushed after the last
         # commit and the write was rolled back on close (2026-09-06).
         ring_ok = True
-        if tr["quarantined"]:
-            ring_ok = False  # quarantined rows stay out of working memory until released
+        if tr["quarantined"] or params.memory_type == "self_account":
+            ring_ok = False  # Self-accounts are reviewed separately, never pushed to ring.
         else:
             try:
                 _ring_push(c, mid, "new_inference")
@@ -185,11 +190,13 @@ async def cama_confirm_memory(memory_id: int) -> str:
     resets its trust to full and lets it enter boot/ring again."""
     c = get_db()
     try:
-        m = c.execute("SELECT status FROM memories WHERE id=?", (memory_id,)).fetchone()
+        m = c.execute("SELECT status,context,memory_type FROM memories WHERE id=?", (memory_id,)).fetchone()
         if not m: return json.dumps({"error":"Not found"})
         if m["status"] not in ("provisional", "quarantined"):
             return json.dumps({"error":f"Already {m['status']}"})
         was_quarantined = m["status"] == "quarantined"
+        if m["memory_type"] == "self_account":
+            c.execute("UPDATE memories SET context=? WHERE id=?", (lifecycle_context(m["context"], "durable"), memory_id))
         c.execute("UPDATE memories SET status='durable',needs_user_confirmation=0,confidence=1.0,trust_score=1.0,trust_reason='user_released',review_after=NULL,updated_at=? WHERE id=?", (_now(), memory_id))
         c.commit()
         if was_quarantined:
@@ -207,9 +214,10 @@ async def cama_reject_memory(memory_id: int, reason: Optional[str] = None) -> st
     """Reject, user contradicted. Kept for audit, zero retrieval weight."""
     c = get_db()
     try:
-        m = c.execute("SELECT status FROM memories WHERE id=?", (memory_id,)).fetchone()
+        m = c.execute("SELECT status,context,memory_type FROM memories WHERE id=?", (memory_id,)).fetchone()
         if not m: return json.dumps({"error":"Not found"})
-        c.execute("UPDATE memories SET status='rejected',updated_at=?,context=COALESCE(context,'')||? WHERE id=?", (_now(), f" [REJECTED: {reason or 'contradicted'}]", memory_id))
+        ctx = lifecycle_context(m["context"], "rejected", reason or "contradicted") if m["memory_type"] == "self_account" else (m["context"] or "") + f" [REJECTED: {reason or 'contradicted'}]"
+        c.execute("UPDATE memories SET status='rejected',updated_at=?,context=? WHERE id=?", (_now(), ctx, memory_id))
         # A rejected memory has no business in working memory.
         evicted = c.execute("DELETE FROM ring WHERE memory_id=?", (memory_id,)).rowcount
         c.commit()

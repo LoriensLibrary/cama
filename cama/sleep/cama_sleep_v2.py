@@ -376,18 +376,16 @@ def consolidate_memories(c) -> dict:
         if edges_this_cycle >= MAX_EDGES_PER_CYCLE:
             break
     
-    # Duplicate detection: auto-expire copies within this batch
-    texts = [(r["id"], r["raw_text"][:100].lower().strip()) for r in anchors if r["raw_text"]]
+    # Flag full-text duplicates for review; never automatically expire
+    # teachings or exchanges based on a shared prefix.
+    texts = [(r["id"], r["raw_text"]) for r in anchors if r["raw_text"]]
     seen = {}
-    ts = _now()
+    stats["duplicate_candidates"] = []
     for mid, txt in texts:
         if len(txt) < 10:
             continue
         if txt in seen:
-            newer = max(mid, seen[txt])
-            c.execute("UPDATE memories SET status='expired', updated_at=? WHERE id=? AND status='durable'",
-                      (ts, newer))
-            stats["duplicates_expired"] += 1
+            stats["duplicate_candidates"].append([seen[txt], mid])
             seen[txt] = min(mid, seen[txt])
         else:
             seen[txt] = mid
@@ -428,17 +426,14 @@ def refresh_daily_context(c) -> dict:
         
         dominant = dict(all_emotions.most_common(5))
         
-        ts = _now()
-        c.execute("""INSERT OR REPLACE INTO daily_context 
-            (date, memory_count, valence_mean, arousal_mean, dominant_emotions,
-             created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, COALESCE(
-                (SELECT created_at FROM daily_context WHERE date=?), ?), ?)""",
-            (date, len(mems),
-             sum(valences) / len(valences) if valences else 0.0,
-             sum(arousals) / len(arousals) if arousals else 0.0,
-             json.dumps(dominant),
-             date, ts, ts))
+        from cama.core.daily_context import upsert_daily_context
+        upsert_daily_context(c, date, {
+            "memory_count": len(mems),
+            "valence_mean": sum(valences) / len(valences) if valences else 0.0,
+            "arousal_mean": sum(arousals) / len(arousals) if arousals else 0.0,
+            "dominant_emotions": dominant,
+        })
+
         
         stats["days_refreshed"] += 1
     
@@ -471,10 +466,12 @@ def refresh_boot_summary(c) -> dict:
     
     ts = _now()
     c.execute("""INSERT OR REPLACE INTO aelen_state (key, value, updated_at)
-        VALUES ('boot_summary', ?, ?)""", (json.dumps(boot), ts))
+        VALUES ('sleep_refresh_summary', ?, ?)""", (json.dumps(boot), ts))
     
     c.commit()
-    return {"boot_refreshed": True}
+    from cama.core.boot_summary import refresh_boot_summary as write_snapshot
+    path = write_snapshot(c)
+    return {"boot_refreshed": True, "path": path}
 
 
 # ============================================================
@@ -633,14 +630,89 @@ def backfill_embeddings(c, batch_size=25) -> dict:
 # ============================================================
 # PHASE 6: HEARTBEAT
 # ============================================================
+# Keys the daemon owns and may overwrite. Everything else in aelen_state is
+# assistant-authored narrative (who_am_i_today, emotional_state,
+# last_thread_summary, last_correction, current_focus, behavioral_flags) and a
+# scheduled job must never rewrite it: a cron cannot know what the last thread
+# meant, and inventing it would manufacture continuity that never happened.
+# The daemon writes facts. The assistant writes meaning. Staleness in the
+# authored fields is surfaced by cama_check_self, not papered over here.
+DAEMON_OWNED_KEYS = (
+    "last_sleep_cycle",
+    "sleep_status",
+    "last_heartbeat",
+    "derived_self_snapshot",
+)
+
+
+def _derive_self_snapshot(c) -> dict:
+    """Machine-derivable facts about the store's current shape and today's affect.
+
+    Provenance: every value here is computed from the database at cycle time.
+    Nothing in it is narrative and nothing is inferred.
+    """
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    totals = c.execute("""
+        SELECT
+          COUNT(*) AS total,
+          SUM(status = 'durable')     AS durable,
+          SUM(status = 'provisional') AS provisional,
+          SUM(status = 'expired')     AS expired
+        FROM memories
+    """).fetchone()
+    edges = c.execute("SELECT COUNT(*) AS c FROM edges").fetchone()["c"]
+    # daily_context's shape varies by install age: the base schema in cama_mcp
+    # creates neither dominant_emotions nor thread_summaries, while migrated
+    # stores have both. Select only what this database actually has, so a fresh
+    # install cannot crash the heartbeat phase.
+    dc_cols = {r["name"] for r in c.execute("PRAGMA table_info(daily_context)")}
+    wanted = [col for col in
+              ("memory_count", "valence_mean", "arousal_mean", "dominant_emotions")
+              if col in dc_cols]
+    today_row = None
+    if wanted and "date" in dc_cols:
+        today_row = c.execute(
+            f"SELECT {', '.join(wanted)} FROM daily_context WHERE date = ?", (today,)
+        ).fetchone()
+
+    def _dc(col):
+        if today_row is None or col not in wanted:
+            return None
+        return today_row[col]
+
+    return {
+        "derived_at": _now(),
+        "derived_by": "cama_sleep_v2.1:heartbeat",
+        "provenance": "machine-derived from store state, not assistant-authored",
+        "date": today,
+        "total_memories": totals["total"] or 0,
+        "durable": totals["durable"] or 0,
+        "provisional": totals["provisional"] or 0,
+        "expired": totals["expired"] or 0,
+        "edges": edges,
+        "today_memory_count": _dc("memory_count") or 0,
+        "today_valence_mean": _dc("valence_mean"),
+        "today_arousal_mean": _dc("arousal_mean"),
+        "today_dominant_emotions": json.loads(_dc("dominant_emotions") or "{}"),
+    }
+
+
 def write_heartbeat(c) -> dict:
     ts = _now()
     c.execute("""INSERT OR REPLACE INTO aelen_state (key, value, updated_at)
         VALUES ('last_sleep_cycle', ?, ?)""", (ts, ts))
     c.execute("""INSERT OR REPLACE INTO aelen_state (key, value, updated_at)
         VALUES ('sleep_status', 'resting, last cycle completed successfully (v2.1)', ?)""", (ts,))
+    # last_heartbeat had no writer anywhere in the codebase before this, which is
+    # why it sat frozen at 2026-03-21 for six months.
+    c.execute("""INSERT OR REPLACE INTO aelen_state (key, value, updated_at)
+        VALUES ('last_heartbeat', ?, ?)""", (ts, ts))
+
+    snapshot = _derive_self_snapshot(c)
+    c.execute("""INSERT OR REPLACE INTO aelen_state (key, value, updated_at)
+        VALUES ('derived_self_snapshot', ?, ?)""", (json.dumps(snapshot), ts))
     c.commit()
-    return {"heartbeat": ts}
+    return {"heartbeat": ts, "derived_self_snapshot": snapshot}
 
 
 # ============================================================

@@ -20,6 +20,7 @@ from pathlib import Path
 _TEST_DB_DIR = Path(tempfile.mkdtemp(prefix="cama_test_"))
 os.environ.setdefault("CAMA_DB_PATH", str(_TEST_DB_DIR / "import_time.db"))
 os.environ.setdefault("CAMA_RING_SIZE", "5")
+os.environ["CAMA_BOOT_SUMMARY"] = str(_TEST_DB_DIR / "boot_summary.json")
 
 # Make the repo root importable so `import cama_mcp` works under pytest.
 _ROOT = Path(__file__).resolve().parent.parent

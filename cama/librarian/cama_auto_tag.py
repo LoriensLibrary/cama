@@ -45,6 +45,7 @@ ALSO PROVIDES
 
 import json
 import os
+import re
 import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
@@ -72,23 +73,37 @@ def _route_memory_to_librarians(
     raw_text: str,
     context: Optional[str] = None,
     max_librarians: int = 8,
+    memory_type: Optional[str] = None,
 ) -> List[Tuple[int, str, float, List[str]]]:
     """Given memory content, return (librarian_id, name, score, reasons) tuples
     for librarians that claim this memory. Higher score = stronger claim.
     Empty list = no librarian wants it (homeless memory).
     """
+    from cama.core.self_accounts import matches_leaf
     haystack = (raw_text or "") + " " + (context or "")
     haystack_lower = haystack.lower()
     candidates: List[Tuple[int, str, float, List[str]]] = []
 
-    rows = c.execute(
+    cursor = c.execute(
         "SELECT id, name, category, routing_keywords FROM librarians "
-        "WHERE category != 'meta' OR name = 'meta_identity_core'"
-    ).fetchall()
+        "WHERE category != 'meta' OR name = 'meta_identity_core' OR name LIKE '%_self_account'"
+    )
+    cursor.row_factory = sqlite3.Row
+    rows = cursor.fetchall()
 
     for r in rows:
+        if r["name"].endswith("_self_account"):
+            if matches_leaf(r["name"], memory_type, context):
+                candidates.append((r["id"], r["name"], 100.0, ["metadata:author_subject"]))
+            continue
         score = 0.0
         reasons: List[str] = []
+        # Type leaves are structural indexes, not topic keyword matches.
+        # Mentioning "teaching" in an exchange does not make it a teaching.
+        if r["name"].startswith("type_"):
+            if memory_type and r["name"] == f"type_{memory_type}":
+                candidates.append((r["id"], r["name"], 100.0, ["metadata:memory_type"]))
+            continue
         keywords_json = r["routing_keywords"]
         if not keywords_json:
             continue
@@ -100,12 +115,11 @@ def _route_memory_to_librarians(
             if not kw:
                 continue
             kw_lower = kw.lower()
+            if kw_lower not in haystack_lower:
+                continue
             # Word-boundary check: the keyword should appear as a whole token,
             # not as a substring (e.g. "ai" shouldn't match "said")
-            if f" {kw_lower} " in f" {haystack_lower} " or \
-               haystack_lower.startswith(kw_lower + " ") or \
-               haystack_lower.endswith(" " + kw_lower) or \
-               haystack_lower == kw_lower:
+            if re.search(r"(?<!\w)" + re.escape(kw_lower) + r"(?!\w)", haystack_lower):
                 score += 1.0
                 reasons.append(f"kw:{kw}")
             elif kw_lower in haystack_lower and len(kw_lower) >= 5:
@@ -146,7 +160,11 @@ def tag_memory(
     is never compromised by a tagger error.
     """
     try:
-        candidates = _route_memory_to_librarians(c, raw_text, context)
+        cursor = c.execute("SELECT memory_type FROM memories WHERE id=?", (memory_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return {"tagged_to": [], "unclaimed": False, "count": 0, "error": "Memory not found"}
+        candidates = _route_memory_to_librarians(c, raw_text, context, memory_type=row[0])
         kept = [(lib_id, name, score, reasons) for (lib_id, name, score, reasons) in candidates
                 if score >= min_score]
 
@@ -172,7 +190,7 @@ def tag_memory(
         tagged_names: List[str] = []
         for (lib_id, name, score, reasons) in kept:
             # Strength: 0.8 for hard match (kw), 0.5 for loose match (kw_loose)
-            has_hard = any(r.startswith("kw:") for r in reasons)
+            has_hard = any(r.startswith(("kw:", "metadata:")) for r in reasons)
             strength = 0.8 if has_hard else 0.5
             try:
                 c.execute(
@@ -216,7 +234,7 @@ def tag_memory(
 # ============================================================
 # Backfill, retroactively tag memories with no membership
 # ============================================================
-def backfill(limit: int = 1000, min_score: float = 0.5) -> Dict[str, Any]:
+def backfill(limit: int = 1000, min_score: float = 0.5, conn=None) -> Dict[str, Any]:
     """Find memories with no librarian membership and tag them.
 
     Use ONCE after enabling auto-tagging to catch up memories that
@@ -231,7 +249,7 @@ def backfill(limit: int = 1000, min_score: float = 0.5) -> Dict[str, Any]:
     Returns:
         summary with counts of memories processed, tagged, unclaimed.
     """
-    c = _open_db()
+    c = conn if conn is not None else _open_db()
     try:
         rows = c.execute(
             """SELECT m.id, m.raw_text, m.context FROM memories m
@@ -249,9 +267,11 @@ def backfill(limit: int = 1000, min_score: float = 0.5) -> Dict[str, Any]:
         tagged = 0
         unclaimed = 0
         total_memberships = 0
+        errors = 0
 
         for r in rows:
             result = tag_memory(c, r["id"], r["raw_text"], r["context"], min_score=min_score)
+            errors += int(bool(result.get("error")))
             processed += 1
             if result.get("unclaimed"):
                 unclaimed += 1
@@ -269,6 +289,7 @@ def backfill(limit: int = 1000, min_score: float = 0.5) -> Dict[str, Any]:
             "tagged": tagged,
             "unclaimed": unclaimed,
             "memberships_added": total_memberships,
+            "errors": errors,
             "remaining": (
                 c.execute(
                     """SELECT COUNT(*) as c FROM memories m
@@ -279,7 +300,8 @@ def backfill(limit: int = 1000, min_score: float = 0.5) -> Dict[str, Any]:
             ),
         }
     finally:
-        c.close()
+        if conn is None:
+            c.close()
 
 
 # ============================================================

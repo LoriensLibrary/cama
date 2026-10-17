@@ -11,8 +11,8 @@ pairs each into exchanges, and writes what is not already there.
 
 Every row lands as ``source_type='exchange'`` with a stable
 ``source_msg_id``, so the import is idempotent and running it again after
-more sessions accumulate picks up only what is new. Conversations the
-March import already covered are skipped by conversation id.
+more sessions accumulate picks up only what is new. Legacy conversation
+markers do not suppress replay; coverage is checked per turn and snapshot.
 
 Dry run is the default. Writing requires --apply, because the target is
 somebody's memory.
@@ -30,6 +30,7 @@ import glob
 import json
 import os
 import sqlite3
+import tempfile
 from typing import Dict, Iterator, List
 
 from cama.ingest.cama_import_claude_code import (
@@ -40,7 +41,6 @@ from cama.ingest.cama_import_claude_code import (
 )
 from cama.ingest.thread_sources import (
     codex_turns,
-    imported_conversation_ids,
     lmstudio_turns,
     openai_export_turns,
 )
@@ -56,12 +56,12 @@ def _paths(*patterns: str) -> List[str]:
     found: List[str] = []
     for pattern in patterns:
         found.extend(glob.glob(pattern, recursive=True))
-    # The same export often sits in several folders. Identical files are
-    # the same threads, so collapse by (basename, size).
+    # Equal names and sizes do not prove equal content. Source-message IDs
+    # handle content dedupe; only collapse the same physical path here.
     unique: Dict[tuple, str] = {}
     for p in sorted(found):
         try:
-            key = (os.path.basename(p), os.path.getsize(p))
+            key = os.path.normcase(os.path.realpath(p))
         except OSError:
             continue
         unique.setdefault(key, p)
@@ -73,7 +73,8 @@ def source_paths(name: str) -> List[str]:
     if name == "claude_code":
         return _paths(os.path.join(home, ".claude", "projects", "**", "*.jsonl"))
     if name == "codex":
-        return _paths(os.path.join(home, ".codex", "sessions", "**", "rollout-*.jsonl"))
+        return _paths(*(os.path.join(home, ".codex", folder, "**", "rollout-*.jsonl")
+                        for folder in ("sessions", "archived_sessions")))
     if name == "openai_export":
         return _paths(
             os.path.join(home, "Desktop", "**", "conversations*.json"),
@@ -93,9 +94,9 @@ def turns_for(name: str, path: str, skip_ids, include_thinking: bool) -> Iterato
     if name == "codex":
         return codex_turns(path)
     if name == "openai_export":
-        return openai_export_turns(path, skip_ids)
+        return openai_export_turns(path, skip_ids, strict=True)
     if name == "lmstudio":
-        return lmstudio_turns(path)
+        return lmstudio_turns(path, strict=True)
     raise ValueError(name)
 
 
@@ -124,7 +125,9 @@ def collect_source(name: str, skip_ids, include_thinking: bool = False,
 
 
 def state_path_for(db_path: str) -> str:
-    return os.path.join(os.path.dirname(db_path) or ".", "thread_import_state.json")
+    # Replay after adapter upgrades. v1 missed modern Codex events; v2 still
+    # skipped entire ChatGPT conversations on coarse legacy import markers.
+    return os.path.join(os.path.dirname(db_path) or ".", "thread_import_state_v3.json")
 
 
 def load_state(path: str) -> Dict[str, float]:
@@ -145,12 +148,18 @@ def load_state(path: str) -> Dict[str, float]:
 
 
 def save_state(path: str, state: Dict[str, float]) -> None:
+    directory = os.path.dirname(path) or "."
+    os.makedirs(directory, exist_ok=True)
+    tmp = None
     try:
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory,
+                                         delete=False) as fh:
+            tmp = fh.name
             json.dump(state, fh)
-    except OSError:
-        pass  # a lost state file only costs a full walk next time
+        os.replace(tmp, path)
+    finally:
+        if tmp and os.path.exists(tmp):
+            os.unlink(tmp)
 
 
 def collect_changed(name: str, skip_ids, state: Dict[str, float],
@@ -185,20 +194,72 @@ def import_new_threads(conn: sqlite3.Connection, embed: bool = True, encoder=Non
                        include_thinking: bool = False) -> Dict:
     """One incremental pass over every source. Writes, never dry-runs."""
     if state_path is None:
-        state_path = state_path_for(os.environ.get("CAMA_DB_PATH", DEFAULT_DB))
+        db_file = next((r[2] for r in conn.execute("PRAGMA database_list") if r[1] == "main"), "")
+        if not db_file:
+            raise ValueError("state_path is required for an in-memory database")
+        state_path = state_path_for(db_file)
     state = load_state(state_path)
-    skip_ids = imported_conversation_ids(conn)
-    summary: Dict = {"files_walked": 0, "written": 0, "skipped": 0, "embedded": 0,
-                     "per_source": {}}
+    # A legacy gpt: conversation ID does not prove every message was stored.
+    # Walk every conversation and dedupe by the adapter's per-turn source ID.
+    skip_ids = set()
+    metrics = ("written", "skipped", "embedded", "revisions", "tagged", "unclaimed",
+               "tag_errors", "embedding_errors")
+    summary: Dict = {"files_walked": 0, "files_discovered": 0, "errors": [],
+                     "archive_snapshots_added": 0,
+                     "per_source": {}, **dict.fromkeys(metrics, 0)}
+    # Load once per pass, lazily on the first new row that needs a vector.
+    model = encoder
+    attempted_model = encoder is not None
+    def write_batch(batch):
+        nonlocal model, attempted_model
+        if embed and not attempted_model and batch:
+            from cama.ingest.cama_import_claude_code import _encoder
+            model = _encoder()
+            attempted_model = True
+        return write_memories(conn, batch, apply=True, embed=embed and model is not None, encoder=model)
+
     for name in sources:
-        memories, touched = collect_changed(name, skip_ids, state, include_thinking)
-        result = write_memories(conn, memories, apply=True, embed=embed, encoder=encoder)
-        state.update(touched)
-        summary["files_walked"] += len(touched)
-        for key in ("written", "skipped", "embedded"):
-            summary[key] += result.get(key, 0)
-        summary["per_source"][name] = {"files": len(touched), "written": result.get("written", 0)}
+        paths = source_paths(name)
+        detail = {"files": 0, "discovered": len(paths), "unchanged": 0,
+                  **dict.fromkeys(metrics, 0)}
+        summary["files_discovered"] += len(paths)
+        for path in paths:
+            try:
+                mtime = os.path.getmtime(path)
+                if name == "openai_export" and state.get("archive:" + path) != mtime:
+                    from cama.ingest.transcript_archive import archive_openai_export
+                    archive = archive_openai_export(conn, path)
+                    summary["archive_snapshots_added"] += archive["snapshots_added"]
+                    state["archive:" + path] = mtime
+                if state.get(path) == mtime:
+                    detail["unchanged"] += 1
+                    continue
+                batch = []
+                for turn in turns_for(name, path, skip_ids, include_thinking):
+                    batch.append(build_memory(turn))
+                    if len(batch) == 50:
+                        result = write_batch(batch)
+                        for key in metrics:
+                            detail[key] += result.get(key, 0)
+                        batch = []
+                if batch:
+                    result = write_batch(batch)
+                    for key in metrics:
+                        detail[key] += result.get(key, 0)
+                state[path] = mtime
+                detail["files"] += 1
+            except Exception as exc:
+                conn.rollback()
+                summary["errors"].append({"source": name, "path": path,
+                                          "error": f"{type(exc).__name__}: {exc}"})
+        summary["files_walked"] += detail["files"]
+        for key in metrics:
+            summary[key] += detail[key]
+        summary["per_source"][name] = detail
     save_state(state_path, state)
+    if embed and attempted_model and model is None:
+        summary["errors"].append({"source": "embeddings", "error": "encoder unavailable; vector backlog remains"})
+    summary["status"] = "degraded" if (summary["errors"] or summary["tag_errors"] or summary["embedding_errors"]) else "ok"
     return summary
 
 
@@ -225,9 +286,9 @@ def main() -> None:
     conn = sqlite3.connect(args.db, timeout=60)
     conn.execute("PRAGMA foreign_keys = ON")
     try:
-        skip_ids = imported_conversation_ids(conn)
+        skip_ids = set()
         print(f"database        : {args.db}")
-        print(f"already covered : {len(skip_ids)} conversations from the March import\n")
+        print("coverage        : per-turn source IDs; no whole-conversation skips\n")
 
         grand = {"would_write": 0, "written": 0, "skipped": 0, "embedded": 0}
         for name in (args.source or SOURCES):
