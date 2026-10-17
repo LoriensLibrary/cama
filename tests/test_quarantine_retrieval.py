@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from mcp_sections import retrieval
+from mcp_sections import memory_lifecycle, retrieval, safety
 
 
 @pytest.fixture
@@ -63,3 +63,42 @@ def test_keyword_search_does_not_treat_quarantine_as_provisional(isolated, inclu
     result = json.loads(asyncio.run(retrieval.cama_search("orchard", include_provisional=include_provisional)))
     expected = {durable, provisional} if include_provisional else {durable}
     assert {r["id"] for r in result["results"]} == expected
+
+
+def test_review_queue_pages_without_releasing_or_recalling(isolated):
+    c, _ = isolated
+    first = add(c, "quarantined")
+    add(c, "durable")
+    second = add(c, "quarantined", 1)
+    add(c, "provisional")
+    page = json.loads(asyncio.run(memory_lifecycle.cama_list_quarantined(limit=1)))
+    assert page["review_only"] is True
+    assert page["total_quarantined"] == 2
+    assert [r["id"] for r in page["results"]] == [first]
+    assert page["results"][0]["proposed_by"] == "system"
+    assert page["results"][0]["raw_text"] == "orchard evidence"
+    assert "trust_reason" in page["results"][0]
+    page2 = json.loads(asyncio.run(memory_lifecycle.cama_list_quarantined(limit=1, after_id=page["next_after_id"])))
+    assert [r["id"] for r in page2["results"]] == [second]
+    assert page2["next_after_id"] is None
+    assert c.execute("SELECT COUNT(*) FROM ring").fetchone()[0] == 0
+    assert c.execute("SELECT SUM(access_count) FROM memories").fetchone()[0] == 0
+    assert c.execute("SELECT COUNT(*) FROM memories WHERE status='quarantined'").fetchone()[0] == 2
+    c.execute("CREATE TABLE IF NOT EXISTS sleep_log (id INTEGER PRIMARY KEY, cycle_end TEXT, actions_taken TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS librarian_membership (librarian_id INTEGER, memory_id INTEGER)")
+    c.commit()
+    health = json.loads(asyncio.run(safety.cama_health()))
+    assert "error" not in health, health
+    assert health["quarantined_pending"] == 2
+
+
+@pytest.mark.parametrize("limit,after_id", [(0, 0), (101, 0), (1, -1)])
+def test_review_queue_rejects_invalid_page(isolated, limit, after_id):
+    assert "error" in json.loads(asyncio.run(memory_lifecycle.cama_list_quarantined(limit, after_id)))
+
+
+def test_empty_review_queue(isolated):
+    result = json.loads(asyncio.run(memory_lifecycle.cama_list_quarantined()))
+    assert result["results"] == []
+    assert result["total_quarantined"] == 0
+    assert result["next_after_id"] is None

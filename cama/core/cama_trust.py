@@ -15,9 +15,9 @@ Two orthogonal signals decide trust at write time:
      exfil/egress directives, role-injection markup) is treated as an attack
      payload. This catches poisoning that rides in through a normal conversation.
 
-Below-threshold memories are written with status='quarantined': still fully
-searchable/recallable, but excluded from every surface that auto-injects into
-context (boot resonant set, ring, counterweights) and given zero ranking weight.
+Below-threshold memories are written with status='quarantined': excluded from
+ordinary retrieval, search, boot, ring and counterweights. They remain available
+through the explicit read-only cama_list_quarantined review queue.
 A human releases them via cama_confirm_memory (quarantined -> durable).
 
 This module is dependency-light on purpose (stdlib only + a best-effort write to
