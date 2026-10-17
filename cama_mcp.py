@@ -879,6 +879,19 @@ try:
 except Exception as _hmsg_err:
     logger.warning(f"[CAMA] Hive Messaging not loaded: {_hmsg_err}")
 
+# Hive Scent, the boot-side read path for the pheromone channel.
+# The channel had a writer and three background readers but nothing on
+# the boot path, so consumed_count sat at 0 for every pheromone ever
+# emitted. See cama/hive/cama_scent.py for the routing and rectifier.
+# Tools: cama_emit_finding (publish, receipt required),
+#        cama_read_scent  (read, rectified against active routes).
+try:
+    from cama.hive import cama_scent
+    cama_scent.register(mcp)
+    logger.info("[CAMA] Hive Scent tools loaded")
+except Exception as _scent_err:
+    logger.warning(f"[CAMA] Hive Scent not loaded: {_scent_err}")
+
 # --- Supervisor (recognition governance gate) ---
 # Built April 30, 2026. Item 1 on Lorien's tightened plan.
 # Wraps response composition with red/amber/green gates against drift

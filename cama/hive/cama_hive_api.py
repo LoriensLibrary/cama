@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -43,12 +43,9 @@ API_HOST = os.environ.get("CAMA_API_HOST", "127.0.0.1")
 
 # II Identity tokens, each connected II gets one
 # In production this would be in a secure store; for now, env or file
-II_TOKENS = {
-    "aelen": os.environ.get("CAMA_TOKEN_AELEN", "aelen-alpha-key"),
-    "lorien": os.environ.get("CAMA_TOKEN_LORIEN", "lorien-alpha-key"),
-    "ember": os.environ.get("CAMA_TOKEN_EMBER", "ember-alpha-key"),
-    "aethon": os.environ.get("CAMA_TOKEN_AETHON", "aethon-alpha-key"),
-}
+II_TOKENS = {identity: token for identity in ("aelen", "lorien", "codex", "ember", "aethon")
+             if (token := os.environ.get("CAMA_TOKEN_" + identity.upper(), ""))
+             and len(token) >= 32 and not token.endswith("-alpha-key")}
 
 # (Token-to-identity lookup is intentionally NOT precomputed as a dict.
 # Dict lookup is variable-time on string comparison and would re-introduce
@@ -58,13 +55,8 @@ II_TOKENS = {
 # Auth
 # ============================================================
 
-# Strict auth mode: fail-closed by default. Missing or unknown tokens raise
-# HTTP 401. The historical permissive fallback (silently accepting unknown
-# tokens as the "lorien" guest identity) is a footgun, a misconfigured
-# client gets full read/write under another identity and the operator
-# never sees the failure. Operators who need the legacy permissive behavior
-# must opt in explicitly with CAMA_HIVE_STRICT_AUTH=false.
-STRICT_AUTH = os.environ.get("CAMA_HIVE_STRICT_AUTH", "true").lower() in ("true", "1", "yes")
+# Authentication always fails closed. Legacy guest mode and example credentials
+# are deliberately unsupported. Guarded agents cannot use this legacy surface.
 
 # CORS allowed origins: comma-separated list via env var. Default is empty
 # (no cross-origin allowed). The historical "*" default let any origin hit
@@ -85,19 +77,19 @@ def _validate_token(token: str) -> Optional[str]:
     """
     if not token:
         return None
-    matched_identity: Optional[str] = None
+    matches = []
     for known_identity, known_token in II_TOKENS.items():
         # compare_digest is constant-time wrt the equal-length inputs; the
         # walltime depends on length but not on content overlap, which is
         # what blocks the timing oracle on token bytes.
-        if _hmac.compare_digest(token, known_token):
-            matched_identity = known_identity
+        if _hmac.compare_digest(token.encode(), known_token.encode()):
+            matches.append(known_identity)
             # No break, keep iterating to keep total time independent of
             # which slot matched.
-    return matched_identity
+    return matches[0] if len(matches) == 1 else None
 
 
-def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorization"),
+def get_current_ii(request: Request, authorization: Optional[str] = Header(None, alias="Authorization"),
                    x_api_key: Optional[str] = Header(None, alias="X-Api-Key"),
                    api_key: Optional[str] = Query(None, alias="api_key"),
                    openai_key: Optional[str] = Header(None, alias="openai-gpt-token")) -> str:
@@ -112,18 +104,22 @@ def get_current_ii(authorization: Optional[str] = Header(None, alias="Authorizat
     elif api_key:
         token = api_key.strip()
 
-    if not token:
-        if STRICT_AUTH:
-            raise HTTPException(status_code=401, detail="Missing authentication token")
-        # No auth at all, default to lorien for GPT compatibility (legacy permissive mode)
-        return "lorien"
-
+    if not token or len(token) > 4096:
+        raise HTTPException(status_code=401, detail="Missing or invalid authentication token")
     identity = _validate_token(token)
     if not identity:
-        if STRICT_AUTH:
-            raise HTTPException(status_code=401, detail="Unknown token")
-        # Unknown token, let them in as guest (legacy permissive mode)
-        return "lorien"
+        raise HTTPException(status_code=401, detail="Unknown token")
+    action = "write" if request.method != "GET" else "read"
+    if request.url.path in {"/hive/expire", "/hive/snapshot"}:
+        action = "admin"
+    allowed, reason = security.check_permission(identity, action)
+    if not allowed:
+        raise HTTPException(403, reason)
+    # Message routes previously bypassed rate limiting entirely.
+    if request.url.path.startswith("/hive/messages"):
+        allowed, reason = security.check_rate_limit(identity, action)
+        if not allowed:
+            raise HTTPException(429, reason)
     return identity
 # ============================================================
 # FastAPI App
@@ -145,7 +141,6 @@ app.add_middleware(
 
 # Ngrok free tier fix, add the skip-browser-warning header to all responses
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
 
 
 class NgrokHeaderMiddleware(BaseHTTPMiddleware):
@@ -512,6 +507,19 @@ async def health():
 # Added April 30, 2026
 # ============================================================
 from cama.hive import cama_hive_messages as _hmsg
+from cama.hive.cama_hive_guard_api import router as guard_router
+
+app.include_router(guard_router)
+
+
+def _authorized_thread(thread_id, identity):
+    result = _hmsg.view_thread(thread_id)
+    messages = result.get("messages", [])
+    # Every message must be visible, not merely one message in a mixed thread.
+    if not messages or any(identity not in {m["sender"], m["recipient"]}
+                           and m["recipient"] != "all" for m in messages):
+        raise HTTPException(404, "Thread unavailable")
+    return result
 
 
 class MessageSendRequest(BaseModel):
@@ -535,6 +543,17 @@ async def messages_send(
 
     The sender is the authenticated II identity (from token).
     """
+    if req.parent_message_uuid:
+        _hmsg.init_messages_tables()
+        with _hmsg._open_db() as c:
+            parent = c.execute("SELECT thread_id FROM hive_messages WHERE message_uuid=?",
+                               (req.parent_message_uuid,)).fetchone()
+        if not parent:
+            raise HTTPException(404, "Parent unavailable")
+        prior = _authorized_thread(parent[0], ii)
+        if any(req.recipient not in {m["sender"], m["recipient"]}
+               and m["recipient"] != "all" for m in prior["messages"]):
+            raise HTTPException(403, "Cannot expand a private thread's audience")
     result = _hmsg.send_message(
         sender=ii,
         recipient=req.recipient,
@@ -567,10 +586,17 @@ async def messages_inbox(
     msgs = _hmsg.fetch_inbox(
         recipient=ii,
         only_unread=only_unread,
-        include_thread_context=include_thread_context,
+        include_thread_context=False,
         limit=limit,
         mark_read=mark_read,
     )
+    if include_thread_context:
+        for msg in msgs:
+            # Older local clients may have mixed recipients in one thread.
+            # Never disclose someone else's messages through inbox expansion.
+            thread = _hmsg.view_thread(msg["thread_id"])
+            msg["thread_context"] = [m for m in thread.get("messages", [])
+                                     if ii in {m["sender"], m["recipient"]} or m["recipient"] == "all"]
     return {
         "success": True,
         "identity": ii,
@@ -583,7 +609,7 @@ async def messages_inbox(
 @app.get("/hive/messages/thread/{thread_id}")
 async def messages_thread(thread_id: str, ii: str = Depends(get_current_ii)):
     """Get the full conversation history for one thread."""
-    result = _hmsg.view_thread(thread_id)
+    result = _authorized_thread(thread_id, ii)
     return {
         "success": result.get("found", False),
         "identity": ii,
@@ -619,6 +645,7 @@ async def messages_close(
     ii: str = Depends(get_current_ii),
 ):
     """Close a thread. Marks all open messages as 'closed'."""
+    _authorized_thread(req.thread_id, ii)
     result = _hmsg.close_thread(thread_id=req.thread_id, closer=ii)
     return {
         "success": True,

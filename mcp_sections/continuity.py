@@ -31,6 +31,16 @@ from cama_mcp import (
     get_db,
 )
 
+# Hive scent channel. Optional by design: a broken or absent hive must
+# never take the boot down with it, so this degrades to None and the
+# boot block below skips cleanly.
+try:
+    from cama.hive import cama_hive as _hive
+    from cama.hive import cama_scent as _scent
+except Exception:  # pragma: no cover - hive is optional at boot
+    _hive = None
+    _scent = None
+
 
 async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] = None) -> str:
     """THE thread-start tool — warm boot with blended retrieval.
@@ -315,6 +325,34 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
                     result["brain_layers"] = brain_ctx
             except Exception as _brain_err:
                 result["brain_layers"] = f"(brain context error: {_brain_err})"
+
+        # ── HIVE SCENT ─ cross-thread findings, routed and rectified ──
+        # Restores the enrich_boot() call that was dropped when cama_mcp.py
+        # was split into mcp_sections/. It sits at the same position here as
+        # in _dev/cama_mcp_backup_20260403.py, between brain_layers and the
+        # durable count. The scent pass below is new: it rectifies findings
+        # against the routes this boot actually activated, so a thread
+        # receives what its own librarians selected for rather than every
+        # signal currently alive in the hive.
+        if _hive is not None:
+            try:
+                hive_ctx = _hive.enrich_boot()
+                if hive_ctx and hive_ctx.get("hive_active"):
+                    result["hive"] = hive_ctx
+            except Exception as _hive_err:
+                result["hive"] = f"(hive context error: {_hive_err})"
+        if _scent is not None:
+            try:
+                _active = [
+                    r.get("name")
+                    for r in (librarian_route_meta or [])
+                    if isinstance(r, dict) and r.get("name")
+                ]
+                _smelled = _scent.read_scent(active_routes=_active)
+                if _smelled:
+                    result["scent"] = _smelled
+            except Exception as _scent_err:
+                result["scent"] = f"(scent error: {_scent_err})"
 
         total = c.execute("SELECT COUNT(*) as c FROM memories WHERE status='durable'").fetchone()["c"]
         result["total_durable"] = total
