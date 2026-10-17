@@ -14,6 +14,15 @@ from cama.hive.install_claude_activity import configure
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
     monkeypatch.setenv("CAMA_ACTIVITY_DB", str(tmp_path / "activity.db"))
+    monkeypatch.delenv("CAMA_ACTIVITY_PARTICIPANT", raising=False)
+
+
+def test_identity_is_explicit(monkeypatch):
+    hook.record(payload("Stop"))
+    assert activity.snapshot()["tool_calls"][0]["participant"] == "claude-code"
+    monkeypatch.setenv("CAMA_ACTIVITY_PARTICIPANT", "aelen")
+    hook.record(payload("SessionStart"))
+    assert activity.snapshot(participant="aelen")["tool_calls"][0]["participant"] == "aelen"
 
 
 def payload(event, **extra):
@@ -59,6 +68,21 @@ def test_settings_preserved_and_idempotent():
     assert original["hooks"]["PreToolUse"] == updated["hooks"]["PreToolUse"][:1]
     assert updated["other"] is True
     assert configure(updated, "new-command") == updated
+
+
+def test_installer_replaces_old_runtime_and_deduplicates():
+    old = '"C:/old/python.exe" "C:/Users/test/.claude/cama_activity/claude_activity_hook.py"'
+    new = old.replace("old/python", "new/python")
+    other = {"type": "command", "command": "keep-me"}
+    original = {"hooks": {"PreToolUse": [
+        {"matcher": "Bash", "hooks": [{"type": "command", "command": old}, other]},
+        {"hooks": [{"type": "command", "command": old}]},
+    ]}}
+    updated = configure(original, new)
+    groups = updated["hooks"]["PreToolUse"]
+    assert groups[0] == {"matcher": "Bash", "hooks": [other]}
+    assert [h["command"] for g in groups for h in g["hooks"]] == ["keep-me", new]
+    assert configure(updated, new) == updated
 
 
 def test_local_wrapper_registers_activity(monkeypatch):

@@ -47,7 +47,7 @@ session. Existing personal memory databases are not modified.
 
 ## Verification
 
-18 activity and hook tests pass: attribution/session separation, stale state, concurrent
+The activity and hook tests cover attribution/session separation, stale state, concurrent
 calls, validation, tool return/failure/cancellation, metadata-only recording,
 idempotent observer install, telemetry failure isolation, explicit-report MCP
 integration, refusal to guess an unconfigured identity, hook privacy, event ordering,
@@ -62,7 +62,10 @@ The installer copies its runtime to `~/.claude/cama_activity` outside the Git ch
 it uses the installing Python executable. Re-run after adapter changes to refresh it.
 Events: PreToolUse, PostToolUse, PostToolUseFailure, SessionStart, UserPromptSubmit,
 Stop and SessionEnd. The actual client session ID separates chats; child agent IDs
-are hashed into separate labels. The local routing label is `aelen`, not authentication.
+are hashed into separate labels. The default participant is `claude-code`, which identifies
+the client, not a persona. Set `CAMA_ACTIVITY_PARTICIPANT=aelen` in the environment of
+an explicitly identified Aelen client if desired. Global hooks cannot establish who
+is speaking in every chat. These local labels are not authentication.
 
 Records retain only tool/event names, session identifiers, states and timestamps.
 No prompt, transcript, command, arguments, response or error text is stored.

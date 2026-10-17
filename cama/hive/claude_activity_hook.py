@@ -5,6 +5,7 @@ The installer copies this and activity.py to a stable directory outside Git.
 """
 import hashlib
 import json
+import os
 import sys
 
 if __package__:
@@ -13,7 +14,7 @@ else:
     import activity
 
 
-def record(payload):
+def record(payload, participant=None):
     if not isinstance(payload, dict):
         raise ValueError("Expected hook object")
     event = payload.get("hook_event_name")
@@ -35,7 +36,8 @@ def record(payload):
         call_id = hashlib.sha256((session + ":" + event).encode()).hexdigest()
     else:
         return
-    activity.observe("aelen", session, call_id, tool, state, source="claude_code_hook")
+    participant = activity._key(participant or os.environ.get("CAMA_ACTIVITY_PARTICIPANT", "claude-code"))
+    activity.observe(participant, session, call_id, tool, state, source="claude_code_hook")
 
 
 def main():
