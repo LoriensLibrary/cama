@@ -148,3 +148,29 @@ def test_summary_reports_guard_flags_not_false_positives(scratch):
     assert "guard_flagged_exchanges" in s and "false_positive" not in json.dumps(s)
     assert s["row_budget"] == 20 and s["durable_exchanges"] == 3
     assert s["modes"]["blended"]["overall"]["frac@5"] in (0.0, 1.0)
+
+
+def test_missing_dates_fail_instead_of_degrading(scratch):
+    root, m = scratch
+    item = _item(qid="q-nodate", dates=["2023/05/20 (Sat) 02:21", "garbage", "2023/05/25 (Thu) 18:30"])
+    with pytest.raises(ValueError, match="unparsable dates"):
+        asyncio.run(lme.run_question(item, root, top_k=20, modes=("blended",)))
+    item = _item(qid="q-noqdate", question_date=None)
+    with pytest.raises(ValueError, match="unparsable dates"):
+        asyncio.run(lme.run_question(item, root, top_k=20, modes=("blended",)))
+
+
+def test_embedding_coverage_is_asserted_when_required(scratch):
+    root, m = scratch
+    # provider is "none" in this fixture, so forcing the requirement must fail loudly
+    with pytest.raises(RuntimeError, match="have embeddings"):
+        asyncio.run(lme.run_question(_item(qid="q-emb"), root, top_k=20, modes=("blended",), require_embeddings=True))
+    r = asyncio.run(lme.run_question(_item(qid="q-emb2"), root, top_k=20, modes=("blended",)))
+    assert r["embedded_exchanges"] == 0 and r["durable_exchanges"] == 3
+
+
+def test_output_is_written_atomically(tmp_path):
+    target = tmp_path / "out.json"
+    lme._write_atomic(target, {"a": 1})
+    assert json.loads(target.read_text(encoding="utf-8")) == {"a": 1}
+    assert not (tmp_path / "out.json.tmp").exists()
