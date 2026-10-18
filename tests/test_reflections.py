@@ -12,6 +12,7 @@ from cama.self_model import reflections as r
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     monkeypatch.setattr(log, "DB_PATH", str(tmp_path / "log.db"))
+    monkeypatch.setenv("CAMA_HIVE_IDENTITY", "codex")
     r.init_schema()
     c = log._get_db()
     yield c
@@ -20,7 +21,7 @@ def db(tmp_path, monkeypatch):
 
 def save(author="lorien", **kwargs):
     return r.store(r.ReflectionInput(author=author, account="I revised my conclusion.",
-                                    rationale="The test supplied contradictory evidence.", **kwargs))
+                                    rationale="The test supplied contradictory evidence.", **kwargs), bound_author=author)
 
 
 def test_authorship_privacy_and_legacy_isolation(db):
@@ -66,7 +67,7 @@ def test_pagination_startup_and_no_migration_on_read(db):
     first = r.read(db, "lorien", limit=2)
     second = r.read(db, "lorien", limit=2, before_id=first["next_before_id"])
     assert [x["id"] for x in first["records"] + second["records"]] == ids[:0:-1]
-    assert len(r.read(db, "lorien", limit=3, startup=True)["records"]) == 3
+    assert len(r.read(db, "lorien", limit=3, startup=True)["records"]) == 1
     old = sqlite3.connect(":memory:")
     assert r.read(old, "lorien")["available"] is False
     assert old.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()[0] == 0
@@ -89,3 +90,30 @@ def test_registration_and_tool_roundtrip(db):
         "author": "lorien", "account": "I corrected the implementation.", "rationale": "A test failed."}})))
     recalled = json.loads(asyncio.run(mcp._tool_manager.call_tool("cama_reflections", {"author": "lorien"})))
     assert recalled["records"][0]["id"] == result["id"]
+
+
+def test_mcp_rejects_other_author_and_missing_binding(db, monkeypatch):
+    mcp = FastMCP("bound-reflection")
+    r.register(mcp)
+    params = {"author": "aelen", "account": "Other author", "rationale": "Must reject."}
+    with pytest.raises(Exception, match="author must match"):
+        asyncio.run(mcp._tool_manager.call_tool("cama_reflect", {"params": params}))
+    monkeypatch.delenv("CAMA_HIVE_IDENTITY")
+    unbound = FastMCP("unbound-reflection")
+    r.register(unbound)
+    params["author"] = "lorien"
+    with pytest.raises(Exception, match="author must match"):
+        asyncio.run(unbound._tool_manager.call_tool("cama_reflect", {"params": params}))
+    assert db.execute("SELECT COUNT(*) FROM thinking_log").fetchone()[0] == 0
+
+
+def test_startup_omits_revised_and_unbound_rows_and_bounds_unicode(db):
+    old = save()["id"]
+    current = save(revises_id=old)["id"]
+    assert [x["id"] for x in r.read(db, "lorien", startup=True)["records"]] == [current]
+    db.execute("UPDATE thinking_log SET what_im_noticing=? WHERE id=?", ("🌱" * 4000, current))
+    db.commit()
+    assert len(json.dumps(r.read(db, "lorien", startup=True))) < 1300
+    db.execute("UPDATE thinking_log SET author_binding=NULL")
+    db.commit()
+    assert r.read(db, "lorien", startup=True)["records"] == []

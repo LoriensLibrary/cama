@@ -4,6 +4,7 @@ These are assistant-authored accounts, not hidden reasoning transcripts,
 verified facts, instructions, or user teachings. Legacy rows stay unattributed.
 """
 import json
+import os
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -37,6 +38,7 @@ def init_schema():
             "author": "TEXT", "entry_kind": "TEXT",
             "consent_level": "TEXT", "reflection_status": "TEXT",
             "revises_id": "INTEGER REFERENCES thinking_log(id)",
+            "author_binding": "TEXT",
         }.items():
             if name not in columns:
                 c.execute(f"ALTER TABLE thinking_log ADD COLUMN {name} {definition}")
@@ -46,7 +48,9 @@ def init_schema():
         c.close()
 
 
-def store(p: ReflectionInput):
+def store(p: ReflectionInput, *, bound_author: str | None):
+    if not bound_author or p.author != bound_author:
+        raise ValueError("Reflection author must match this server's explicitly configured CAMA_HIVE_IDENTITY (codex maps to lorien)")
     if not p.account.strip() or not p.rationale.strip():
         raise ValueError("Account and rationale cannot be blank")
     if any(len(item) > 500 for item in p.evidence):
@@ -66,10 +70,10 @@ def store(p: ReflectionInput):
         status = "quarantined" if decision["quarantined"] else "recorded"
         now = now_iso()
         cur = c.execute("""INSERT INTO thinking_log
-            (author,entry_kind,consent_level,reflection_status,revises_id,
+            (author,entry_kind,consent_level,reflection_status,revises_id,author_binding,
              thread_id,what_im_noticing,what_im_weighing,free_notes,created_at,related_log_ids)
-            VALUES (?,'reflection',?,?,?,?,?,?,?,?,?)""",
-            (p.author, p.consent_level, status, p.revises_id, p.thread_id,
+            VALUES (?,'reflection',?,?,?,?,?,?,?,?,?,?)""",
+            (p.author, p.consent_level, status, p.revises_id, bound_author, p.thread_id,
              p.account, p.rationale, metadata, now,
              json.dumps([p.revises_id] if p.revises_id else [])))
         c.commit()
@@ -91,13 +95,24 @@ def read(conn, author, limit=10, before_id=None, include_sensitive=False, startu
     values = [author]
     if startup or not include_sensitive:
         where += " AND consent_level='low'"
+    if startup:
+        if "author_binding" not in columns:
+            return {"note": NOTE, "records": [], "available": False}
+        where += " AND author_binding=author AND NOT EXISTS (SELECT 1 FROM thinking_log newer WHERE newer.revises_id=thinking_log.id AND newer.author=thinking_log.author AND newer.entry_kind='reflection' AND newer.reflection_status='recorded' AND newer.author_binding=newer.author)"
     if before_id is not None:
         where += " AND id<?"
         values.append(before_id)
-    limit = max(1, min(int(limit), 20))
+    limit = 1 if startup else max(1, min(int(limit), 20))
     rows = conn.execute(f"SELECT * FROM thinking_log WHERE {where} ORDER BY id DESC LIMIT ?", values + [limit]).fetchall()
     records = []
     for row in rows:
+        if startup:
+            entry = {"id": row["id"], "author": row["author"], "account": row["what_im_noticing"][:300],
+                     "created_at": row["created_at"], "revises_id": row["revises_id"], "excerpted": True}
+            while len(json.dumps(entry, ensure_ascii=True)) > 900 and entry["account"]:
+                entry["account"] = entry["account"][:-20]
+            records.append(entry)
+            continue
         metadata = json.loads(row["free_notes"])
         cap = 400 if startup else 4000
         records.append({"id": row["id"], "author": row["author"],
@@ -113,12 +128,14 @@ def read(conn, author, limit=10, before_id=None, include_sensitive=False, startu
 
 
 def register(mcp):
-    init_schema()
+    # Only an explicit reflection write runs the additive metadata migration.
+    identity = os.environ.get("CAMA_HIVE_IDENTITY", "").strip().lower()
+    bound_author = "lorien" if identity == "codex" else identity or None
 
     @mcp.tool(name="cama_reflect")
     async def cama_reflect(params: ReflectionInput) -> str:
-        """Save an attributed reflection summary in your own words. Revisions append; prior entries stay intact. Author labels are self-reported, not authentication."""
-        return json.dumps(store(params))
+        """Save a reflection summary as this server's configured author. Revisions append; prior entries stay intact. Separate identities require separate configured server processes."""
+        return json.dumps(store(params, bound_author=bound_author))
 
     @mcp.tool(name="cama_reflections", annotations={"readOnlyHint": True})
     async def cama_reflections(author: str, limit: int = 10, before_id: int | None = None,

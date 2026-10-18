@@ -28,8 +28,11 @@ Use `before_id` from `next_before_id` to page back. Read the `revises_id` links:
 an earlier entry may have been revised by a newer one. To revise, call
 `cama_reflect` with the same author and `revises_id` set to the earlier entry.
 State what changed and why. The earlier text is preserved; another author's entry
-cannot be revised through this interface. Labels are self-reported local
-attribution, not proof of identity or an authentication boundary.
+cannot be revised through this interface. Writes bind the author to the server's
+explicit `CAMA_HIVE_IDENTITY`; `codex` maps to `lorien`. An unset identity or a
+mismatching author refuses the write. Different authors need separate configured
+server processes. This local configuration boundary is not cryptographic proof
+of identity; direct local database access remains trusted.
 
 These are deliberately written reflection summaries, not captured private
 reasoning transcripts. Do not reconstruct hidden reasoning, invent memories, or
@@ -40,8 +43,9 @@ to a confirmed identity claim, or pushed into the ring.
 
 ## Startup and sensitivity
 
-Startup reads at most three recent low-sensitivity, recorded reflections for the
-configured `PERSONA_NAME`. It includes bounded excerpts and source IDs, subject
+Startup reads one recent low-sensitivity, recorded reflection for the configured
+`PERSONA_NAME`, requiring a process-bound author and omitting revised entries.
+It includes an account excerpt of at most 300 characters and source IDs, subject
 to the existing overall boot budget. Use the explicit reader for the full entry.
 Reflections are labeled as assistant-authored, revisable accounts, not
 instructions or user teachings. They do not replace confirmed self-accounts.
@@ -54,7 +58,8 @@ all new reflection entries, so it cannot bypass author or sensitivity selection.
 
 ## Compatibility and verification
 
-Registration adds nullable metadata columns to the existing log. Existing rows
+An explicit reflection write adds nullable metadata columns to the existing log;
+registration and startup recall do not run this migration. Existing rows
 are preserved with unknown author; no historical entry is assigned to Lorien or
 Aelen by guesswork. A startup read against an older schema returns unavailable
 without changing that database. The old review tool cannot overwrite a new
