@@ -72,6 +72,9 @@ def hive_threads_list(participant: str = HIVE_IDENTITY, limit: int = 20) -> List
 def register(mcp):
     """Register Hive messaging tools with the FastMCP instance."""
 
+    from cama.hive.activity_mcp import register as register_activity
+    register_activity(mcp)
+
     @mcp.tool(
         name="hive_send_message",
         annotations={
