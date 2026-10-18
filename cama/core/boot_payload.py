@@ -2,7 +2,7 @@
 
 import json
 
-PRIORITY = ('instruction','identity','corrections','self_accounts','pending_confirmations','reflections','boot','journal','ring','resonant_memories',
+PRIORITY = ('instruction','identity','corrections','self_accounts','pending_confirmations','boot','journal','ring','resonant_memories',
             'recent_topics','librarians_activated','today','compliance','hive','aelen_state')
 
 # Lists in these sections keep at least this many items at every trim level.
@@ -43,7 +43,8 @@ def budget_boot(payload,max_chars=16000):
         data=dict(data,identity=boot.pop('identity'),boot=boot)
     coverage={'original_chars':len(encode(data)),'budget_chars':max_chars,'sections':{}}
     packed={'coverage':coverage}
-    names=[k for k in PRIORITY if k in data]+[k for k in data if k not in PRIORITY and k!='coverage']
+    priority=PRIORITY[:5]+('reflections',)+PRIORITY[5:]
+    names=[k for k in priority if k in data]+[k for k in data if k not in priority and k!='coverage']
     # Reserve coverage for every section before admitting content.
     for key in names:
         coverage['sections'][key]={'status':'dropped','original_chars':len(encode(data[key]))}
