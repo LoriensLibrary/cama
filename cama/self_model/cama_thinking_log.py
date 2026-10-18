@@ -304,6 +304,11 @@ def _think_impl(p: ThinkInput) -> str:
 def _think_review_impl(p: ThinkReviewInput) -> str:
     c = _get_db()
     try:
+        columns = {r[1] for r in c.execute("PRAGMA table_info(thinking_log)")}
+        if "entry_kind" in columns:
+            kind = c.execute("SELECT entry_kind FROM thinking_log WHERE id=?", (p.log_id,)).fetchone()
+            if kind and kind[0] == "reflection":
+                return json.dumps({"error": "Use cama_reflect with revises_id to append a reflection revision."})
         now = _now()
         existing = c.execute(
             "SELECT id, what_im_about_to_say, drifting_toward FROM thinking_log WHERE id = ?",
@@ -347,6 +352,10 @@ def _think_query_impl(
     c = _get_db()
     try:
         where = []
+        columns = {r[1] for r in c.execute("PRAGMA table_info(thinking_log)")}
+        if "entry_kind" in columns:
+            # Attributed reflections have their own author/consent-scoped reader.
+            where.append("COALESCE(tl.entry_kind,'legacy') != 'reflection'")
         params: List[Any] = []
         if thread_id:
             where.append("tl.thread_id = ?")
@@ -422,6 +431,8 @@ def _think_query_impl(
 def register(mcp):
     """Register thinking log tools with the FastMCP instance."""
     init_schema()
+    from cama.self_model import reflections
+    reflections.register(mcp)
 
     @mcp.tool(
         name="cama_think",

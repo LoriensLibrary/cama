@@ -134,6 +134,8 @@ async def cama_thread_start(user_message: str = "", user_affect: Optional[dict] 
         result["boot"] = _read_boot_context(c)
         from cama.core.self_accounts import load_self_accounts
         result["self_accounts"] = load_self_accounts(c, PERSONA_NAME)
+        from cama.self_model.reflections import read as read_reflections
+        result["reflections"] = read_reflections(c, PERSONA_NAME.lower(), limit=3, startup=True)
         from cama.core.pending_confirmations import load_pending_confirmations
         result["pending_confirmations"] = load_pending_confirmations(c)
 

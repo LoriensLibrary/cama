@@ -3,11 +3,20 @@
 import json
 
 PRIORITY = ('instruction','identity','corrections','self_accounts','pending_confirmations','boot','journal','ring','resonant_memories',
-            'recent_topics','librarians_activated','today','compliance','hive','aelen_state')
+            'recent_topics','librarians_activated','today','compliance','hive','aelen_state','brain_layers','scent')
 
 # Lists in these sections keep at least this many items at every trim level.
 # Identity teachings were being cut to six by the generic list cap.
 MIN_ITEMS = {'identity':12}
+
+# Small sections about the assistant's own continuity and the cross-thread
+# channel. They sit last in PRIORITY, so when the payload ran over budget they
+# were the first dropped, every observed boot (review finding K-5): a few
+# hundred characters of state lost so that a journal excerpt could keep its
+# full length. Each is reserved whole before any other section is packed, as
+# long as it is under PROTECT_MAX_CHARS; a larger one falls back to the ladder.
+PROTECTED = ('aelen_state','hive','brain_layers','scent')
+PROTECT_MAX_CHARS = 1500
 
 
 def _excerpt(value, chars=600, items=6, depth=0):
@@ -43,13 +52,35 @@ def budget_boot(payload,max_chars=16000):
         data=dict(data,identity=boot.pop('identity'),boot=boot)
     coverage={'original_chars':len(encode(data)),'budget_chars':max_chars,'sections':{}}
     packed={'coverage':coverage}
-    names=[k for k in PRIORITY if k in data]+[k for k in data if k not in PRIORITY and k!='coverage']
+    priority=PRIORITY[:5]+('reflections',)+PRIORITY[5:]
+    names=[k for k in priority if k in data]+[k for k in data if k not in priority and k!='coverage']
     # Reserve coverage for every section before admitting content.
     for key in names:
         coverage['sections'][key]={'status':'dropped','original_chars':len(encode(data[key]))}
     if len(encode(packed))>max_chars:
         raise ValueError('Coverage exceeds boot budget')
+    # Reserve the small continuity sections whole, before the big ones are
+    # packed and trimmed around them. Cap the reservation at one quarter
+    # of the budget so continuity cannot displace instructions and corrections.
+    reserved=[]
+    reserved_chars=0
+    for key in PROTECTED:
+        if key not in data:
+            continue
+        size=coverage['sections'][key]['original_chars']
+        if size>PROTECT_MAX_CHARS or reserved_chars+size>max_chars//4:
+            continue
+        packed[key]=data[key]
+        coverage['sections'][key]['status']='included'
+        if len(encode(packed))<=max_chars:
+            reserved.append(key)
+            reserved_chars+=size
+        else:
+            del packed[key]
+            coverage['sections'][key]['status']='dropped'
     for key in names:
+        if key in reserved:
+            continue
         original=data[key]
         floor=MIN_ITEMS.get(key,0)
         for chars,items in [(600,6),(300,4),(150,3),(80,1)]:
