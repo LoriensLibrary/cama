@@ -1,0 +1,106 @@
+{
+  "dataset_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
+  "results_sha256": "4c2b3c45cfdad41a05243d62053ec1d07648e8535c5210bf6ebebd1f607c396b",
+  "questions": 500,
+  "scored": 470,
+  "abstention_excluded": 30,
+  "recall": {
+    "blended": {
+      "frac@5": 0.945177304964539,
+      "all@5": 0.8872340425531915,
+      "any@5": 0.9808510638297873,
+      "frac@10": 0.9775177304964539,
+      "all@10": 0.9553191489361702,
+      "any@10": 0.9914893617021276
+    },
+    "cosine": {
+      "frac@5": 0.9431205673758866,
+      "all@5": 0.8872340425531915,
+      "any@5": 0.9787234042553191,
+      "frac@10": 0.9741489361702128,
+      "all@10": 0.951063829787234,
+      "any@10": 0.9893617021276596
+    }
+  },
+  "rankings": {
+    "all500": {
+      "exact_order@5": {
+        "mean": 0.45,
+        "count_true": 225
+      },
+      "overlap@5": {
+        "mean": 0.9184,
+        "count_true": null
+      },
+      "overlap_returned@5": {
+        "mean": 0.9204,
+        "count_true": null
+      },
+      "exact_order@10": {
+        "mean": 0.212,
+        "count_true": 106
+      },
+      "overlap@10": {
+        "mean": 0.7784,
+        "count_true": null
+      },
+      "overlap_returned@10": {
+        "mean": 0.9514888888888889,
+        "count_true": null
+      },
+      "top1_differs": {
+        "mean": 0.06,
+        "count_true": 30
+      }
+    },
+    "scored470": {
+      "exact_order@5": {
+        "mean": 0.44893617021276594,
+        "count_true": 211
+      },
+      "overlap@5": {
+        "mean": 0.9161702127659574,
+        "count_true": null
+      },
+      "overlap_returned@5": {
+        "mean": 0.9182978723404256,
+        "count_true": null
+      },
+      "exact_order@10": {
+        "mean": 0.20851063829787234,
+        "count_true": 98
+      },
+      "overlap@10": {
+        "mean": 0.7753191489361703,
+        "count_true": null
+      },
+      "overlap_returned@10": {
+        "mean": 0.9503512326916582,
+        "count_true": null
+      },
+      "top1_differs": {
+        "mean": 0.06170212765957447,
+        "count_true": 29
+      }
+    }
+  },
+  "overlap_definitions": {
+    "overlap@k": "intersection size / k; penalizes short lists even if identical",
+    "overlap_returned@k": "intersection size / min(k,len(blended),len(cosine)); similarity of returned sets"
+  },
+  "paired_differences": {
+    "5": {
+      "improved": 8,
+      "worsened": 7,
+      "unchanged": 455,
+      "mean_delta": 0.0020567375886524825
+    },
+    "10": {
+      "improved": 4,
+      "worsened": 2,
+      "unchanged": 464,
+      "mean_delta": 0.0033687943262411344
+    }
+  },
+  "scope": "Independent arithmetic and dataset consistency verification of saved rankings; not a full inference rerun or answer-accuracy evaluation."
+}
