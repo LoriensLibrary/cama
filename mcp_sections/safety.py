@@ -101,6 +101,11 @@ async def cama_health() -> str:
         result["librarian_unclaimed"] = routing[1] or 0
         result["librarian_pending"] = routing[0] - (routing[1] or 0)
         result["librarian_note"] = "Unclaimed records were processed without a matching topic; they remain searchable. Pending records still need processing."
+        from cama.core import retrieval_feedback as _feedback
+        try:
+            result["retrieval_feedback_7d"] = _feedback.summary(c, days=7)
+        except Exception as _fb_err:
+            result["retrieval_feedback_7d"] = {"error": type(_fb_err).__name__}
         from cama.core.pending_confirmations import pending_summary
         pending = pending_summary(c)
         result["provisional_pending"] = pending["provisional"]
