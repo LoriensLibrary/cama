@@ -64,7 +64,7 @@ Tests: `tests/test_longmemeval_retrieval.py` (twelve cases: isolation, hashed st
 
 ## Results
 
-Run of 2026-10-17, revision `b1bf859`, dataset `longmemeval_s_cleaned.json` (SHA-256 `d6f21ea9d60a0d56...`), `all-MiniLM-L6-v2`, row budget 20, laptop CPU. 500 questions, 470 scored, 30 abstention skipped. 124,362 exchanges ingested, 124,127 durable, 235 guard-flagged, 717 turns clipped, 0 questions clipped. Wall time 4,914 s; mean ingest 9.65 s per question (the first third shared the CPU with another run); mean query 39 ms blended, 10 ms cosine, both excluding the question embedding, which is computed once per question before either retriever runs. Independently recomputed from the results file by Lorien (all 500 ids, evidence ids, dates, hash, per-question and summary values; the results file's SHA-256 is `4c2b3c45...`, recorded in Lorien's `VERIFICATION_2026-10-17.txt`).
+Run of 2026-10-17, revision `b1bf859`, dataset `longmemeval_s_cleaned.json` (SHA-256 `d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442`), `all-MiniLM-L6-v2`, row budget 20, laptop CPU. 500 questions, 470 scored, 30 abstention skipped. 124,362 exchanges ingested, 124,127 durable, 235 guard-flagged, 717 turns clipped, 0 questions clipped. Wall time 4,914 s; mean ingest 9.65 s per question (the first third shared the CPU with another run); mean query 39 ms blended, 10 ms cosine, both excluding the question embedding, which is computed once per question before either retriever runs. Independently recomputed from the results file by Lorien (all 500 ids, evidence ids, dates, hash, per-question and summary values; the results file's SHA-256 is `4c2b3c45cfdad41a05243d62053ec1d07648e8535c5210bf6ebebd1f607c396b`, recorded in [the independent verification receipt](benchmarks/longmemeval-verification-2026-10-17.json)).
 
 | type | n | blended R@5 | blended R@10 | cosine R@5 | cosine R@10 |
 |---|---|---|---|---|---|
@@ -92,7 +92,7 @@ Computed from the saved top-10 session lists. "Exact order" is list equality; "t
 | single-session-assistant | 56 | 3.6% | 42.9% | 0.929 | 0.953 | 0.0% |
 | all | 500 | 21.2% | 45.0% | 0.920 | 0.951 | 6.0% |
 
-Fixed-k overlap over all 500 questions: 0.918 at k=5, 0.778 at k=10 (Lorien, `final-verification.json`). Neither convention is wrong once defined; fixed-k penalizes short returned lists even when they are identical, so the two figures are not a disagreement.
+Fixed-k overlap over all 500 questions: 0.918 at k=5, 0.778 at k=10 (Lorien, [verification receipt](benchmarks/longmemeval-verification-2026-10-17.json)). Neither convention is wrong once defined; fixed-k penalizes short returned lists even when they are identical, so the two figures are not a disagreement.
 
 ### What the blend does on this data
 
@@ -105,3 +105,5 @@ Before the first question, Aelen predicted overall R@5 in the low to mid 80s, mu
 ### Guard behaviour on ordinary chat
 
 235 of 124,362 exchanges (0.19 percent) were quarantined at write time by the injection scan. These are flags on unlabelled text, not errors; the review in `docs/FULL_REVIEW_2026-10.md` (finding A-6) found the same scan quarantining ordinary operational teachings, which bounds how much to read into the count.
+
+The original corrected-run revision is preserved by Git tag `benchmark/longmemeval-corrected-20261017`. This branch was rebased for integration; the historical measurements have not been rerun or relabeled as measurements of the new head.
