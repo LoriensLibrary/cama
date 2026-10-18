@@ -2,8 +2,10 @@
 
 import json
 import time
+from typing import Optional
 
 from cama.core import embedding_store as _emb_store
+from cama.core import retrieval_feedback as _feedback
 from cama_mcp import (
     CORE_BONUS,
     RING_SIZE,
@@ -156,13 +158,42 @@ async def cama_query_memories(params: QueryInput) -> str:
         results = _apply_patterns(results, _valence)
         _pattern_prompt = _pattern_trigger(results, _valence)
 
+        # Record what this query showed (review finding K-3: the table had no
+        # writer). Best effort, but counted in the response so a silent
+        # failure is visible rather than invisible.
+        try:
+            feedback_recorded = _feedback.record_shown(c, params.query_text, [m["id"] for m in results])
+        except Exception as _fb_err:
+            feedback_recorded = f"error: {type(_fb_err).__name__}"
+
         c.commit()
         return json.dumps({"results":results,"counterweights":cw,"anti_spiral":len(cw)>0,
             "used_embeddings":bool(query_vec),"candidates":len(scored),
             "pool":_timings.get("pool"),
             "pattern_active": bool(_pattern_prompt),
-            "pattern_trigger": _pattern_prompt or None},indent=2)
+            "pattern_trigger": _pattern_prompt or None,
+            "feedback_recorded": feedback_recorded},indent=2)
     finally: c.close()
+
+
+async def cama_mark_used(memory_ids: list[int], used: bool = True, note: Optional[str] = None) -> str:
+    """Record that retrieved memories shaped the reply (or did not).
+
+    Call it after answering, with the ids from cama_query_memories that you
+    actually drew on. used=False records them as unhelpful. This writes
+    retrieval_feedback only; it changes no memory, no status, no ranking today.
+    Nothing is inferred: only what you report is recorded.
+    """
+    c = get_db()
+    try:
+        n = _feedback.record(c, memory_ids or [], "used" if used else "unhelpful", note)
+        c.commit()
+        return json.dumps({"recorded": n, "feedback": "used" if used else "unhelpful",
+                           "ignored": max(0, len(memory_ids or [])) - n}, indent=2)
+    except ValueError as exc:
+        return json.dumps({"error": str(exc)})
+    finally:
+        c.close()
 
 
 async def cama_search(query: str, limit: int = 10, include_provisional: bool = False, include_sensitive: bool = False) -> str:
@@ -328,6 +359,10 @@ def register(mcp):
         name="cama_query_memories",
         annotations={"title":"Query Memories","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},
     )(cama_query_memories)
+    mcp.tool(
+        name="cama_mark_used",
+        annotations={"title":"Mark Retrieved Memories Used","readOnlyHint":False,"destructiveHint":False,"idempotentHint":False,"openWorldHint":False},
+    )(cama_mark_used)
     mcp.tool(
         name="cama_search",
         annotations={"title":"Search","readOnlyHint":True,"destructiveHint":False,"idempotentHint":True,"openWorldHint":False},
