@@ -9,7 +9,7 @@ not. In the live store there are 2,790 such rows (ids below 10,000, created
 
 What this does:
   dry run (default): counts and a sample, no writes of any kind.
-  --apply: copies the database first (refuses if the copy is not byte-identical),
+  --apply: takes a consistent SQLite backup under a reserved writer lock,
     writes an evidence CSV, then in one transaction sets source_type to the
     target label and trust_score/trust_reason to the matching lane, and writes
     one memory_log row per changed memory so guards v1's audit table holds the
@@ -32,8 +32,9 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
-import shutil
+import re
 import sqlite3
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -82,26 +83,33 @@ def apply(db: Path, assistant: str, target: str, backup_dir: Path, authorized_by
         raise ValueError(f"target must be one of {sorted(TARGETS)}")
     if not authorized_by.strip():
         raise ValueError("--authorized-by is required for --apply")
-    db = Path(db).resolve()
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    db = Path(db).resolve(strict=True)
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", assistant):
+        raise ValueError("Invalid assistant label")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") + "-" + uuid.uuid4().hex[:8]
     backup_dir = Path(backup_dir)
     backup_dir.mkdir(parents=True, exist_ok=True)
     backup = backup_dir / f"{db.name}.bak-{stamp}-pre-relabel"
-    # Checkpoint the WAL into the main file so the copy is complete, then copy.
-    c = sqlite3.connect(str(db), timeout=30)
-    c.row_factory = sqlite3.Row
-    c.execute("PRAGMA busy_timeout=30000")
-    c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    c.close()
-    shutil.copy2(db, backup)
-    if _sha256(db) != _sha256(backup):
-        backup.unlink(missing_ok=True)
-        raise RuntimeError("backup is not byte-identical to the database; nothing changed")
-
     c = sqlite3.connect(str(db), timeout=30)
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA busy_timeout=30000")
     try:
+        # Reserve the writer before taking the snapshot and selecting targets.
+        # A separate read connection can back up committed WAL data while this
+        # connection prevents concurrent writers until the relabel commits.
+        c.execute("BEGIN IMMEDIATE")
+        with backup.open("xb"):
+            pass
+        source = sqlite3.connect(db.as_uri() + "?mode=ro", uri=True)
+        destination = sqlite3.connect(backup)
+        try:
+            source.backup(destination)
+            if destination.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+                raise RuntimeError("Backup integrity check failed; no relabel applied")
+        finally:
+            destination.close()
+            source.close()
+        backup_hash = _sha256(backup)
         rows = select_rows(c, assistant)
         if not rows:
             return {"changed": 0, "backup": str(backup), "note": "no matching rows"}
@@ -122,7 +130,6 @@ def apply(db: Path, assistant: str, target: str, backup_dir: Path, authorized_by
         note = (f"relabel {assistant} teaching -> {target}; authorized by {authorized_by.strip()}; "
                 f"backup {backup.name}; evidence {evidence.name}")
         ids = [r["id"] for r in rows]
-        c.execute("BEGIN IMMEDIATE")
         try:
             c.execute("CREATE TABLE IF NOT EXISTS memory_log (id INTEGER PRIMARY KEY AUTOINCREMENT, "
                       "memory_id INTEGER NOT NULL, changed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), "
@@ -145,7 +152,7 @@ def apply(db: Path, assistant: str, target: str, backup_dir: Path, authorized_by
                               (assistant,)).fetchone()[0]
         integrity = c.execute("PRAGMA quick_check").fetchone()[0]
         return {"changed": len(ids), "remaining": remaining, "target": target,
-                "backup": str(backup), "evidence": str(evidence), "quick_check": integrity}
+                "backup": str(backup), "backup_sha256": backup_hash, "evidence": str(evidence), "quick_check": integrity}
     finally:
         c.close()
 

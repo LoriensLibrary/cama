@@ -37,7 +37,9 @@ CREATE INDEX IF NOT EXISTS idx_rf_kind ON retrieval_feedback(feedback, created_a
 
 
 def ensure_table(c: sqlite3.Connection) -> None:
-    c.executescript(_DDL)
+    for statement in _DDL.split(";"):
+        if statement.strip():
+            c.execute(statement)
 
 
 def _clean_ids(memory_ids: Iterable[int]) -> list[int]:
@@ -61,7 +63,20 @@ def record(c: sqlite3.Connection, memory_ids: Iterable[int], feedback: str, quer
     ids = _clean_ids(memory_ids)
     if not ids:
         return 0
-    ensure_table(c)
+    if not c.in_transaction:
+        c.execute("BEGIN")
+    c.execute("SAVEPOINT feedback_write")
+    try:
+        ensure_table(c)
+        return _insert(c, ids, feedback, query_text)
+    except BaseException:
+        c.execute("ROLLBACK TO feedback_write")
+        raise
+    finally:
+        c.execute("RELEASE feedback_write")
+
+
+def _insert(c, ids, feedback, query_text):
     q = (query_text or "")[:QUERY_CHARS] or None
     now = now_iso()
     c.executemany(
@@ -77,10 +92,13 @@ def record_shown(c: sqlite3.Connection, query_text: str | None, memory_ids: Iter
 
 def summary(c: sqlite3.Connection, days: int = 7) -> dict:
     """Counts by kind over a window, plus how many shown memories were later used."""
-    ensure_table(c)
+    if not c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='retrieval_feedback'").fetchone():
+        return {"window_days": int(days), **dict.fromkeys(FEEDBACK_KINDS, 0),
+                "distinct_shown": 0, "distinct_shown_then_used": 0,
+                "note": "No feedback table yet; read-only summary."}
     rows = c.execute(
         "SELECT feedback, COUNT(*) FROM retrieval_feedback "
-        "WHERE created_at >= datetime('now', ?) AND substr(COALESCE(query_text,''),1,2) <> '__' "
+        "WHERE julianday(created_at) >= julianday('now', ?) AND substr(COALESCE(query_text,''),1,2) <> '__' "
         "GROUP BY feedback",
         (f"-{int(days)} days",),
     ).fetchall()
@@ -90,12 +108,12 @@ def summary(c: sqlite3.Connection, days: int = 7) -> dict:
             counts[kind] = n
     shown_ids = c.execute(
         "SELECT COUNT(DISTINCT memory_id) FROM retrieval_feedback WHERE feedback='shown' "
-        "AND created_at >= datetime('now', ?)", (f"-{int(days)} days",)).fetchone()[0]
+        "AND julianday(created_at) >= julianday('now', ?) AND substr(COALESCE(query_text,''),1,2) <> '__'", (f"-{int(days)} days",)).fetchone()[0]
     used_ids = c.execute(
         "SELECT COUNT(DISTINCT s.memory_id) FROM retrieval_feedback s "
-        "WHERE s.feedback='shown' AND s.created_at >= datetime('now', ?) AND EXISTS ("
+        "WHERE s.feedback='shown' AND substr(COALESCE(s.query_text,''),1,2) <> '__' AND julianday(s.created_at) >= julianday('now', ?) AND EXISTS ("
         "SELECT 1 FROM retrieval_feedback u WHERE u.memory_id=s.memory_id AND u.feedback='used' "
-        "AND u.created_at >= s.created_at)", (f"-{int(days)} days",)).fetchone()[0]
+        "AND julianday(u.created_at) >= julianday(s.created_at) AND substr(COALESCE(u.query_text,''),1,2) <> '__')", (f"-{int(days)} days",)).fetchone()[0]
     return {"window_days": int(days), **counts,
             "distinct_shown": shown_ids, "distinct_shown_then_used": used_ids,
             "note": "shown is written by cama_query_memories; used and unhelpful by cama_mark_used. "

@@ -59,20 +59,24 @@ def budget_boot(payload,max_chars=16000):
     if len(encode(packed))>max_chars:
         raise ValueError('Coverage exceeds boot budget')
     # Reserve the small continuity sections whole, before the big ones are
-    # packed and trimmed around them.
+    # packed and trimmed around them. Cap the reservation at one quarter
+    # of the budget so continuity cannot displace instructions and corrections.
     reserved=[]
+    reserved_chars=0
     for key in PROTECTED:
         if key not in data:
             continue
         size=coverage['sections'][key]['original_chars']
-        if size>PROTECT_MAX_CHARS:
+        if size>PROTECT_MAX_CHARS or reserved_chars+size>max_chars//4:
             continue
         packed[key]=data[key]
+        coverage['sections'][key]['status']='included'
         if len(encode(packed))<=max_chars:
-            coverage['sections'][key]['status']='included'
             reserved.append(key)
+            reserved_chars+=size
         else:
             del packed[key]
+            coverage['sections'][key]['status']='dropped'
     for key in names:
         if key in reserved:
             continue
